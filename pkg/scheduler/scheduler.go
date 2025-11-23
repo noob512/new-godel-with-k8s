@@ -662,7 +662,7 @@ func New(
 	//---------------------------------------
 
 	// 添加所有事件处理器，监听 Pod、Node 等资源的变化，并相应地更新缓存和队列。
-	addAllEventHandlers(sched, informerFactory, dynInformerFactory, unionedGVKs(clusterEventMap))
+	addAllEventHandlers(sched, informerFactory, dynInformerFactory, unionedGVKs(clusterEventMap),crdInformerFactory)
 
 	// 返回创建好的调度器实例。
 	return sched, nil

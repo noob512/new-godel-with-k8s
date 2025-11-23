@@ -20,6 +20,11 @@ import (
 	"fmt"
 	"reflect"
 	//"strings"
+	//-----------------------------------------------------------------------------
+	crdinformers "github.com/kubewharf/godel-scheduler-api/pkg/client/informers/externalversions"
+	schedulingv1a1 "github.com/kubewharf/godel-scheduler-api/pkg/apis/scheduling/v1alpha1"
+	//------------------------------------------------------------------------------
+
 
 	v1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
@@ -251,6 +256,7 @@ func addAllEventHandlers(
 	informerFactory informers.SharedInformerFactory,
 	dynInformerFactory dynamicinformer.DynamicSharedInformerFactory,
 	gvkMap map[framework.GVK]framework.ActionType,
+	crdInformerFactory crdinformers.SharedInformerFactory,
 ) {
 	// scheduled pod cache
 	informerFactory.Core().V1().Pods().Informer().AddEventHandler(
@@ -312,6 +318,38 @@ func addAllEventHandlers(
 			AddFunc:    sched.addNodeToCache,
 			UpdateFunc: sched.updateNodeInCache,
 			DeleteFunc: sched.deleteNodeFromCache,
+		},
+	)
+
+	//-------------------------------------------------------------------------
+	// ==================== Scheduler CRD 事件处理器 ====================
+	// 监听 Godel Scheduler 自身配置的变更（如调度策略更新）
+	crdInformerFactory.Scheduling().V1alpha1().Schedulers().Informer().AddEventHandler(
+		// 使用 FilteringResourceEventHandler 只处理与当前调度器实例相关的事件
+		cache.FilteringResourceEventHandler{
+			FilterFunc: func(obj interface{}) bool {
+				switch t := obj.(type) {
+				case *schedulingv1a1.Scheduler:
+					// 添加日志打印 Scheduler CRD 的名称和当前调度器的名称
+					klog.InfoS("比较调度器名称", "schedulerCRDName", t.Name, "currentSchedulerName", sched.Name)
+					return t.Name == sched.Name // 只处理名称匹配的 Scheduler CRD
+				case cache.DeletedFinalStateUnknown:
+					// 处理删除事件中缓存可能不一致的情况
+					if scheduler, ok := t.Obj.(*schedulingv1a1.Scheduler); ok {
+						// 添加日志打印 DeletedFinalStateUnknown 中的 Scheduler 名称和当前调度器的名称
+						klog.InfoS("比较调度器名称", "schedulerCRDName", scheduler.Name, "currentSchedulerName", sched.Name)
+						return scheduler.Name == sched.Name
+					}
+					utilruntime.HandleError(fmt.Errorf("unable to convert object %T to *v1alpha1.Scheduler in %T", obj, sched))
+					return false
+				default:
+					utilruntime.HandleError(fmt.Errorf("unable to handle object in %T: %T", sched, obj))
+					return false
+				}
+			},
+			Handler: cache.ResourceEventHandlerFuncs{
+				UpdateFunc: sched.onSchedulerUpdate, // Scheduler CRD 更新时触发配置重载
+			},
 		},
 	)
 
