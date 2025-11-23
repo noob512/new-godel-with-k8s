@@ -448,45 +448,66 @@ func (o *Options) initFlags() {
 }
 
 // ApplyTo applies the scheduler options to the given scheduler app configuration.
+// ApplyTo 方法将当前选项（o）的设置应用到调度器应用程序配置对象（c）上。
+// 它处理配置文件加载、应用命令行参数覆盖、安全服务配置、认证授权设置等。
 func (o *Options) ApplyTo(c *schedulerappconfig.Config) error {
+	// 检查是否指定了配置文件路径。
 	if len(o.ConfigFile) == 0 {
-		// If the --config arg is not specified, honor the deprecated as well as leader election CLI args.
-		o.ApplyDeprecated()
-		o.ApplyLeaderElectionTo(o.ComponentConfig)
+		// 如果没有指定配置文件（--config 参数），则应用所有命令行参数。
+		// 这包括已弃用的参数（ApplyDeprecated）和领导者选举相关的命令行参数。
+		o.ApplyDeprecated() // 应用已弃用的命令行参数
+		o.ApplyLeaderElectionTo(o.ComponentConfig) // 应用领导者选举相关的命令行参数到当前组件配置
+		// 将当前的组件配置（可能已被命令行参数修改）复制到目标配置对象 c 中。
 		c.ComponentConfig = *o.ComponentConfig
+		c.GodelComponentConfig = o.GodelComponentConfig
 	} else {
+		// 如果指定了配置文件路径（--config 参数），则从文件加载配置。
 		cfg, err := loadConfigFromFile(o.ConfigFile)
 		if err != nil {
 			return err
 		}
-		// If the --config arg is specified, honor the leader election CLI args only.
-		o.ApplyLeaderElectionTo(cfg)
+		// 即使从文件加载了配置，仍然允许命令行参数（特别是领导者选举相关）覆盖文件中的设置。
+		o.ApplyLeaderElectionTo(cfg) // 应用领导者选举相关的命令行参数到从文件加载的配置
 
+		// 验证从配置文件加载的调度器配置是否有效。
 		if err := validation.ValidateKubeSchedulerConfiguration(cfg); err != nil {
 			return err
 		}
 
+		// 将验证后的配置（可能已被命令行参数修改）复制到目标配置对象 c 中。
 		c.ComponentConfig = *cfg
 	}
 
+	// 将安全服务（HTTPS）的设置应用到配置对象 c 上。
+	// 这包括绑定地址、端口、证书等信息，并设置 LoopbackClientConfig。
 	if err := o.SecureServing.ApplyTo(&c.SecureServing, &c.LoopbackClientConfig); err != nil {
 		return err
 	}
+
+	// 如果配置了安全服务并且设置了绑定端口或监听器，则需要进一步配置认证和授权。
 	if o.SecureServing != nil && (o.SecureServing.BindPort != 0 || o.SecureServing.Listener != nil) {
+		// 将认证设置（如客户端证书、Bearer Token 文件等）应用到配置对象 c。
+		// 需要 SecureServing 配置来设置认证所需的相关信息。
 		if err := o.Authentication.ApplyTo(&c.Authentication, c.SecureServing, nil); err != nil {
 			return err
 		}
+		// 将授权设置（如 RBAC 规则）应用到配置对象 c。
 		if err := o.Authorization.ApplyTo(&c.Authorization); err != nil {
 			return err
 		}
 	}
+
+	// 应用指标（Metrics）相关的设置，如指标路径、启用的指标等。
 	o.Metrics.Apply()
 
-	// Apply value independently instead of using ApplyDeprecated() because it can't be configured via ComponentConfig.
+	// 应用一些无法通过 ComponentConfig 配置文件设置的值（例如弃用的参数）。
+	// 这里处理的是 Pod 在未调度Pod列表中的最大持续时间。
 	if o.Deprecated != nil {
+		// 直接将弃用选项中的值设置到配置对象 c 上。
 		c.PodMaxInUnschedulablePodsDuration = o.Deprecated.PodMaxInUnschedulablePodsDuration
 	}
 
+	// 所有设置都已成功应用。
 	return nil
 }
 
@@ -506,54 +527,59 @@ func (o *Options) Validate() []error {
 }
 
 // Config return a scheduler config object
+// Config 方法负责创建和配置调度器应用程序的核心配置对象。
+// 它处理安全服务证书、创建 Kubernetes 客户端、设置事件广播器和领导者选举（如果启用）。
 func (o *Options) Config() (*schedulerappconfig.Config, error) {
+	// 检查是否配置了安全服务（HTTPS）。
 	if o.SecureServing != nil {
+		// 尝试为安全服务生成自签名证书。
+		// 证书将针对 "localhost" 和 "127.0.0.1" 进行配置，以支持本地访问。
 		if err := o.SecureServing.MaybeDefaultWithSelfSignedCerts("localhost", nil, []net.IP{netutils.ParseIPSloppy("127.0.0.1")}); err != nil {
+			// 如果生成证书失败，则返回错误。
 			return nil, fmt.Errorf("error creating self-signed certificates: %v", err)
 		}
 	}
 
+	// 创建一个新的调度器应用程序配置对象。
 	c := &schedulerappconfig.Config{}
+	// 将当前选项（o）应用到配置对象（c）中。
+	// 这通常会填充配置对象中的各种字段，如服务绑定地址、日志设置等。
 	if err := o.ApplyTo(c); err != nil {
 		return nil, err
 	}
 
-	// Prepare kube config.
+	// 准备 Kubernetes 客户端配置 (kubeconfig)。
+	// 这涉及到连接到 API 服务器所需的认证和授权信息。
+	// o.Master 参数允许覆盖 kubeconfig 中的服务器地址。
 	kubeConfig, err := createKubeConfig(c.ComponentConfig.ClientConnection, o.Master)
 	if err != nil {
 		return nil, err
 	}
 
-	// Prepare kube clients.
+	// 使用准备好的 kubeconfig 创建 Kubernetes API 客户端。
+	// 这会返回一个用于一般 API 操作的客户端和一个专门用于事件操作的客户端。
 	client, eventClient, err := createClients(kubeConfig)
 	if err != nil {
 		return nil, err
 	}
 
+	// 创建一个事件广播器适配器，并将其附加到配置中。
+	// 这用于在调度过程中向 Kubernetes API 服务器发送事件。
 	c.EventBroadcaster = events.NewEventBroadcasterAdapter(eventClient)
 
-	// Set up leader election if enabled.
-	var leaderElectionConfig *leaderelection.LeaderElectionConfig
-	if c.ComponentConfig.LeaderElection.LeaderElect {
-		// Use the scheduler name in the first profile to record leader election.
-		schedulerName := corev1.DefaultSchedulerName
-		if len(c.ComponentConfig.Profiles) != 0 {
-			schedulerName = c.ComponentConfig.Profiles[0].SchedulerName
-		}
-		coreRecorder := c.EventBroadcaster.DeprecatedNewLegacyRecorder(schedulerName)
-		leaderElectionConfig, err = makeLeaderElectionConfig(c.ComponentConfig.LeaderElection, kubeConfig, coreRecorder)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	c.Client = client
-	c.KubeConfig = kubeConfig
+	// 将创建的客户端、配置和工厂设置到配置对象中。
+	c.Client = client                    // 主 Kubernetes API 客户端
+	c.KubeConfig = kubeConfig            // 用于 API 服务器连接的配置
+	// 创建一个标准资源的 Informer 工厂，用于缓存和监听 Pod、Node 等核心资源。
+	// 0 表示使用默认的 Resync 周期。
 	c.InformerFactory = scheduler.NewInformerFactory(client, 0)
+	// 创建一个动态客户端，用于处理自定义资源定义 (CRD) 等动态资源。
 	dynClient := dynamic.NewForConfigOrDie(kubeConfig)
+	// 创建一个动态资源的 Informer 工厂，用于缓存和监听动态资源。
+	// 0 表示使用默认的 Resync 周期，NamespaceAll 表示监听所有命名空间。
 	c.DynInformerFactory = dynamicinformer.NewFilteredDynamicSharedInformerFactory(dynClient, 0, corev1.NamespaceAll, nil)
-	c.LeaderElection = leaderElectionConfig
 
+	// 返回完全配置好的调度器应用程序配置对象。
 	return c, nil
 }
 
