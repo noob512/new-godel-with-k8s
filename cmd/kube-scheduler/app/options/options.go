@@ -26,6 +26,14 @@ import (
 	godelclient "github.com/kubewharf/godel-scheduler-api/pkg/client/clientset/versioned"
 	godelschedulerconfig "github.com/kubewharf/godel-scheduler/pkg/scheduler/apis/config"
 	"github.com/kubewharf/godel-scheduler/pkg/util/tracing"
+
+	//-----
+	Godelcomponentbaseconfig "k8s.io/component-base/config/v1alpha1"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+	godelclientscheme "github.com/kubewharf/godel-scheduler-api/pkg/client/clientset/versioned/scheme"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	clientsetscheme "k8s.io/client-go/kubernetes/scheme"
+	crdinformers "github.com/kubewharf/godel-scheduler-api/pkg/client/informers/externalversions"
 	//--------------------------------------------------
 
 	"k8s.io/klog/v2"
@@ -309,6 +317,86 @@ func SetDefaults_GodelSchedulerConfiguration(obj *godelschedulerconfig.GodelSche
 		}
 	}
 }
+
+func createNewClients(config Godelcomponentbaseconfig.ClientConnectionConfiguration, masterOverride string, timeout time.Duration) (clientset.Interface, clientset.Interface, clientset.Interface, godelclient.Interface, error) {
+	// 检查是否既没有提供 kubeconfig 文件路径，也没有提供 master 地址。
+	// 这种情况下，客户端将尝试使用默认的 InCluster 配置，这在某些环境中可能不适用。
+	if len(config.Kubeconfig) == 0 && len(masterOverride) == 0 {
+		klog.InfoS("WARN: Neither --kubeconfig nor --master was specified. Using default API client. This might not work")
+	}
+
+	// 使用 clientcmd 包加载 kubeconfig 文件（如果指定了路径），
+	// 并根据 masterOverride 参数（如果非空）覆盖其中的服务器地址，生成一个 *rest.Config。
+	// 这是创建所有客户端的基础配置。
+	kubeConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+		&clientcmd.ClientConfigLoadingRules{ExplicitPath: config.Kubeconfig}, // 指定 kubeconfig 文件路径
+		&clientcmd.ConfigOverrides{ClusterInfo: clientcmdapi.Cluster{Server: masterOverride}}, // 覆盖服务器地址
+	).ClientConfig()
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+
+	// 根据基础配置设置一些特定参数。
+	kubeConfig.DisableCompression = true // 禁用响应压缩，可能对小请求有性能优势。
+	kubeConfig.AcceptContentTypes = config.AcceptContentTypes // 设置客户端接受的内容类型。
+	kubeConfig.ContentType = config.ContentType               // 设置请求的默认内容类型。
+	kubeConfig.QPS = config.QPS                               // 设置每秒查询率限制。
+	kubeConfig.Burst = int(config.Burst)                      // 设置突发请求量限制。
+
+	// 使用配置创建第一个客户端，用于常规的调度操作。
+	// 为这个客户端添加 "scheduler" 用户代理标识。
+	client, err := clientset.NewForConfig(restclient.AddUserAgent(kubeConfig, "scheduler"))
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+
+	// 创建一个基础配置的浅拷贝，用于领导者选举客户端。
+	// 浅拷贝意味着指针字段仍然指向相同的对象，但我们可以修改非指针字段。
+	restConfig := *kubeConfig
+	// 为领导者选举客户端设置特定的请求超时时间。
+	restConfig.Timeout = timeout
+	// 使用这个带有超时设置的配置创建领导者选举客户端，并添加 "leader-election" 用户代理标识。
+	leaderElectionClient, err := clientset.NewForConfig(restclient.AddUserAgent(&restConfig, "leader-election"))
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+
+	// 将 Godel CRD 的类型注册到标准的 Kubernetes 客户端 Scheme 中。
+	// 这样标准的 clientset 也能序列化/反序列化 Godel 的 CRD 对象（如果需要的话）。
+	// utilruntime.Must 确保 AddToScheme 操作成功，失败则 panic。
+	utilruntime.Must(godelclientscheme.AddToScheme(clientsetscheme.Scheme))
+	// 使用基础配置创建事件客户端。通常事件记录不需要特殊的超时或用户代理（复用基础配置的用户代理或无）。
+	eventClient, err := clientset.NewForConfig(kubeConfig)
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+
+	// 为 Godel CRD 客户端创建一个独立的 *rest.Config。
+	// 注意：这里再次加载了 kubeconfig 和 masterOverride，这可能与上面的 kubeConfig 是相同的。
+	// 如果这些配置是完全一样的，复用 kubeConfig 并仅修改必要的部分（如 UserAgent）可能更高效。
+	crdKubeConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+		&clientcmd.ClientConfigLoadingRules{ExplicitPath: config.Kubeconfig},
+		&clientcmd.ConfigOverrides{ClusterInfo: clientcmdapi.Cluster{Server: masterOverride}}).ClientConfig()
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+
+	// 为 Godel CRD 客户端配置基础参数。
+	crdKubeConfig.DisableCompression = true
+	crdKubeConfig.QPS = config.QPS
+	crdKubeConfig.Burst = int(config.Burst)
+
+	// 使用配置创建 Godel CRD 客户端，并添加 "scheduler" 用户代理标识。
+	godelCrdClient, err := godelclient.NewForConfig(restclient.AddUserAgent(crdKubeConfig, "scheduler"))
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+
+	// 所有客户端创建成功，返回它们和 nil 错误。
+	return client, leaderElectionClient, eventClient, godelCrdClient, nil
+}
+
+// --------------------------------------------------------------------------------------------------------------------
 //------------------------------------------------------
 
 // NewOptions returns default scheduler app options.
@@ -555,6 +643,13 @@ func (o *Options) Config() (*schedulerappconfig.Config, error) {
 	if err != nil {
 		return nil, err
 	}
+	//---------------------------------------------
+	_, _, _, godelCrdClient, err := createNewClients(
+		c.GodelComponentConfig.ClientConnection,
+		o.Master,
+		c.GodelComponentConfig.LeaderElection.RenewDeadline.Duration,
+	)
+	//----------------------------------------------
 
 	// 使用准备好的 kubeconfig 创建 Kubernetes API 客户端。
 	// 这会返回一个用于一般 API 操作的客户端和一个专门用于事件操作的客户端。
@@ -562,6 +657,11 @@ func (o *Options) Config() (*schedulerappconfig.Config, error) {
 	if err != nil {
 		return nil, err
 	}
+	//------------------------------------------------------------
+	// Godel CRD 相关客户端和 InformerFactory。
+	c.GodelCrdClient = godelCrdClient
+	c.GodelCrdInformerFactory = crdinformers.NewSharedInformerFactory(c.GodelCrdClient, 0)
+	//------------------------------------------------------------
 
 	// 创建一个事件广播器适配器，并将其附加到配置中。
 	// 这用于在调度过程中向 Kubernetes API 服务器发送事件。

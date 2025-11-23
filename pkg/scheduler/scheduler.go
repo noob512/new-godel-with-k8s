@@ -541,8 +541,8 @@ func New(
 	options := defaultSchedulerOptions
 	// 遍历并应用所有传入的选项函数，以修改默认选项。
 	//--------------------------------------------------
-	//Godeloptions:=defaultGodelSchedulerOptions
-	// globalClock := clock.RealClock{}
+	Godeloptions:=defaultGodelSchedulerOptions
+	globalClock := clock.RealClock{}
 	podLister := informerFactory.Core().V1().Pods().Lister()
 	podInformer := informerFactory.Core().V1().Pods()
 	//-------------------------------------------------
@@ -647,9 +647,19 @@ func New(
 		snapshot,                                         // 调度缓存快照
 		options.percentageOfNodesToScore,                 // 评分节点的百分比
 	)
+	//---------------------------------------
 	sched.Name=godelSchedulerName
 	sched.SchedulerName=schedulerName
 	sched.commonCache=godelcache.New(handlerWrapper.Obj())
+	sched.mayHasPreemption=false
+	sched.schedulerMaintainer=NewSchedulerStatusMaintainer(globalClock, crdClient, godelSchedulerName, Godeloptions.renewInterval)
+	sched.podLister=podLister
+	sched.informerFactory=informerFactory
+	sched.crdInformerFactory=crdInformerFactory
+	// 对配置器创建的调度器实例进行额外的调整。
+	sched.StopEverything = stopEverything // 设置停止信号通道。
+	sched.client = client                 // 设置 API 客户端。
+	//---------------------------------------
 
 	// 添加所有事件处理器，监听 Pod、Node 等资源的变化，并相应地更新缓存和队列。
 	addAllEventHandlers(sched, informerFactory, dynInformerFactory, unionedGVKs(clusterEventMap))
