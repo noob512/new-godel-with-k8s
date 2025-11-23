@@ -41,7 +41,7 @@ import (
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/events"
-	"k8s.io/client-go/tools/leaderelection"
+	//"k8s.io/client-go/tools/leaderelection"
 	cliflag "k8s.io/component-base/cli/flag"
 	"k8s.io/component-base/cli/globalflag"
 	"k8s.io/component-base/configz"
@@ -118,6 +118,7 @@ for more information about scheduling and the kube-scheduler component.`,
 // 它处理标志验证、日志设置、上下文取消以及核心的设置/运行循环。
 func runCommand(cmd *cobra.Command, opts *options.Options, registryOptions ...Option) error {
 	// 如果请求了版本信息（例如通过 --version 标志），则打印版本并退出。
+	klog.InfoS("自定义的k8s+godel调度器")
 	verflag.PrintAndExitIfRequested()
 
 	// 尽快激活日志记录，然后使用最终的日志配置显示标志。
@@ -162,97 +163,42 @@ func runCommand(cmd *cobra.Command, opts *options.Options, registryOptions ...Op
 }
 
 // Run executes the scheduler based on the given configuration. It only returns on error or when context is done.
+// Run 函数启动调度器的主要执行循环。
+// 它负责记录版本信息、启动事件广播器、设置健康检查、启动 Informers、等待缓存同步，
+// 并根据是否启用领导者选举来决定如何运行调度器。
 func Run(ctx context.Context, cc *schedulerserverconfig.CompletedConfig, sched *scheduler.Scheduler) error {
-	// To help debugging, immediately log version
+	// 为了帮助调试，立即记录 Kubernetes 调度器的版本信息。
 	klog.InfoS("Starting Kubernetes Scheduler", "version", version.Get())
 
+	// 记录当前的 Golang 运行时设置。
 	klog.InfoS("Golang settings", "GOGC", os.Getenv("GOGC"), "GOMAXPROCS", os.Getenv("GOMAXPROCS"), "GOTRACEBACK", os.Getenv("GOTRACEBACK"))
 
-	// Configz registration.
-	if cz, err := configz.New("componentconfig"); err == nil {
-		cz.Set(cc.ComponentConfig)
-	} else {
-		return fmt.Errorf("unable to register configz: %s", err)
-	}
 
-	// Prepare the event broadcaster.
+	// 启动事件广播器，开始向 API 服务器发送事件。
 	cc.EventBroadcaster.StartRecordingToSink(ctx.Done())
 
-	// Setup healthz checks.
-	var checks []healthz.HealthChecker
-	if cc.ComponentConfig.LeaderElection.LeaderElect {
-		checks = append(checks, cc.LeaderElection.WatchDog)
-	}
 
-	waitingForLeader := make(chan struct{})
-	isLeader := func() bool {
-		select {
-		case _, ok := <-waitingForLeader:
-			// if channel is closed, we are leading
-			return !ok
-		default:
-			// channel is open, we are waiting for a leader
-			return false
-		}
-	}
-
-	// Start up the healthz server.
-	if cc.SecureServing != nil {
-		handler := buildHandlerChain(newHealthzAndMetricsHandler(&cc.ComponentConfig, cc.InformerFactory, isLeader, checks...), cc.Authentication.Authenticator, cc.Authorization.Authorizer)
-		// TODO: handle stoppedCh and listenerStoppedCh returned by c.SecureServing.Serve
-		if _, _, err := cc.SecureServing.Serve(handler, 0, ctx.Done()); err != nil {
-			// fail early for secure handlers, removing the old error loop from above
-			return fmt.Errorf("failed to start secure server: %v", err)
-		}
-	}
-
-	// Start all informers.
+	// 启动所有 Informers，开始监听 Kubernetes API 资源的变化。
 	cc.InformerFactory.Start(ctx.Done())
-	// DynInformerFactory can be nil in tests.
+	// DynInformerFactory 在测试中可能是 nil。
 	if cc.DynInformerFactory != nil {
 		cc.DynInformerFactory.Start(ctx.Done())
 	}
 
-	// Wait for all caches to sync before scheduling.
+	// 等待所有 Informer 的缓存同步完成。
+	// 这确保调度器在开始调度之前拥有最新的集群状态。
 	cc.InformerFactory.WaitForCacheSync(ctx.Done())
-	// DynInformerFactory can be nil in tests.
+	// DynInformerFactory 在测试中可能是 nil。
 	if cc.DynInformerFactory != nil {
 		cc.DynInformerFactory.WaitForCacheSync(ctx.Done())
 	}
+	
+	cc.GodelCrdInformerFactory.Start(ctx.Done())
+	cc.GodelCrdInformerFactory.WaitForCacheSync(ctx.Done())
 
-	// If leader election is enabled, runCommand via LeaderElector until done and exit.
-	if cc.LeaderElection != nil {
-		cc.LeaderElection.Callbacks = leaderelection.LeaderCallbacks{
-			OnStartedLeading: func(ctx context.Context) {
-				close(waitingForLeader)
-				sched.Run(ctx)
-			},
-			OnStoppedLeading: func() {
-				select {
-				case <-ctx.Done():
-					// We were asked to terminate. Exit 0.
-					klog.InfoS("Requested to terminate, exiting")
-					os.Exit(0)
-				default:
-					// We lost the lock.
-					klog.ErrorS(nil, "Leaderelection lost")
-					klog.FlushAndExit(klog.ExitFlushTimeout, 1)
-				}
-			},
-		}
-		leaderElector, err := leaderelection.NewLeaderElector(*cc.LeaderElection)
-		if err != nil {
-			return fmt.Errorf("couldn't create leader elector: %v", err)
-		}
-
-		leaderElector.Run(ctx)
-
-		return fmt.Errorf("lost lease")
-	}
-
-	// Leader election is disabled, so runCommand inline until done.
-	close(waitingForLeader)
+	// 启动调度器的主运行循环。
 	sched.Run(ctx)
+	// 如果调度器的 Run 方法返回（通常不应该），则返回错误。
 	return fmt.Errorf("finished without leader elect")
 }
 

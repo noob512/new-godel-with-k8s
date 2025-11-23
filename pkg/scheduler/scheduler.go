@@ -670,6 +670,7 @@ func New(
 
 // Run begins watching and scheduling. It starts scheduling and blocked until the context is done.
 func (sched *Scheduler) Run(ctx context.Context) {
+	go sched.schedulerMaintainer.Run(sched.StopEverything)
 	sched.SchedulingQueue.Run()
 	wait.UntilWithContext(ctx, sched.scheduleOne, 0)
 	sched.SchedulingQueue.Close()
