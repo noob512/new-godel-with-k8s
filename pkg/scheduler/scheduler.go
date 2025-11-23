@@ -22,6 +22,15 @@ import (
 	"fmt"
 	"time"
 
+	//--------------------------------------------------------------------------------
+	godelclient "github.com/kubewharf/godel-scheduler-api/pkg/client/clientset/versioned"
+	crdinformers "github.com/kubewharf/godel-scheduler-api/pkg/client/informers/externalversions"
+	//"k8s.io/apimachinery/pkg/util/clock"
+	"github.com/kubewharf/godel-scheduler/pkg/scheduler/apis/config"
+	commoncache "github.com/kubewharf/godel-scheduler/pkg/common/cache"
+	godelcache "github.com/kubewharf/godel-scheduler/pkg/scheduler/cache"
+	//-------------------------------------------------------------------------------------
+
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -35,9 +44,9 @@ import (
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
-	"k8s.io/kube-scheduler/config/v1beta3"
+	//"k8s.io/kube-scheduler/config/v1beta3"
 	schedulerapi "k8s.io/kubernetes/pkg/scheduler/apis/config"
-	"k8s.io/kubernetes/pkg/scheduler/apis/config/scheme"
+	//"k8s.io/kubernetes/pkg/scheduler/apis/config/scheme"
 	"k8s.io/kubernetes/pkg/scheduler/framework"
 	"k8s.io/kubernetes/pkg/scheduler/framework/parallelize"
 	frameworkplugins "k8s.io/kubernetes/pkg/scheduler/framework/plugins"
@@ -62,6 +71,47 @@ var ErrNoNodesAvailable = fmt.Errorf("no nodes available to schedule pods")
 // Scheduler watches for new unscheduled pods. It attempts to find
 // nodes that they fit on and writes bindings back to the api server.
 type Scheduler struct {
+		//------------------------------------------------------------
+	// Name 用于标识这个 Godel 调度器实例的名称。
+	Name string
+	// SchedulerName 是更高层级的调度器名称，用于选择哪些 Pod 应由 Godel 调度器负责，
+	// 并过滤掉不相关的 Pod。
+	// Pod 的 Spec.SchedulerName 必须与此字段匹配，才会被此调度器处理。
+	SchedulerName *string
+
+	// informerFactory 是标准 Kubernetes 核心资源的 SharedInformer 工厂。
+	informerFactory informers.SharedInformerFactory
+
+	// crdInformerFactory 是 Godel 自定义资源的 SharedInformer 工厂。
+	crdInformerFactory crdinformers.SharedInformerFactory
+
+	// crdClient 是 Godel 自定义资源（如 Scheduler, PodGroup 等）的客户端接口。
+	crdClient godelclient.Interface
+
+	// options 存储调度器的配置选项。
+	options schedulerOptions
+
+	// podLister 是 Pod 资源的 Lister，提供对 Pod 信息的只读缓存访问。
+	podLister corelisters.PodLister
+
+	// commonCache 是调度器使用的缓存接口，用于存储和管理节点、Pod 等资源的状态信息。
+	commonCache godelcache.SchedulerCache
+
+	// mayHasPreemption 标记此调度器实例是否可能执行抢占（Preemption）操作。
+	mayHasPreemption bool
+	// defaultSubClusterConfig 是默认子集群的配置。
+	//defaultSubClusterConfig *subClusterConfig
+
+
+	// schedulerMaintainer 是一个状态维护器，负责维护和更新调度器自身的状态。
+	//schedulerMaintainer StatusMaintainer
+
+
+	// recorder 是事件记录器，用于向 Kubernetes API Server 发送调度器相关的事件。
+	// 根据 KEP 383，这应该是新的 events.k8s.io/v1 API 的适配器。
+	//recorder events.EventRecorder
+
+	//------------------------------------------------------------
 	// It is expected that changes made via Cache will be observed
 	// by NodeLister and Algorithm.
 	Cache internalcache.Cache
@@ -130,6 +180,20 @@ type ScheduleResult struct {
 	// The number of nodes out of the evaluated ones that fit the pod.
 	FeasibleNodes int
 }
+//-=-------------------------------------------
+type GodelschedulerOptions struct {
+	defaultProfile     *config.GodelSchedulerProfile
+	subClusterProfiles map[string]config.GodelSchedulerProfile
+
+	renewInterval int64
+	subClusterKey string
+}
+
+var defaultGodelSchedulerOptions = GodelschedulerOptions{
+	renewInterval: config.DefaultRenewIntervalInSeconds,
+	subClusterKey: config.DefaultSubClusterKey,
+}
+//-------------------------------------------
 
 // WithComponentConfigVersion sets the component config version to the
 // KubeSchedulerConfiguration version used. The string should be the full
@@ -231,104 +295,144 @@ var defaultSchedulerOptions = schedulerOptions{
 }
 
 // New returns a Scheduler
-func New(client clientset.Interface,
-	informerFactory informers.SharedInformerFactory,
-	dynInformerFactory dynamicinformer.DynamicSharedInformerFactory,
-	recorderFactory profile.RecorderFactory,
-	stopCh <-chan struct{},
-	opts ...Option) (*Scheduler, error) {
+// New 函数创建并初始化一个新的调度器实例。
+// 它负责设置调度器的各种组件，包括配置选项、插件注册表、扩展器、队列、缓存和事件处理器。
+func New(
+	godelSchedulerName string, // Godel 调度器的名称（可能用于区分不同的调度器实例）
+	schedulerName *string,     // 调度器的名称指针
+	crdClient godelclient.Interface, // Godel 自定义资源定义的客户端
+	crdInformerFactory crdinformers.SharedInformerFactory, // Godel CRD 的 Informer 工厂
+	client clientset.Interface,        // Kubernetes 核心 API 的客户端
+	informerFactory informers.SharedInformerFactory, // 标准 Kubernetes 资源的 Informer 工厂
+	dynInformerFactory dynamicinformer.DynamicSharedInformerFactory, // 动态资源的 Informer 工厂
+	recorderFactory profile.RecorderFactory, // 事件记录器工厂
+	stopCh <-chan struct{}, // 用于停止调度器的通道
+	opts ...Option) (*Scheduler, error) { // 可变数量的选项函数，用于配置调度器
 
+	// 如果没有提供停止通道，则使用一个永远不会关闭的通道。
 	stopEverything := stopCh
 	if stopEverything == nil {
 		stopEverything = wait.NeverStop
 	}
 
+	// 获取默认的调度器选项。
 	options := defaultSchedulerOptions
+	// 遍历并应用所有传入的选项函数，以修改默认选项。
+	//--------------------------------------------------
+	// Godeloptions:=defaultGodelSchedulerOptions
+	// globalClock := clock.RealClock{}
+	podLister := informerFactory.Core().V1().Pods().Lister()
+	podInformer := informerFactory.Core().V1().Pods()
+	//-------------------------------------------------
 	for _, opt := range opts {
 		opt(&options)
 	}
 
-	if options.applyDefaultProfile {
-		var versionedCfg v1beta3.KubeSchedulerConfiguration
-		scheme.Scheme.Default(&versionedCfg)
-		cfg := schedulerapi.KubeSchedulerConfiguration{}
-		if err := scheme.Scheme.Convert(&versionedCfg, &cfg, nil); err != nil {
-			return nil, err
-		}
-		options.profiles = cfg.Profiles
-	}
+	podLister = informerFactory.Core().V1().Pods().Lister()
+	nodeLister := informerFactory.Core().V1().Nodes().Lister()
 
+	handlerWrapper := commoncache.MakeCacheHandlerWrapper().
+	ComponentName(godelSchedulerName).
+	SchedulerType(*schedulerName).
+	PodAssumedTTL(15 * time.Minute). // Pod 假定（assumed）状态的 TTL
+	Period(10 * time.Second).        // 缓存定期同步周期
+	StopCh(stopEverything).
+	PodLister(podLister).
+	PodInformer(podInformer)
+
+	
+
+	// 创建内置（in-tree）插件的注册表。
 	registry := frameworkplugins.NewInTreeRegistry()
+	// 将外部（out-of-tree）插件注册表合并到内置注册表中。
 	if err := registry.Merge(options.frameworkOutOfTreeRegistry); err != nil {
 		return nil, err
 	}
 
+	// 注册调度器相关的指标。
 	metrics.Register()
 
+	// 根据选项中的扩展器配置和配置文件构建扩展器列表。
 	extenders, err := buildExtenders(options.extenders, options.profiles)
 	if err != nil {
 		return nil, fmt.Errorf("couldn't build extenders: %w", err)
 	}
 
-	podLister := informerFactory.Core().V1().Pods().Lister()
-	nodeLister := informerFactory.Core().V1().Nodes().Lister()
 
-	// The nominator will be passed all the way to framework instantiation.
+
+	// 创建 Pod 提名器（Nominator），用于在调度决策过程中暂时提名一个节点给 Pod。
+	// 这个提名器会在调度框架和队列之间传递。
 	nominator := internalqueue.NewPodNominator(podLister)
+	// 创建一个空的调度缓存快照，用于插件在调度过程中进行只读访问。
 	snapshot := internalcache.NewEmptySnapshot()
+	// 创建一个映射，用于跟踪调度框架需要监听的集群事件类型。
 	clusterEventMap := make(map[framework.ClusterEvent]sets.String)
 
+	// 为每个配置文件创建调度框架实例。
+	// 框架是调度逻辑的核心，它集成了插件、扩展器等。
 	profiles, err := profile.NewMap(options.profiles, registry, recorderFactory,
-		frameworkruntime.WithComponentConfigVersion(options.componentConfigVersion),
-		frameworkruntime.WithClientSet(client),
-		frameworkruntime.WithKubeConfig(options.kubeConfig),
-		frameworkruntime.WithInformerFactory(informerFactory),
-		frameworkruntime.WithSnapshotSharedLister(snapshot),
-		frameworkruntime.WithPodNominator(nominator),
-		frameworkruntime.WithCaptureProfile(frameworkruntime.CaptureProfile(options.frameworkCapturer)),
-		frameworkruntime.WithClusterEventMap(clusterEventMap),
-		frameworkruntime.WithParallelism(int(options.parallelism)),
-		frameworkruntime.WithExtenders(extenders),
+		frameworkruntime.WithComponentConfigVersion(options.componentConfigVersion), // 设置组件配置版本
+		frameworkruntime.WithClientSet(client),              // 设置 Kubernetes 客户端
+		frameworkruntime.WithKubeConfig(options.kubeConfig), // 设置 kubeconfig
+		frameworkruntime.WithInformerFactory(informerFactory), // 设置 Informer 工厂
+		frameworkruntime.WithSnapshotSharedLister(snapshot),   // 设置快照共享 Lister
+		frameworkruntime.WithPodNominator(nominator),          // 设置 Pod 提名器
+		frameworkruntime.WithCaptureProfile(frameworkruntime.CaptureProfile(options.frameworkCapturer)), // 设置配置文件捕获器
+		frameworkruntime.WithClusterEventMap(clusterEventMap), // 设置集群事件映射
+		frameworkruntime.WithParallelism(int(options.parallelism)), // 设置并行度
+		frameworkruntime.WithExtenders(extenders),           // 设置扩展器
 	)
 	if err != nil {
 		return nil, fmt.Errorf("initializing profiles: %v", err)
 	}
 
+	// 确保至少有一个配置文件被成功创建。
 	if len(profiles) == 0 {
 		return nil, errors.New("at least one profile is required")
 	}
 
+	// 创建调度队列，用于存放等待调度的 Pod。
+	// 队列会根据配置文件中的 QueueSort 插件来排序 Pod。
 	podQueue := internalqueue.NewSchedulingQueue(
-		profiles[options.profiles[0].SchedulerName].QueueSortFunc(),
-		informerFactory,
-		internalqueue.WithPodInitialBackoffDuration(time.Duration(options.podInitialBackoffSeconds)*time.Second),
-		internalqueue.WithPodMaxBackoffDuration(time.Duration(options.podMaxBackoffSeconds)*time.Second),
-		internalqueue.WithPodNominator(nominator),
-		internalqueue.WithClusterEventMap(clusterEventMap),
-		internalqueue.WithPodMaxInUnschedulablePodsDuration(options.podMaxInUnschedulablePodsDuration),
+		profiles[options.profiles[0].SchedulerName].QueueSortFunc(), // 使用第一个配置文件的队列排序函数
+		informerFactory,                                           // Informer 工厂
+		internalqueue.WithPodInitialBackoffDuration(time.Duration(options.podInitialBackoffSeconds)*time.Second), // 设置 Pod 初始退避时间
+		internalqueue.WithPodMaxBackoffDuration(time.Duration(options.podMaxBackoffSeconds)*time.Second),       // 设置 Pod 最大退避时间
+		internalqueue.WithPodNominator(nominator),                 // 设置 Pod 提名器
+		internalqueue.WithClusterEventMap(clusterEventMap),        // 设置集群事件映射
+		internalqueue.WithPodMaxInUnschedulablePodsDuration(options.podMaxInUnschedulablePodsDuration), // 设置 Pod 在未调度Pod列表中的最大持续时间
 	)
 
+	// 创建调度缓存，用于存储集群的节点和 Pod 信息。
+	// durationToExpireAssumedPod 是假设 Pod 过期的持续时间。
 	schedulerCache := internalcache.New(durationToExpireAssumedPod, stopEverything)
 
-	// Setup cache debugger.
+	// 设置缓存调试器，用于诊断缓存和队列的状态。
 	debugger := cachedebugger.New(nodeLister, podLister, schedulerCache, podQueue)
+	// 让调试器监听信号以启动调试功能。
 	debugger.ListenForSignal(stopEverything)
 
+	// 创建调度器结构体实例。
 	sched := newScheduler(
-		schedulerCache,
-		extenders,
-		internalqueue.MakeNextPodFunc(podQueue),
-		MakeDefaultErrorFunc(client, podLister, podQueue, schedulerCache),
-		stopEverything,
-		podQueue,
-		profiles,
-		client,
-		snapshot,
-		options.percentageOfNodesToScore,
+		schedulerCache,                                   // 调度缓存
+		extenders,                                        // 扩展器
+		internalqueue.MakeNextPodFunc(podQueue),         // 获取下一个待调度 Pod 的函数
+		MakeDefaultErrorFunc(client, podLister, podQueue, schedulerCache), // 默认错误处理函数
+		stopEverything,                                   // 停止通道
+		podQueue,                                         // 调度队列
+		profiles,                                         // 调度配置文件映射
+		client,                                           // Kubernetes 客户端
+		snapshot,                                         // 调度缓存快照
+		options.percentageOfNodesToScore,                 // 评分节点的百分比
 	)
+	sched.Name=godelSchedulerName
+	sched.SchedulerName=schedulerName
+	sched.commonCache=godelcache.New(handlerWrapper.Obj())
 
+	// 添加所有事件处理器，监听 Pod、Node 等资源的变化，并相应地更新缓存和队列。
 	addAllEventHandlers(sched, informerFactory, dynInformerFactory, unionedGVKs(clusterEventMap))
 
+	// 返回创建好的调度器实例。
 	return sched, nil
 }
 

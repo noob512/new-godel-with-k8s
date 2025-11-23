@@ -365,7 +365,12 @@ func Setup(ctx context.Context, opts *options.Options, outOfTreeRegistryOptions 
 
 	// 使用完成的配置和注册表创建新的调度器实例。
 	// 传入了大量的配置项和工厂函数，以定制调度器的行为。
-	sched, err := scheduler.New(cc.Client,                    // Kubernetes API 服务器客户端
+	sched, err := scheduler.New(
+		cc.GodelComponentConfig.GodelSchedulerName,
+		cc.GodelComponentConfig.SchedulerName,
+		cc.GodelCrdClient,
+		cc.GodelCrdInformerFactory,
+		cc.Client,                    // Kubernetes API 服务器客户端
 		cc.InformerFactory,                                    // 标准资源的 Informer 工厂
 		cc.DynInformerFactory,                                 // 动态资源的 Informer 工厂
 		recorderFactory,                                       // 事件记录器工厂

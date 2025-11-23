@@ -485,13 +485,46 @@ github.com/karrick/godirwalk
 # github.com/kubewharf/godel-scheduler v0.0.0-00010101000000-000000000000 => /home/k8sps/godel-scheduler
 ## explicit
 github.com/kubewharf/godel-scheduler/pkg/apis/config
+github.com/kubewharf/godel-scheduler/pkg/binder/apis/config
+github.com/kubewharf/godel-scheduler/pkg/common/cache
+github.com/kubewharf/godel-scheduler/pkg/common/metrics
+github.com/kubewharf/godel-scheduler/pkg/common/storage/reservation
+github.com/kubewharf/godel-scheduler/pkg/common/store
+github.com/kubewharf/godel-scheduler/pkg/features
+github.com/kubewharf/godel-scheduler/pkg/framework/api
+github.com/kubewharf/godel-scheduler/pkg/framework/utils
 github.com/kubewharf/godel-scheduler/pkg/scheduler/apis/config
+github.com/kubewharf/godel-scheduler/pkg/scheduler/cache
+github.com/kubewharf/godel-scheduler/pkg/scheduler/cache/commonstores
+github.com/kubewharf/godel-scheduler/pkg/scheduler/cache/commonstores/load_aware_store
+github.com/kubewharf/godel-scheduler/pkg/scheduler/cache/commonstores/movement_store
+github.com/kubewharf/godel-scheduler/pkg/scheduler/cache/commonstores/node_store
+github.com/kubewharf/godel-scheduler/pkg/scheduler/cache/commonstores/pdb_store
+github.com/kubewharf/godel-scheduler/pkg/scheduler/cache/commonstores/pod_store
+github.com/kubewharf/godel-scheduler/pkg/scheduler/cache/commonstores/podgroup_store
+github.com/kubewharf/godel-scheduler/pkg/scheduler/cache/commonstores/preemption_store
+github.com/kubewharf/godel-scheduler/pkg/scheduler/cache/commonstores/reservation_store
+github.com/kubewharf/godel-scheduler/pkg/scheduler/cache/commonstores/unit_status_store
+github.com/kubewharf/godel-scheduler/pkg/scheduler/metrics
 github.com/kubewharf/godel-scheduler/pkg/util
+github.com/kubewharf/godel-scheduler/pkg/util/bitplace
+github.com/kubewharf/godel-scheduler/pkg/util/controller
+github.com/kubewharf/godel-scheduler/pkg/util/deployment
 github.com/kubewharf/godel-scheduler/pkg/util/features
+github.com/kubewharf/godel-scheduler/pkg/util/generationstore
+github.com/kubewharf/godel-scheduler/pkg/util/hash
 github.com/kubewharf/godel-scheduler/pkg/util/helper
+github.com/kubewharf/godel-scheduler/pkg/util/labels
+github.com/kubewharf/godel-scheduler/pkg/util/metrics
+github.com/kubewharf/godel-scheduler/pkg/util/node
 github.com/kubewharf/godel-scheduler/pkg/util/pod
+github.com/kubewharf/godel-scheduler/pkg/util/splay
+github.com/kubewharf/godel-scheduler/pkg/util/taints
 github.com/kubewharf/godel-scheduler/pkg/util/tracing
+github.com/kubewharf/godel-scheduler/pkg/util/unit
+github.com/kubewharf/godel-scheduler/pkg/util/unitstatus
 github.com/kubewharf/godel-scheduler/pkg/util/volume/util
+github.com/kubewharf/godel-scheduler/pkg/version
 github.com/kubewharf/godel-scheduler/pkg/volume/persistentvolume/util
 # github.com/kubewharf/godel-scheduler-api v0.0.0-00010101000000-000000000000 => /home/k8sps/godel-scheduler-api
 ## explicit
@@ -509,6 +542,9 @@ github.com/kubewharf/godel-scheduler-api/pkg/client/informers/externalversions/s
 github.com/kubewharf/godel-scheduler-api/pkg/client/informers/externalversions/scheduling/v1alpha1
 github.com/kubewharf/godel-scheduler-api/pkg/client/listers/node/v1alpha1
 github.com/kubewharf/godel-scheduler-api/pkg/client/listers/scheduling/v1alpha1
+# github.com/kubewharf/katalyst-api v0.4.1-0.20240222122824-be538f641f58 => /home/k8sps/katalyst-api
+github.com/kubewharf/katalyst-api/pkg/apis/node/v1alpha1
+github.com/kubewharf/katalyst-api/pkg/consts
 # github.com/libopenstorage/openstorage v1.0.0 => github.com/libopenstorage/openstorage v1.0.0
 ## explicit
 github.com/libopenstorage/openstorage/api
@@ -1413,6 +1449,7 @@ k8s.io/apimachinery/pkg/runtime/serializer/yaml
 k8s.io/apimachinery/pkg/selection
 k8s.io/apimachinery/pkg/types
 k8s.io/apimachinery/pkg/util/cache
+k8s.io/apimachinery/pkg/util/clock
 k8s.io/apimachinery/pkg/util/diff
 k8s.io/apimachinery/pkg/util/duration
 k8s.io/apimachinery/pkg/util/errors
