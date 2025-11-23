@@ -9,33 +9,59 @@ require (
 	github.com/davecgh/go-spew v1.1.1
 	github.com/elazarl/goproxy v0.0.0-20180725130230-947c36da3153
 	github.com/evanphx/json-patch v4.12.0+incompatible
+	github.com/go-logr/logr v1.2.4 // indirect
 	github.com/gogo/protobuf v1.3.2
-	github.com/golang/protobuf v1.5.2
+	github.com/golang/protobuf v1.5.3
 	github.com/google/gnostic v0.5.7-v3refs
-	github.com/google/go-cmp v0.5.5
-	github.com/google/gofuzz v1.1.0
-	github.com/google/uuid v1.1.2
+	github.com/google/go-cmp v0.6.0
+	github.com/google/gofuzz v1.2.0
+	github.com/google/uuid v1.3.0
 	github.com/json-iterator/go v1.1.12 // indirect
-	github.com/kr/text v0.2.0 // indirect
 	github.com/moby/spdystream v0.2.0
 	github.com/mxk/go-flowrate v0.0.0-20140419014527-cca7078d478f
-	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
 	github.com/onsi/ginkgo v1.14.0 // indirect
+	github.com/onsi/gomega v1.19.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/spf13/pflag v1.0.5
-	github.com/stretchr/testify v1.7.0
-	golang.org/x/net v0.0.0-20220127200216-cd36cc0744dd
-	golang.org/x/sys v0.0.0-20220209214540-3681064d5158 // indirect
-	google.golang.org/protobuf v1.27.1 // indirect
-	gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f // indirect
+	github.com/stretchr/testify v1.8.1
+	golang.org/x/net v0.28.0
+	golang.org/x/sys v0.23.0 // indirect
+	golang.org/x/text v0.17.0 // indirect
+	google.golang.org/protobuf v1.31.0 // indirect
 	gopkg.in/inf.v0 v0.9.1
-	gopkg.in/yaml.v2 v2.4.0 // indirect
-	k8s.io/klog/v2 v2.60.1
+	gopkg.in/yaml.v3 v3.0.1 // indirect
+	k8s.io/klog/v2 v2.100.1
 	k8s.io/kube-openapi v0.0.0-20220328201542-3ee0da9b0b42
-	k8s.io/utils v0.0.0-20220210201930-3a6ce19ff2f9
-	sigs.k8s.io/json v0.0.0-20211208200746-9f7c6b3444d2
-	sigs.k8s.io/structured-merge-diff/v4 v4.2.1
-	sigs.k8s.io/yaml v1.2.0
+	k8s.io/utils v0.0.0-20230406110748-d93618cff8a2
+	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd
+	sigs.k8s.io/structured-merge-diff/v4 v4.2.3
+	sigs.k8s.io/yaml v1.3.0
 )
 
-replace k8s.io/apimachinery => ../apimachinery
+replace (
+	github.com/go-logr/logr => github.com/go-logr/logr v1.2.0
+	github.com/go-openapi/jsonreference => github.com/go-openapi/jsonreference v0.19.5
+	github.com/go-openapi/swag => github.com/go-openapi/swag v0.19.14
+	github.com/golang/protobuf => github.com/golang/protobuf v1.5.2
+	github.com/google/go-cmp => github.com/google/go-cmp v0.5.5
+	github.com/google/gofuzz => github.com/google/gofuzz v1.1.0
+	github.com/google/uuid => github.com/google/uuid v1.1.2
+	github.com/onsi/gomega => github.com/onsi/gomega v1.10.1
+	github.com/stretchr/testify => github.com/stretchr/testify v1.7.0
+	golang.org/x/crypto => golang.org/x/crypto v0.0.0-20220214200702-86341886e292
+	golang.org/x/net => golang.org/x/net v0.0.0-20220127200216-cd36cc0744dd
+	golang.org/x/oauth2 => golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8
+	golang.org/x/sys => golang.org/x/sys v0.0.0-20220209214540-3681064d5158
+	golang.org/x/text => golang.org/x/text v0.3.7
+	golang.org/x/time => golang.org/x/time v0.0.0-20220210224613-90d013bbcef8
+	golang.org/x/tools => golang.org/x/tools v0.1.10-0.20220218145154-897bd77cd717
+	google.golang.org/genproto => google.golang.org/genproto v0.0.0-20220107163113-42d7afdf6368
+	google.golang.org/protobuf => google.golang.org/protobuf v1.27.1
+	gopkg.in/yaml.v3 => gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
+	k8s.io/apimachinery => ../apimachinery
+	k8s.io/klog/v2 => k8s.io/klog/v2 v2.60.1
+	k8s.io/utils => k8s.io/utils v0.0.0-20220210201930-3a6ce19ff2f9
+	sigs.k8s.io/json => sigs.k8s.io/json v0.0.0-20211208200746-9f7c6b3444d2
+	sigs.k8s.io/structured-merge-diff/v4 => sigs.k8s.io/structured-merge-diff/v4 v4.2.1
+	sigs.k8s.io/yaml => sigs.k8s.io/yaml v1.2.0
+)

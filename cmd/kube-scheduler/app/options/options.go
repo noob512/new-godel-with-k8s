@@ -22,6 +22,9 @@ import (
 	"os"
 	"time"
 
+	godelclient "github.com/kubewharf/godel-scheduler-api/pkg/client/clientset/versioned"
+	godelschedulerconfig "github.com/kubewharf/godel-scheduler/pkg/scheduler/apis/config"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/uuid"
@@ -50,6 +53,8 @@ import (
 
 // Options has all the params needed to run a Scheduler
 type Options struct {
+	godelClient godelclient.Interface
+	GodelComponentConfig godelschedulerconfig.GodelSchedulerConfiguration
 	// The default values.
 	ComponentConfig *kubeschedulerconfig.KubeSchedulerConfiguration
 
