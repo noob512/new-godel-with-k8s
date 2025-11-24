@@ -23,7 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/klog/v2"
 
-	"github.com/kubewharf/godel-scheduler/pkg/util/helper"
+	"k8s.io/kubernetes/godel-pkg/util/helper"
 )
 
 // CheckNodeAffinity looks at the PV node affinity, and checks if the node has the same corresponding labels

@@ -26,9 +26,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	hashutil "github.com/kubewharf/godel-scheduler/pkg/util/hash"
-	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
-	taintutils "github.com/kubewharf/godel-scheduler/pkg/util/taints"
+	hashutil "k8s.io/kubernetes/godel-pkg/util/hash"
+	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
+	taintutils "k8s.io/kubernetes/godel-pkg/util/taints"
 
 	apps "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"

@@ -40,9 +40,9 @@ import (
 	"k8s.io/klog/v2"
 	"k8s.io/utils/integer"
 
-	"github.com/kubewharf/godel-scheduler/pkg/util/controller"
-	labelsutil "github.com/kubewharf/godel-scheduler/pkg/util/labels"
-	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
+	"k8s.io/kubernetes/godel-pkg/util/controller"
+	labelsutil "k8s.io/kubernetes/godel-pkg/util/labels"
+	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
 )
 
 const (

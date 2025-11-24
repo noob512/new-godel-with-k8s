@@ -22,8 +22,8 @@ import (
 	"github.com/kubewharf/godel-scheduler-api/pkg/apis/scheduling/v1alpha1"
 	v1 "k8s.io/api/core/v1"
 
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	podAnnotations "github.com/kubewharf/godel-scheduler/pkg/util/pod"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	podAnnotations "k8s.io/kubernetes/godel-pkg/util/pod"
 )
 
 const (

@@ -49,8 +49,8 @@ import (
 	//_ "k8s.io/kubernetes/pkg/apis/core/install"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/kubewharf/godel-scheduler/pkg/util/controller/testutil"
-	"github.com/kubewharf/godel-scheduler/pkg/util/securitycontext"
+	"k8s.io/kubernetes/godel-pkg/util/controller/testutil"
+	"k8s.io/kubernetes/godel-pkg/util/securitycontext"
 )
 
 // NewFakeControllerExpectationsLookup creates a fake store for PodExpectations.

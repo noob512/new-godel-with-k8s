@@ -26,7 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation"
 
-	"github.com/kubewharf/godel-scheduler/pkg/util/helper"
+	"k8s.io/kubernetes/godel-pkg/util/helper"
 )
 
 const (

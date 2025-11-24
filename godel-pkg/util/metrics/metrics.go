@@ -17,8 +17,8 @@ limitations under the License.
 package metrics
 
 import (
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
 )
 
 // SwitchTypeToQos converts switch type to qos.

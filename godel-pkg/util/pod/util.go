@@ -37,9 +37,9 @@ import (
 	"k8s.io/klog/v2"
 
 	schedulingv1alpha1 "github.com/kubewharf/godel-scheduler-api/pkg/apis/scheduling/v1alpha1"
-	"github.com/kubewharf/godel-scheduler/pkg/util"
-	"github.com/kubewharf/godel-scheduler/pkg/util/features"
-	volumeutil "github.com/kubewharf/godel-scheduler/pkg/volume/persistentvolume/util"
+	"k8s.io/kubernetes/godel-pkg/util"
+	"k8s.io/kubernetes/godel-pkg/util/features"
+	volumeutil "k8s.io/kubernetes/godel-pkg/volume/persistentvolume/util"
 )
 
 var applicationKind = "Application"
@@ -614,20 +614,20 @@ func LegalPodResourceTypeAndLauncher(pod *v1.Pod) bool {
 // It returns true if the pod's scheduler name matches the given scheduler name,
 // or if the pod uses the default scheduler, or if no scheduler name is specified.
 func responsibleForPod(pod *v1.Pod, schedulerName string) bool {
-    // 打印三个值用于调试
-    klog.InfoS("检查是否需要对pod负责",
-        "podName", pod.Name,
-        "podNamespace", pod.Namespace,
-        "podSchedulerName", pod.Spec.SchedulerName,
-        "defaultSchedulerName", v1.DefaultSchedulerName,
-        "givenSchedulerName", schedulerName,
-        "isResponsible", (pod.Spec.SchedulerName == schedulerName ||
-            pod.Spec.SchedulerName == v1.DefaultSchedulerName ||
-            pod.Spec.SchedulerName == ""))
-    
-    return pod.Spec.SchedulerName == schedulerName ||
-        pod.Spec.SchedulerName == v1.DefaultSchedulerName ||
-        pod.Spec.SchedulerName == ""
+	// 打印三个值用于调试
+	klog.InfoS("检查是否需要对pod负责",
+		"podName", pod.Name,
+		"podNamespace", pod.Namespace,
+		"podSchedulerName", pod.Spec.SchedulerName,
+		"defaultSchedulerName", v1.DefaultSchedulerName,
+		"givenSchedulerName", schedulerName,
+		"isResponsible", (pod.Spec.SchedulerName == schedulerName ||
+			pod.Spec.SchedulerName == v1.DefaultSchedulerName ||
+			pod.Spec.SchedulerName == ""))
+
+	return pod.Spec.SchedulerName == schedulerName ||
+		pod.Spec.SchedulerName == v1.DefaultSchedulerName ||
+		pod.Spec.SchedulerName == ""
 }
 
 const RSKind = "ReplicaSet"
@@ -793,13 +793,13 @@ func GetOwnerInfo(pod *v1.Pod) (string, string) {
 // 来决定对对象执行 "添加"、"更新" 或 "删除" 操作。
 //
 // 参数:
-// - filterFn: 一个过滤函数，用于判断一个 Pod 是否是当前处理逻辑关心的对象。
-//             它接收一个 *v1.Pod 指针，返回 true 表示关心，false 表示不关心。
-// - addFunc:  当一个 Pod 需要被添加时调用的函数。接收新的 Pod 对象。
-// - updateFunc: 当一个 Pod 需要被更新时调用的函数。接收旧的和新的 Pod 对象。
-// - deleteFunc: 当一个 Pod 需要被删除时调用的函数。接收旧的 Pod 对象。
-// - oldPod: 代表对象的旧状态（例如，事件发生前的 Pod）。
-// - newPod: 代表对象的新状态（例如，事件发生后的 Pod）。
+//   - filterFn: 一个过滤函数，用于判断一个 Pod 是否是当前处理逻辑关心的对象。
+//     它接收一个 *v1.Pod 指针，返回 true 表示关心，false 表示不关心。
+//   - addFunc:  当一个 Pod 需要被添加时调用的函数。接收新的 Pod 对象。
+//   - updateFunc: 当一个 Pod 需要被更新时调用的函数。接收旧的和新的 Pod 对象。
+//   - deleteFunc: 当一个 Pod 需要被删除时调用的函数。接收旧的 Pod 对象。
+//   - oldPod: 代表对象的旧状态（例如，事件发生前的 Pod）。
+//   - newPod: 代表对象的新状态（例如，事件发生后的 Pod）。
 func FilteringUpdate(
 	filterFn func(*v1.Pod) bool,
 	addFunc func(*v1.Pod) error,

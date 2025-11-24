@@ -21,8 +21,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
 
-	"github.com/kubewharf/godel-scheduler/pkg/util/features"
-	"github.com/kubewharf/godel-scheduler/pkg/util/helper"
+	"k8s.io/kubernetes/godel-pkg/util/features"
+	"k8s.io/kubernetes/godel-pkg/util/helper"
 )
 
 // For each of these resources, a pod that doesn't request the resource explicitly

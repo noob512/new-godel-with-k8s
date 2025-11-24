@@ -29,7 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/klog/v2"
 
-	unitutil "github.com/kubewharf/godel-scheduler/pkg/util/unit"
+	unitutil "k8s.io/kubernetes/godel-pkg/util/unit"
 )
 
 // UpdatePreSchedulingCondition updates first PodGroupCondition, which Phase is "PreScheduling"
