@@ -27,8 +27,8 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
-	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
-	unitutil "github.com/kubewharf/godel-scheduler/pkg/util/unit"
+	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
+	unitutil "k8s.io/kubernetes/godel-pkg/util/unit"
 )
 
 type podInfo struct {

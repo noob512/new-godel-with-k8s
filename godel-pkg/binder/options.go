@@ -17,9 +17,9 @@ limitations under the License.
 package binder
 
 import (
-	"github.com/kubewharf/godel-scheduler/pkg/binder/apis/config"
-	plugins "github.com/kubewharf/godel-scheduler/pkg/binder/framework/plugins/defaultpreemption"
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
+	"k8s.io/kubernetes/godel-pkg/binder/apis/config"
+	plugins "k8s.io/kubernetes/godel-pkg/binder/framework/plugins/defaultpreemption"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
 )
 
 var defaultBinderOptions = binderOptions{

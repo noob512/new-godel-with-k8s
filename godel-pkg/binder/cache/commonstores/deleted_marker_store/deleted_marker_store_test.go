@@ -25,8 +25,8 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	commoncache "github.com/kubewharf/godel-scheduler/pkg/common/cache"
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
+	commoncache "k8s.io/kubernetes/godel-pkg/common/cache"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
 )
 
 func TestCleanupPodDeletionMarker(t *testing.T) {

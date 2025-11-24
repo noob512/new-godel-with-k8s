@@ -31,14 +31,14 @@ import (
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	"k8s.io/client-go/tools/events"
 
-	binderconfig "github.com/kubewharf/godel-scheduler/pkg/binder/apis/config"
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/apis/config"
-	godelutil "github.com/kubewharf/godel-scheduler/pkg/util"
-	"github.com/kubewharf/godel-scheduler/pkg/util/features"
-	"github.com/kubewharf/godel-scheduler/pkg/util/generationstore"
-	"github.com/kubewharf/godel-scheduler/pkg/util/helper"
-	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
-	"github.com/kubewharf/godel-scheduler/pkg/util/tracing"
+	binderconfig "k8s.io/kubernetes/godel-pkg/binder/apis/config"
+	"k8s.io/kubernetes/godel-pkg/scheduler/apis/config"
+	godelutil "k8s.io/kubernetes/godel-pkg/util"
+	"k8s.io/kubernetes/godel-pkg/util/features"
+	"k8s.io/kubernetes/godel-pkg/util/generationstore"
+	"k8s.io/kubernetes/godel-pkg/util/helper"
+	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
+	"k8s.io/kubernetes/godel-pkg/util/tracing"
 )
 
 var (

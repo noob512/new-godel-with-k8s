@@ -23,7 +23,7 @@ import (
 	"github.com/kubewharf/godel-scheduler-api/pkg/apis/scheduling/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
 )
 
 func createUnit(pgCreationTime time.Time, priorityClass string, priority int32) *framework.QueuedUnitInfo {

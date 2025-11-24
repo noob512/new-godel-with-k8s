@@ -21,9 +21,9 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime"
 
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/framework/handle"
-	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	"k8s.io/kubernetes/godel-pkg/scheduler/framework/handle"
+	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
 )
 
 const MinPrioritySumName = "MinPrioritySum"

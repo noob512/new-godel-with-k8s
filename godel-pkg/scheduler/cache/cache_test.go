@@ -34,15 +34,15 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
 
-	commoncache "github.com/kubewharf/godel-scheduler/pkg/common/cache"
-	godelfeatures "github.com/kubewharf/godel-scheduler/pkg/features"
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	nodestore "github.com/kubewharf/godel-scheduler/pkg/scheduler/cache/commonstores/node_store"
-	podstore "github.com/kubewharf/godel-scheduler/pkg/scheduler/cache/commonstores/pod_store"
-	testing_helper "github.com/kubewharf/godel-scheduler/pkg/testing-helper"
-	"github.com/kubewharf/godel-scheduler/pkg/util"
-	"github.com/kubewharf/godel-scheduler/pkg/util/generationstore"
-	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
+	commoncache "k8s.io/kubernetes/godel-pkg/common/cache"
+	godelfeatures "k8s.io/kubernetes/godel-pkg/features"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	nodestore "k8s.io/kubernetes/godel-pkg/scheduler/cache/commonstores/node_store"
+	podstore "k8s.io/kubernetes/godel-pkg/scheduler/cache/commonstores/pod_store"
+	testing_helper "k8s.io/kubernetes/godel-pkg/testing-helper"
+	"k8s.io/kubernetes/godel-pkg/util"
+	"k8s.io/kubernetes/godel-pkg/util/generationstore"
+	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
 )
 
 func deepEqualWithoutGeneration(actual framework.NodeInfo, expected framework.NodeInfo) string {

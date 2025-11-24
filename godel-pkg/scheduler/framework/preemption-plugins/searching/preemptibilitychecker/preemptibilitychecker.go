@@ -22,9 +22,9 @@ import (
 	schedulingv1listers "k8s.io/client-go/listers/scheduling/v1"
 	"k8s.io/klog/v2"
 
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/framework/handle"
-	"github.com/kubewharf/godel-scheduler/pkg/util"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	"k8s.io/kubernetes/godel-pkg/scheduler/framework/handle"
+	"k8s.io/kubernetes/godel-pkg/util"
 )
 
 const PreemptibilityCheckerName string = "PreemptibilityChecker"

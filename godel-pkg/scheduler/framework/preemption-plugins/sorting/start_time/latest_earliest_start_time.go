@@ -19,9 +19,9 @@ package starttime
 import (
 	"k8s.io/apimachinery/pkg/runtime"
 
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	frameworkutils "github.com/kubewharf/godel-scheduler/pkg/framework/utils"
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/framework/handle"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	frameworkutils "k8s.io/kubernetes/godel-pkg/framework/utils"
+	"k8s.io/kubernetes/godel-pkg/scheduler/framework/handle"
 )
 
 const LatestEarliestStartTimeName = "LatestEarliestStartTime"

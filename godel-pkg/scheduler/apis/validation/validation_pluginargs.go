@@ -24,8 +24,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/apis/config"
-	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
+	"k8s.io/kubernetes/godel-pkg/scheduler/apis/config"
+	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
 )
 
 // ValidateInterPodAffinityArgs validates that InterPodAffinityArgs are correct.

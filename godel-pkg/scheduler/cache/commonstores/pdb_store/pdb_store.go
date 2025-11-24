@@ -23,13 +23,13 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/klog/v2"
 
-	commoncache "github.com/kubewharf/godel-scheduler/pkg/common/cache"
-	commonstore "github.com/kubewharf/godel-scheduler/pkg/common/store"
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/cache/commonstores"
-	preemptionstore "github.com/kubewharf/godel-scheduler/pkg/scheduler/cache/commonstores/preemption_store"
-	"github.com/kubewharf/godel-scheduler/pkg/util"
-	"github.com/kubewharf/godel-scheduler/pkg/util/generationstore"
+	commoncache "k8s.io/kubernetes/godel-pkg/common/cache"
+	commonstore "k8s.io/kubernetes/godel-pkg/common/store"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	"k8s.io/kubernetes/godel-pkg/scheduler/cache/commonstores"
+	preemptionstore "k8s.io/kubernetes/godel-pkg/scheduler/cache/commonstores/preemption_store"
+	"k8s.io/kubernetes/godel-pkg/util"
+	"k8s.io/kubernetes/godel-pkg/util/generationstore"
 )
 
 const Name commonstore.StoreName = "PdbStore"

@@ -24,12 +24,12 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/klog/v2"
 
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/apis/config"
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/apis/validation"
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/framework/handle"
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/framework/plugins/loadaware/estimator"
-	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	"k8s.io/kubernetes/godel-pkg/scheduler/apis/config"
+	"k8s.io/kubernetes/godel-pkg/scheduler/apis/validation"
+	"k8s.io/kubernetes/godel-pkg/scheduler/framework/handle"
+	"k8s.io/kubernetes/godel-pkg/scheduler/framework/plugins/loadaware/estimator"
+	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
 )
 
 const (

@@ -26,8 +26,8 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
-	schemaintainer "github.com/kubewharf/godel-scheduler/pkg/dispatcher/scheduler-maintainer"
-	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
+	schemaintainer "k8s.io/kubernetes/godel-pkg/dispatcher/scheduler-maintainer"
+	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
 )
 
 // DispatchedPodsPopulator is the populator struct for collecting dispatched pods who are in inactive schedulers

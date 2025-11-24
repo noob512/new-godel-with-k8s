@@ -25,10 +25,10 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/kubewharf/godel-scheduler/cmd/scheduler/app/config"
-	"github.com/kubewharf/godel-scheduler/cmd/scheduler/app/options"
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	schedulerconfig "github.com/kubewharf/godel-scheduler/pkg/scheduler/apis/config"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	schedulerconfig "k8s.io/kubernetes/godel-pkg/scheduler/apis/config"
+	"k8s.io/kubernetes/godel-cmd/scheduler/app/config"
+	"k8s.io/kubernetes/godel-cmd/scheduler/app/options"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	utilpointer "k8s.io/utils/pointer"

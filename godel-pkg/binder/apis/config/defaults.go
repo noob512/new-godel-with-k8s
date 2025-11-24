@@ -22,8 +22,8 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime"
 
-	defaultsconfig "github.com/kubewharf/godel-scheduler/pkg/apis/config"
-	"github.com/kubewharf/godel-scheduler/pkg/util/tracing"
+	defaultsconfig "k8s.io/kubernetes/godel-pkg/apis/config"
+	"k8s.io/kubernetes/godel-pkg/util/tracing"
 )
 
 const (

@@ -19,9 +19,9 @@ package nodestore
 import (
 	v1 "k8s.io/api/core/v1"
 
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	"github.com/kubewharf/godel-scheduler/pkg/util"
-	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	"k8s.io/kubernetes/godel-pkg/util"
+	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
 )
 
 // -------------------------------------- topology --------------------------------------

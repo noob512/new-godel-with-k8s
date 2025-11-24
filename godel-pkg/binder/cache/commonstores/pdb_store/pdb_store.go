@@ -21,12 +21,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
 
-	"github.com/kubewharf/godel-scheduler/pkg/binder/cache/commonstores"
-	commoncache "github.com/kubewharf/godel-scheduler/pkg/common/cache"
-	commonstore "github.com/kubewharf/godel-scheduler/pkg/common/store"
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	"github.com/kubewharf/godel-scheduler/pkg/util"
-	"github.com/kubewharf/godel-scheduler/pkg/util/generationstore"
+	"k8s.io/kubernetes/godel-pkg/binder/cache/commonstores"
+	commoncache "k8s.io/kubernetes/godel-pkg/common/cache"
+	commonstore "k8s.io/kubernetes/godel-pkg/common/store"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	"k8s.io/kubernetes/godel-pkg/util"
+	"k8s.io/kubernetes/godel-pkg/util/generationstore"
 )
 
 const Name commonstore.StoreName = "PdbStore"

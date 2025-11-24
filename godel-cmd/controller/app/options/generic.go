@@ -23,7 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	cliflag "k8s.io/component-base/cli/flag"
 
-	cmconfig "github.com/kubewharf/godel-scheduler/pkg/controller/apis/config"
+	cmconfig "k8s.io/kubernetes/godel-pkg/controller/apis/config"
 )
 
 // GenericControllerManagerConfigurationOptions holds the options which are generic.

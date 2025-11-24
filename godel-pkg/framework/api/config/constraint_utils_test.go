@@ -23,7 +23,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/kubewharf/godel-scheduler/pkg/util/constraints"
+	"k8s.io/kubernetes/godel-pkg/util/constraints"
 )
 
 func WithAnnotations(annotations map[string]string) *v1.Pod {

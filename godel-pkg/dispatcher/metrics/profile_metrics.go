@@ -17,7 +17,7 @@ limitations under the License.
 package metrics
 
 import (
-	"github.com/kubewharf/godel-scheduler/pkg/framework/api"
+	"k8s.io/kubernetes/godel-pkg/framework/api"
 )
 
 // This file contains helpers for metrics that are associated to a profile.

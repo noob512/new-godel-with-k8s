@@ -27,7 +27,7 @@ import (
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/klog/v2"
 
-	commoncache "github.com/kubewharf/godel-scheduler/pkg/common/cache"
+	commoncache "k8s.io/kubernetes/godel-pkg/common/cache"
 )
 
 type CommonStoresSwitch interface {

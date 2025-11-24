@@ -22,7 +22,7 @@ limitations under the License.
 package v1beta1
 
 import (
-	config "github.com/kubewharf/godel-scheduler/pkg/scheduler/apis/config"
+	config "k8s.io/kubernetes/godel-pkg/scheduler/apis/config"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 

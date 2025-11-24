@@ -42,14 +42,14 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
-	frameworkruntime "github.com/kubewharf/godel-scheduler/pkg/binder/framework/runtime"
-	"github.com/kubewharf/godel-scheduler/pkg/binder/metrics"
-	"github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	"github.com/kubewharf/godel-scheduler/pkg/util"
-	cmdutil "github.com/kubewharf/godel-scheduler/pkg/util/cmd"
-	"github.com/kubewharf/godel-scheduler/pkg/util/helper"
-	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
-	unitutil "github.com/kubewharf/godel-scheduler/pkg/util/unit"
+	frameworkruntime "k8s.io/kubernetes/godel-pkg/binder/framework/runtime"
+	"k8s.io/kubernetes/godel-pkg/binder/metrics"
+	"k8s.io/kubernetes/godel-pkg/framework/api"
+	"k8s.io/kubernetes/godel-pkg/util"
+	cmdutil "k8s.io/kubernetes/godel-pkg/util/cmd"
+	"k8s.io/kubernetes/godel-pkg/util/helper"
+	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
+	unitutil "k8s.io/kubernetes/godel-pkg/util/unit"
 )
 
 const (

@@ -23,7 +23,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 
-	testing_helper "github.com/kubewharf/godel-scheduler/pkg/testing-helper"
+	testing_helper "k8s.io/kubernetes/godel-pkg/testing-helper"
 )
 
 var (

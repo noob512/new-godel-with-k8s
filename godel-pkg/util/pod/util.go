@@ -37,9 +37,9 @@ import (
 	"k8s.io/klog/v2"
 
 	schedulingv1alpha1 "github.com/kubewharf/godel-scheduler-api/pkg/apis/scheduling/v1alpha1"
-	"github.com/kubewharf/godel-scheduler/pkg/util"
-	"github.com/kubewharf/godel-scheduler/pkg/util/features"
-	volumeutil "github.com/kubewharf/godel-scheduler/pkg/volume/persistentvolume/util"
+	"k8s.io/kubernetes/godel-pkg/util"
+	"k8s.io/kubernetes/godel-pkg/util/features"
+	volumeutil "k8s.io/kubernetes/godel-pkg/volume/persistentvolume/util"
 )
 
 var applicationKind = "Application"

@@ -17,7 +17,7 @@ limitations under the License.
 package helper
 
 import (
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
 )
 
 // DefaultNormalizeScore generates a Normalize Score function that can normalize the

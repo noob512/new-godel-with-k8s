@@ -20,7 +20,7 @@ import (
 	"fmt"
 
 	"github.com/kubewharf/godel-scheduler-api/pkg/apis/scheduling/v1alpha1"
-	"github.com/kubewharf/godel-scheduler/pkg/util/pod"
+	"k8s.io/kubernetes/godel-pkg/util/pod"
 )
 
 func GetReservationIndex(res *v1alpha1.Reservation) string {

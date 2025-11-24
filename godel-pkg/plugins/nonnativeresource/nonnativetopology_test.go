@@ -28,10 +28,10 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
 
-	godelfeatures "github.com/kubewharf/godel-scheduler/pkg/features"
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	testing_helper "github.com/kubewharf/godel-scheduler/pkg/testing-helper"
-	"github.com/kubewharf/godel-scheduler/pkg/util"
+	godelfeatures "k8s.io/kubernetes/godel-pkg/features"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	testing_helper "k8s.io/kubernetes/godel-pkg/testing-helper"
+	"k8s.io/kubernetes/godel-pkg/util"
 )
 
 func TestFitsNumaTopologyForNonExclusiveDedicatedQoS(t *testing.T) {

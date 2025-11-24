@@ -20,7 +20,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
 
-	"github.com/kubewharf/godel-scheduler/pkg/util/features"
+	"k8s.io/kubernetes/godel-pkg/util/features"
 )
 
 // addResourceList adds the resources in newList to list

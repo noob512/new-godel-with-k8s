@@ -38,15 +38,15 @@ import (
 	"k8s.io/client-go/tools/events"
 	"k8s.io/klog/v2"
 
-	"github.com/kubewharf/godel-scheduler/pkg/dispatcher/internal/queue"
-	"github.com/kubewharf/godel-scheduler/pkg/dispatcher/internal/store"
-	"github.com/kubewharf/godel-scheduler/pkg/dispatcher/metrics"
-	nodeshuffler "github.com/kubewharf/godel-scheduler/pkg/dispatcher/node-shuffler"
-	"github.com/kubewharf/godel-scheduler/pkg/dispatcher/reconciler"
-	schemaintainer "github.com/kubewharf/godel-scheduler/pkg/dispatcher/scheduler-maintainer"
-	"github.com/kubewharf/godel-scheduler/pkg/features"
-	"github.com/kubewharf/godel-scheduler/pkg/util"
-	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
+	"k8s.io/kubernetes/godel-pkg/dispatcher/internal/queue"
+	"k8s.io/kubernetes/godel-pkg/dispatcher/internal/store"
+	"k8s.io/kubernetes/godel-pkg/dispatcher/metrics"
+	nodeshuffler "k8s.io/kubernetes/godel-pkg/dispatcher/node-shuffler"
+	"k8s.io/kubernetes/godel-pkg/dispatcher/reconciler"
+	schemaintainer "k8s.io/kubernetes/godel-pkg/dispatcher/scheduler-maintainer"
+	"k8s.io/kubernetes/godel-pkg/features"
+	"k8s.io/kubernetes/godel-pkg/util"
+	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
 )
 
 const (

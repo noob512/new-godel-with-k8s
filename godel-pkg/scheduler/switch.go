@@ -30,14 +30,14 @@ import (
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	"k8s.io/klog/v2"
 
-	"github.com/kubewharf/godel-scheduler/pkg/features"
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/cache"
-	cachedebugger "github.com/kubewharf/godel-scheduler/pkg/scheduler/cache/debugger"
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/core"
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/queue"
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/reconciler"
-	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
+	"k8s.io/kubernetes/godel-pkg/features"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	"k8s.io/kubernetes/godel-pkg/scheduler/cache"
+	cachedebugger "k8s.io/kubernetes/godel-pkg/scheduler/cache/debugger"
+	"k8s.io/kubernetes/godel-pkg/scheduler/core"
+	"k8s.io/kubernetes/godel-pkg/scheduler/queue"
+	"k8s.io/kubernetes/godel-pkg/scheduler/reconciler"
+	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
 )
 
 type CtxKeyScheduleDataSetType string

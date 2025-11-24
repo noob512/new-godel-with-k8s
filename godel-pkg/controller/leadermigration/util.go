@@ -16,7 +16,7 @@ limitations under the License.
 
 package leadermigration
 
-import "github.com/kubewharf/godel-scheduler/pkg/controller/apis/config"
+import "k8s.io/kubernetes/godel-pkg/controller/apis/config"
 
 // Enabled checks whether Leader Migration should be enabled, given the GenericControllerManagerConfiguration.
 // It considers the feature gate first, and will always return false if the feature gate is not enabled.

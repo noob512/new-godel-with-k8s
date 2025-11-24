@@ -25,8 +25,8 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
-	"github.com/kubewharf/godel-scheduler/pkg/binder/utils"
-	"github.com/kubewharf/godel-scheduler/pkg/framework/api"
+	"k8s.io/kubernetes/godel-pkg/binder/utils"
+	"k8s.io/kubernetes/godel-pkg/framework/api"
 )
 
 type BinderTasksReconciler struct {

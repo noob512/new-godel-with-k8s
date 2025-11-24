@@ -19,8 +19,8 @@ package metrics
 import (
 	k8smetrics "k8s.io/component-base/metrics"
 
-	"github.com/kubewharf/godel-scheduler/pkg/common/metrics"
-	"github.com/kubewharf/godel-scheduler/pkg/framework/api"
+	"k8s.io/kubernetes/godel-pkg/common/metrics"
+	"k8s.io/kubernetes/godel-pkg/framework/api"
 )
 
 type ScheduleResult string

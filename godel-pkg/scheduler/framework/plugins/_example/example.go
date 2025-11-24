@@ -19,9 +19,9 @@ package example
 import (
 	"context"
 
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	examplestore "github.com/kubewharf/godel-scheduler/pkg/scheduler/cache/commonstores/_example_store"
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/framework/handle"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	examplestore "k8s.io/kubernetes/godel-pkg/scheduler/cache/commonstores/_example_store"
+	"k8s.io/kubernetes/godel-pkg/scheduler/framework/handle"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"

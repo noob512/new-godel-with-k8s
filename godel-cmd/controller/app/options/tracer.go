@@ -17,7 +17,7 @@ limitations under the License.
 package options
 
 import (
-	"github.com/kubewharf/godel-scheduler/pkg/util/tracing"
+	"k8s.io/kubernetes/godel-pkg/util/tracing"
 )
 
 type TracerOptions struct {

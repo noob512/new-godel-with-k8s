@@ -17,8 +17,8 @@ limitations under the License.
 package metrics
 
 import (
-	"github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	"github.com/kubewharf/godel-scheduler/pkg/util/helper"
+	"k8s.io/kubernetes/godel-pkg/framework/api"
+	"k8s.io/kubernetes/godel-pkg/util/helper"
 )
 
 func ObserveUnitBindingAttempts(unit *api.QueuedUnitInfo, successfulPods, failedPods int) {

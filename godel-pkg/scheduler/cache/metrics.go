@@ -21,12 +21,12 @@ import (
 	k8smetrics "k8s.io/component-base/metrics"
 	"k8s.io/klog/v2"
 
-	"github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/apis/config"
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/metrics"
-	"github.com/kubewharf/godel-scheduler/pkg/util/generationstore"
-	utilnode "github.com/kubewharf/godel-scheduler/pkg/util/node"
+	"k8s.io/kubernetes/godel-pkg/framework/api"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	"k8s.io/kubernetes/godel-pkg/scheduler/apis/config"
+	"k8s.io/kubernetes/godel-pkg/scheduler/metrics"
+	"k8s.io/kubernetes/godel-pkg/util/generationstore"
+	utilnode "k8s.io/kubernetes/godel-pkg/util/node"
 )
 
 const (

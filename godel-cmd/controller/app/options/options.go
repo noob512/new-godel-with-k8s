@@ -37,11 +37,11 @@ import (
 	"k8s.io/klog/v2"
 
 	godelclient "github.com/kubewharf/godel-scheduler-api/pkg/client/clientset/versioned"
-	cmdconfig "github.com/kubewharf/godel-scheduler/cmd/controller/app/config"
-	"github.com/kubewharf/godel-scheduler/pkg/apis/config"
-	godelctrlmgrconfig "github.com/kubewharf/godel-scheduler/pkg/controller/apis/config"
-	godelctrlmgrconfigscheme "github.com/kubewharf/godel-scheduler/pkg/controller/apis/config/scheme"
-	godelctrlmgrconfigv1alpha1 "github.com/kubewharf/godel-scheduler/pkg/controller/apis/config/v1alpha1"
+	"k8s.io/kubernetes/godel-pkg/apis/config"
+	godelctrlmgrconfig "k8s.io/kubernetes/godel-pkg/controller/apis/config"
+	godelctrlmgrconfigscheme "k8s.io/kubernetes/godel-pkg/controller/apis/config/scheme"
+	godelctrlmgrconfigv1alpha1 "k8s.io/kubernetes/godel-pkg/controller/apis/config/v1alpha1"
+	cmdconfig "k8s.io/kubernetes/godel-cmd/controller/app/config"
 )
 
 const DefaultLeaderElectionConfig = "godel-controller-manager"

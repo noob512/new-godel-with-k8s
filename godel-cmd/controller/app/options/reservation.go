@@ -19,7 +19,7 @@ package options
 import (
 	"github.com/spf13/pflag"
 
-	"github.com/kubewharf/godel-scheduler/pkg/controller/reservation/config"
+	"k8s.io/kubernetes/godel-pkg/controller/reservation/config"
 )
 
 type ReservationControllerOptions struct {

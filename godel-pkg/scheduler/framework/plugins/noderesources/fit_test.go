@@ -23,11 +23,11 @@ import (
 	"strings"
 	"testing"
 
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	utils "github.com/kubewharf/godel-scheduler/pkg/plugins/noderesources"
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/apis/config"
-	v1helper "github.com/kubewharf/godel-scheduler/pkg/util/helper"
-	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	utils "k8s.io/kubernetes/godel-pkg/plugins/noderesources"
+	"k8s.io/kubernetes/godel-pkg/scheduler/apis/config"
+	v1helper "k8s.io/kubernetes/godel-pkg/util/helper"
+	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"

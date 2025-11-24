@@ -23,11 +23,11 @@ import (
 	v1 "k8s.io/api/core/v1"
 	policy "k8s.io/api/policy/v1"
 
-	commoncache "github.com/kubewharf/godel-scheduler/pkg/common/cache"
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	godelcache "github.com/kubewharf/godel-scheduler/pkg/scheduler/cache"
-	"github.com/kubewharf/godel-scheduler/pkg/util/generationstore"
-	unitstatus "github.com/kubewharf/godel-scheduler/pkg/util/unitstatus"
+	commoncache "k8s.io/kubernetes/godel-pkg/common/cache"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	godelcache "k8s.io/kubernetes/godel-pkg/scheduler/cache"
+	"k8s.io/kubernetes/godel-pkg/util/generationstore"
+	unitstatus "k8s.io/kubernetes/godel-pkg/util/unitstatus"
 )
 
 // BinderCache is used for testing

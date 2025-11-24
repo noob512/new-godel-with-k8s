@@ -29,8 +29,8 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
-	"github.com/kubewharf/godel-scheduler/pkg/common/metrics"
-	"github.com/kubewharf/godel-scheduler/pkg/util/parallelize"
+	"k8s.io/kubernetes/godel-pkg/common/metrics"
+	"k8s.io/kubernetes/godel-pkg/util/parallelize"
 )
 
 // KeyFunc is a function type to get the key from an object.

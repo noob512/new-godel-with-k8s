@@ -20,7 +20,7 @@ import (
 	nodev1alpha1 "github.com/kubewharf/godel-scheduler-api/pkg/apis/node/v1alpha1"
 	v1 "k8s.io/api/core/v1"
 
-	nodeutil "github.com/kubewharf/godel-scheduler/pkg/util/node"
+	nodeutil "k8s.io/kubernetes/godel-pkg/util/node"
 )
 
 func (ns *NodeShuffler) addNodeToProcessingQueueIfNecessary(nodeName string, annotations map[string]string) {

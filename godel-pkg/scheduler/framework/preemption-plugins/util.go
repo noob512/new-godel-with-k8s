@@ -30,8 +30,8 @@ import (
 	storagelisters "k8s.io/client-go/listers/storage/v1"
 	"k8s.io/klog/v2"
 
-	"github.com/kubewharf/godel-scheduler/pkg/util"
-	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
+	"k8s.io/kubernetes/godel-pkg/util"
+	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
 )
 
 func GetPDBLister(informerFactory informers.SharedInformerFactory) policylisters.PodDisruptionBudgetLister {

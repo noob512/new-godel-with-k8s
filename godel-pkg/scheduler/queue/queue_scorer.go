@@ -21,8 +21,8 @@ import (
 
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
 
-	"github.com/kubewharf/godel-scheduler/pkg/features"
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
+	"k8s.io/kubernetes/godel-pkg/features"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
 )
 
 const (

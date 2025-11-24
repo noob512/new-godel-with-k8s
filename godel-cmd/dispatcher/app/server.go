@@ -26,14 +26,14 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/kubewharf/godel-scheduler/cmd/dispatcher/app/config"
-	"github.com/kubewharf/godel-scheduler/cmd/dispatcher/app/options"
-	"github.com/kubewharf/godel-scheduler/cmd/scheduler/app/util/configz"
-	"github.com/kubewharf/godel-scheduler/pkg/dispatcher"
-	godeldispatcherconfig "github.com/kubewharf/godel-scheduler/pkg/dispatcher/config"
-	cmdutil "github.com/kubewharf/godel-scheduler/pkg/util/cmd"
-	routeutil "github.com/kubewharf/godel-scheduler/pkg/util/route"
-	"github.com/kubewharf/godel-scheduler/pkg/version/verflag"
+	"k8s.io/kubernetes/godel-pkg/dispatcher"
+	godeldispatcherconfig "k8s.io/kubernetes/godel-pkg/dispatcher/config"
+	cmdutil "k8s.io/kubernetes/godel-pkg/util/cmd"
+	routeutil "k8s.io/kubernetes/godel-pkg/util/route"
+	"k8s.io/kubernetes/godel-pkg/version/verflag"
+	"k8s.io/kubernetes/godel-cmd/dispatcher/app/config"
+	"k8s.io/kubernetes/godel-cmd/dispatcher/app/options"
+	"k8s.io/kubernetes/godel-cmd/scheduler/app/util/configz"
 
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
@@ -59,7 +59,7 @@ const ComponentName = "dispatcher"
 func NewDispatcherCommand() *cobra.Command {
 	// 1. 初始化命令行选项 (Options)
 	// 调用 options.NewOptions() 创建一个 Options 结构体实例，该结构体包含了 Dispatcher 所有可配置的参数（如配置文件路径、日志级别、调度器ID等）。
-	opts, err := options.NewOptions()//这里需要修改
+	opts, err := options.NewOptions() //这里需要修改
 	if err != nil {
 		// 如果初始化选项失败（例如，某些默认值设置错误），则打印错误信息到标准错误输出并退出程序。
 		fmt.Fprintf(os.Stderr, "unable to initialize command options: %v\n", err)
@@ -106,7 +106,6 @@ func runCommand(cmd *cobra.Command, opts *options.Options, args []string) error 
 	// 这会处理像 --v (日志级别) 这样的标志。
 	cmdutil.InitKlogV2WithV1Flags(cmd.Flags())
 
-
 	// 3. 检查位置参数
 	// Dispatcher 命令不接受任何位置参数 (args)，如果提供了则报错。
 	if len(args) != 0 {
@@ -122,7 +121,6 @@ func runCommand(cmd *cobra.Command, opts *options.Options, args []string) error 
 		// 将多个错误聚合为一个错误返回。
 		return utilerrors.NewAggregate(errs)
 	}
-
 
 	// 6. 构建完整配置
 	// 调用 opts.Config() 方法，根据验证后的选项 opts 创建一个 *server.Config 对象。
@@ -155,14 +153,14 @@ func Run(ctx context.Context, cc config.CompletedConfig) error {
 	// 2. 创建 Dispatcher 实例
 	// 使用完成的配置 (cc) 中的各种客户端和 Informer 来创建 Dispatcher 核心对象。
 	dispatcher := dispatcher.New(
-		ctx.Done(), // 传递上下文的取消信号通道，用于通知 Dispatcher 停止
-		cc.Client, // Kubernetes 核心 API 客户端
-		cc.GodelCrdClient, // Godel 自定义资源定义 (CRD) 客户端
-		cc.InformerFactory.Core().V1().Pods(), // Pod Informer
+		ctx.Done(),                             // 传递上下文的取消信号通道，用于通知 Dispatcher 停止
+		cc.Client,                              // Kubernetes 核心 API 客户端
+		cc.GodelCrdClient,                      // Godel 自定义资源定义 (CRD) 客户端
+		cc.InformerFactory.Core().V1().Pods(),  // Pod Informer
 		cc.InformerFactory.Core().V1().Nodes(), // Node Informer
 		cc.GodelCrdInformerFactory.Scheduling().V1alpha1().Schedulers(), // Godel Scheduler CRD Informer
-		*cc.DispatcherConfig.SchedulerName, // Dispatcher 管理的调度器名称
-		getEventRecorder(&cc), // 事件记录器，用于向 API Server 发送事件
+		*cc.DispatcherConfig.SchedulerName,                              // Dispatcher 管理的调度器名称
+		getEventRecorder(&cc),                                           // 事件记录器，用于向 API Server 发送事件
 	)
 
 	// 3. 启动事件广播器
@@ -185,14 +183,13 @@ func Run(ctx context.Context, cc config.CompletedConfig) error {
 	// 定义一个匿名函数 run，封装了 Dispatcher 的实际运行逻辑。
 	// 这样做是为了在领导者选举和非领导者选举模式下复用相同的启动代码。
 	run := func(ctx context.Context) {
-		
+
 		// 启动 Dispatcher 的核心逻辑循环。
 		// 这会启动 Pod 监听、调度器发现、分发循环等。
 		dispatcher.Run(ctx)
 		// 阻塞，直到 ctx 被取消（即收到停止信号）。
 		<-ctx.Done()
 	}
-
 
 	// 9. 非领导者选举模式
 	// 如果没有启用领导者选举，则直接运行 Dispatcher。

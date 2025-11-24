@@ -43,11 +43,11 @@ import (
 	featuregatetesting "k8s.io/component-base/featuregate/testing"
 	"k8s.io/klog/v2"
 
-	"github.com/kubewharf/godel-scheduler/pkg/util"
-	"github.com/kubewharf/godel-scheduler/pkg/util/controller"
-	"github.com/kubewharf/godel-scheduler/pkg/util/features"
-	pvtesting "github.com/kubewharf/godel-scheduler/pkg/volume/persistentvolume/testing"
-	pvutil "github.com/kubewharf/godel-scheduler/pkg/volume/persistentvolume/util"
+	"k8s.io/kubernetes/godel-pkg/util"
+	"k8s.io/kubernetes/godel-pkg/util/controller"
+	"k8s.io/kubernetes/godel-pkg/util/features"
+	pvtesting "k8s.io/kubernetes/godel-pkg/volume/persistentvolume/testing"
+	pvutil "k8s.io/kubernetes/godel-pkg/volume/persistentvolume/util"
 )
 
 var (

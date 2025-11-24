@@ -25,10 +25,10 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/klog/v2"
 
-	"github.com/kubewharf/godel-scheduler/pkg/binder/apis"
-	"github.com/kubewharf/godel-scheduler/pkg/binder/metrics"
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
+	"k8s.io/kubernetes/godel-pkg/binder/apis"
+	"k8s.io/kubernetes/godel-pkg/binder/metrics"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
 )
 
 const (

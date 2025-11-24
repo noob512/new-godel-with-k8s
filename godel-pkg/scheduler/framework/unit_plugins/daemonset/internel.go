@@ -19,7 +19,7 @@ package daemonset
 import (
 	v1 "k8s.io/api/core/v1"
 
-	"github.com/kubewharf/godel-scheduler/pkg/util"
+	"k8s.io/kubernetes/godel-pkg/util"
 )
 
 func parseDaemonSetAffinityTerm(pod *v1.Pod) []string {

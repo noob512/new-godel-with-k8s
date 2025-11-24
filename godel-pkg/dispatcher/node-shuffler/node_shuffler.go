@@ -34,9 +34,9 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
-	"github.com/kubewharf/godel-scheduler/pkg/dispatcher/metrics"
-	schemaintainer "github.com/kubewharf/godel-scheduler/pkg/dispatcher/scheduler-maintainer"
-	nodeutil "github.com/kubewharf/godel-scheduler/pkg/util/node"
+	"k8s.io/kubernetes/godel-pkg/dispatcher/metrics"
+	schemaintainer "k8s.io/kubernetes/godel-pkg/dispatcher/scheduler-maintainer"
+	nodeutil "k8s.io/kubernetes/godel-pkg/util/node"
 )
 
 // NodeShuffler stores all the necessary info to shuffle nodes

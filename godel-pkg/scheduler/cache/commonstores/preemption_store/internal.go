@@ -23,9 +23,9 @@ import (
 	corelister "k8s.io/client-go/listers/core/v1"
 	"k8s.io/klog/v2"
 
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	"github.com/kubewharf/godel-scheduler/pkg/util/generationstore"
-	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	"k8s.io/kubernetes/godel-pkg/util/generationstore"
+	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
 )
 
 var _ generationstore.StoredObj = &PreemptionDetailForNode{}

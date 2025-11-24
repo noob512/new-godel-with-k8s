@@ -28,13 +28,13 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/klog/v2"
 
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/apis/config"
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/metrics"
-	"github.com/kubewharf/godel-scheduler/pkg/util"
-	"github.com/kubewharf/godel-scheduler/pkg/util/helper"
-	"github.com/kubewharf/godel-scheduler/pkg/util/parallelize"
-	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	"k8s.io/kubernetes/godel-pkg/scheduler/apis/config"
+	"k8s.io/kubernetes/godel-pkg/scheduler/metrics"
+	"k8s.io/kubernetes/godel-pkg/util"
+	"k8s.io/kubernetes/godel-pkg/util/helper"
+	"k8s.io/kubernetes/godel-pkg/util/parallelize"
+	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
 )
 
 type PluginsConstraint struct {

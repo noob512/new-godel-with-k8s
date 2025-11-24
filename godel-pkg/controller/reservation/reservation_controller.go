@@ -35,13 +35,13 @@ import (
 	godelclient "github.com/kubewharf/godel-scheduler-api/pkg/client/clientset/versioned"
 	reservationinformer "github.com/kubewharf/godel-scheduler-api/pkg/client/informers/externalversions/scheduling/v1alpha1"
 	reservationlister "github.com/kubewharf/godel-scheduler-api/pkg/client/listers/scheduling/v1alpha1"
-	controllersmetrics "github.com/kubewharf/godel-scheduler/pkg/controller/metrics"
-	reservationmetrics "github.com/kubewharf/godel-scheduler/pkg/controller/reservation/metrics"
-	"github.com/kubewharf/godel-scheduler/pkg/controller/reservation/utils"
-	"github.com/kubewharf/godel-scheduler/pkg/util"
-	deployutil "github.com/kubewharf/godel-scheduler/pkg/util/deployment"
-	"github.com/kubewharf/godel-scheduler/pkg/util/helper"
-	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
+	controllersmetrics "k8s.io/kubernetes/godel-pkg/controller/metrics"
+	reservationmetrics "k8s.io/kubernetes/godel-pkg/controller/reservation/metrics"
+	"k8s.io/kubernetes/godel-pkg/controller/reservation/utils"
+	"k8s.io/kubernetes/godel-pkg/util"
+	deployutil "k8s.io/kubernetes/godel-pkg/util/deployment"
+	"k8s.io/kubernetes/godel-pkg/util/helper"
+	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
 )
 
 const (

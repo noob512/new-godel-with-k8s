@@ -25,9 +25,9 @@ import (
 
 	utilpointer "k8s.io/utils/pointer"
 
-	defaultsconfig "github.com/kubewharf/godel-scheduler/pkg/apis/config"
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/apis/config"
-	"github.com/kubewharf/godel-scheduler/pkg/util/tracing"
+	defaultsconfig "k8s.io/kubernetes/godel-pkg/apis/config"
+	"k8s.io/kubernetes/godel-pkg/scheduler/apis/config"
+	"k8s.io/kubernetes/godel-pkg/util/tracing"
 )
 
 func addDefaultingFuncs(scheme *runtime.Scheme) error {

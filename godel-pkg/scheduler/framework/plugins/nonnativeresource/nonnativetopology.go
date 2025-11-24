@@ -27,11 +27,11 @@ import (
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 
-	godelfeatures "github.com/kubewharf/godel-scheduler/pkg/features"
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	"github.com/kubewharf/godel-scheduler/pkg/plugins/nonnativeresource"
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/framework/handle"
-	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
+	godelfeatures "k8s.io/kubernetes/godel-pkg/features"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	"k8s.io/kubernetes/godel-pkg/plugins/nonnativeresource"
+	"k8s.io/kubernetes/godel-pkg/scheduler/framework/handle"
+	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
 )
 
 const (

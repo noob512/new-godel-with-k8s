@@ -20,9 +20,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/kubewharf/godel-scheduler/pkg/binder/metrics"
-	"github.com/kubewharf/godel-scheduler/pkg/framework/utils"
-	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
+	"k8s.io/kubernetes/godel-pkg/binder/metrics"
+	"k8s.io/kubernetes/godel-pkg/framework/utils"
+	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
 
 	godelclient "github.com/kubewharf/godel-scheduler-api/pkg/client/clientset/versioned"
 	"github.com/kubewharf/godel-scheduler-api/pkg/client/listers/scheduling/v1alpha1"

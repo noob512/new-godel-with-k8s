@@ -23,10 +23,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 
-	"github.com/kubewharf/godel-scheduler/pkg/binder/framework/handle"
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	"github.com/kubewharf/godel-scheduler/pkg/plugins/nonnativeresource"
-	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
+	"k8s.io/kubernetes/godel-pkg/binder/framework/handle"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	"k8s.io/kubernetes/godel-pkg/plugins/nonnativeresource"
+	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
 )
 
 const (

@@ -27,9 +27,9 @@ import (
 	conversion "k8s.io/apimachinery/pkg/conversion"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 
-	config "github.com/kubewharf/godel-scheduler/pkg/controller/apis/config"
-	reservationconfig "github.com/kubewharf/godel-scheduler/pkg/controller/reservation/config"
-	tracing "github.com/kubewharf/godel-scheduler/pkg/util/tracing"
+	config "k8s.io/kubernetes/godel-pkg/controller/apis/config"
+	reservationconfig "k8s.io/kubernetes/godel-pkg/controller/reservation/config"
+	tracing "k8s.io/kubernetes/godel-pkg/util/tracing"
 )
 
 func init() {

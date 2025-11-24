@@ -16,6 +16,6 @@ limitations under the License.
 
 package commonstores
 
-import commonstore "github.com/kubewharf/godel-scheduler/pkg/common/store"
+import commonstore "k8s.io/kubernetes/godel-pkg/common/store"
 
 var GlobalRegistries = commonstore.NewRegistries()

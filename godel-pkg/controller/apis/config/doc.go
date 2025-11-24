@@ -18,4 +18,4 @@ limitations under the License.
 
 // This folder contains configurations for constraints and other config params to run the godel controller manager
 
-package config // import "github.com/kubewharf/godel-scheduler/pkg/controller/apis/config"
+package config // import "k8s.io/kubernetes/godel-pkg/controller/apis/config"

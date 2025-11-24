@@ -44,7 +44,7 @@ import (
 	ref "k8s.io/client-go/tools/reference"
 	"k8s.io/klog/v2"
 
-	utilnode "github.com/kubewharf/godel-scheduler/pkg/util/node"
+	utilnode "k8s.io/kubernetes/godel-pkg/util/node"
 )
 
 var keyFunc = cache.DeletionHandlingMetaNamespaceKeyFunc

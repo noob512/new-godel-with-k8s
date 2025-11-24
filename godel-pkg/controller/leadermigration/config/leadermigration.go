@@ -25,8 +25,8 @@ import (
 	util "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 
-	internal "github.com/kubewharf/godel-scheduler/pkg/controller/apis/config"
-	"github.com/kubewharf/godel-scheduler/pkg/controller/apis/config/v1alpha1"
+	internal "k8s.io/kubernetes/godel-pkg/controller/apis/config"
+	"k8s.io/kubernetes/godel-pkg/controller/apis/config/v1alpha1"
 )
 
 // ResourceLockLeases is the resourceLock value for 'leases' API

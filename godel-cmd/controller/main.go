@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/kubewharf/godel-scheduler/cmd/controller/app"
+	"k8s.io/kubernetes/godel-cmd/controller/app"
 
 	"github.com/spf13/pflag"
 	cliflag "k8s.io/component-base/cli/flag"

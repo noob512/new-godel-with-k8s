@@ -30,9 +30,9 @@ import (
 	v1 "k8s.io/api/core/v1"
 	schedulingv1 "k8s.io/client-go/listers/scheduling/v1"
 
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/cache"
-	"github.com/kubewharf/godel-scheduler/pkg/util/heap"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	"k8s.io/kubernetes/godel-pkg/scheduler/cache"
+	"k8s.io/kubernetes/godel-pkg/util/heap"
 )
 
 const (

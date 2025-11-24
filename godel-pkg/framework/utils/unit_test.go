@@ -26,9 +26,9 @@ import (
 	scheduling "k8s.io/api/scheduling/v1"
 	schedulingv1listers "k8s.io/client-go/listers/scheduling/v1"
 
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	testinghelper "github.com/kubewharf/godel-scheduler/pkg/testing-helper"
-	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	testinghelper "k8s.io/kubernetes/godel-pkg/testing-helper"
+	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
 )
 
 func TestGetUnitIdentifier(t *testing.T) {

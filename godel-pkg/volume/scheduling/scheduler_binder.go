@@ -39,12 +39,12 @@ import (
 	csiplugins "k8s.io/csi-translation-lib/plugins"
 	"k8s.io/klog/v2"
 
-	"github.com/kubewharf/godel-scheduler/pkg/util"
-	"github.com/kubewharf/godel-scheduler/pkg/util/features"
-	"github.com/kubewharf/godel-scheduler/pkg/util/helper"
-	volumeutil "github.com/kubewharf/godel-scheduler/pkg/util/volume/util"
-	pvutil "github.com/kubewharf/godel-scheduler/pkg/volume/persistentvolume/util"
-	"github.com/kubewharf/godel-scheduler/pkg/volume/scheduling/metrics"
+	"k8s.io/kubernetes/godel-pkg/util"
+	"k8s.io/kubernetes/godel-pkg/util/features"
+	"k8s.io/kubernetes/godel-pkg/util/helper"
+	volumeutil "k8s.io/kubernetes/godel-pkg/util/volume/util"
+	pvutil "k8s.io/kubernetes/godel-pkg/volume/persistentvolume/util"
+	"k8s.io/kubernetes/godel-pkg/volume/scheduling/metrics"
 )
 
 // ConflictReason is used for the special strings which explain why

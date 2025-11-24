@@ -21,8 +21,8 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
-	"github.com/kubewharf/godel-scheduler/pkg/util/tracing"
+	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
+	"k8s.io/kubernetes/godel-pkg/util/tracing"
 )
 
 const (

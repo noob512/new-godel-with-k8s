@@ -29,10 +29,10 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/cache"
 
-	commoncache "github.com/kubewharf/godel-scheduler/pkg/common/cache"
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	godelcache "github.com/kubewharf/godel-scheduler/pkg/scheduler/cache"
-	godelqueue "github.com/kubewharf/godel-scheduler/pkg/scheduler/queue"
+	commoncache "k8s.io/kubernetes/godel-pkg/common/cache"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	godelcache "k8s.io/kubernetes/godel-pkg/scheduler/cache"
+	godelqueue "k8s.io/kubernetes/godel-pkg/scheduler/queue"
 )
 
 const (

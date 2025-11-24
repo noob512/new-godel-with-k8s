@@ -17,7 +17,7 @@ limitations under the License.
 package leadermigration
 
 import (
-	internal "github.com/kubewharf/godel-scheduler/pkg/controller/apis/config"
+	internal "k8s.io/kubernetes/godel-pkg/controller/apis/config"
 )
 
 // LeaderMigrator holds information required by the leader migration process.

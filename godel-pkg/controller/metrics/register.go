@@ -20,8 +20,8 @@ import (
 	k8smetrics "k8s.io/component-base/metrics"
 	"k8s.io/component-base/metrics/legacyregistry"
 
-	"github.com/kubewharf/godel-scheduler/pkg/controller/reservation/metrics"
-	"github.com/kubewharf/godel-scheduler/pkg/version"
+	"k8s.io/kubernetes/godel-pkg/controller/reservation/metrics"
+	"k8s.io/kubernetes/godel-pkg/version"
 )
 
 var metricsList = []k8smetrics.Registerable{

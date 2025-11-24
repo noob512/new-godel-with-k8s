@@ -15,10 +15,10 @@ limitations under the License.
 */
 
 // +k8s:deepcopy-gen=package
-// +k8s:conversion-gen=github.com/kubewharf/godel-scheduler/pkg/controller/apis/config
+// +k8s:conversion-gen=k8s.io/kubernetes/godel-pkg/controller/apis/config
 // +k8s:defaulter-gen=TypeMeta
 // +groupName=godelcontrollermanager.config.byted.org
 
 // This folder contains configurations for constraints and other config params to run the godel controller manager
 
-package v1alpha1 // import "github.com/kubewharf/godel-scheduler/pkg/controller/apis/config/v1alpha1"
+package v1alpha1 // import "k8s.io/kubernetes/godel-pkg/controller/apis/config/v1alpha1"

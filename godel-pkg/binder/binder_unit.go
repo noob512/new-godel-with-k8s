@@ -24,9 +24,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/klog/v2"
 
-	"github.com/kubewharf/godel-scheduler/pkg/binder/metrics"
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	"github.com/kubewharf/godel-scheduler/pkg/util/tracing"
+	"k8s.io/kubernetes/godel-pkg/binder/metrics"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	"k8s.io/kubernetes/godel-pkg/util/tracing"
 )
 
 // BindingUnitInfo contains all necessary info for unit

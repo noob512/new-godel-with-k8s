@@ -25,10 +25,10 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/kubewharf/godel-scheduler-api/pkg/apis/scheduling/v1alpha1"
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	podgroupstore "github.com/kubewharf/godel-scheduler/pkg/scheduler/cache/commonstores/podgroup_store"
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/framework/handle"
-	unitutil "github.com/kubewharf/godel-scheduler/pkg/util/unit"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	podgroupstore "k8s.io/kubernetes/godel-pkg/scheduler/cache/commonstores/podgroup_store"
+	"k8s.io/kubernetes/godel-pkg/scheduler/framework/handle"
+	unitutil "k8s.io/kubernetes/godel-pkg/util/unit"
 )
 
 // Coscheduling is a plugin that schedules pods in a group.

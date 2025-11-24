@@ -22,12 +22,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kubewharf/godel-scheduler/pkg/features"
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	movementstore "github.com/kubewharf/godel-scheduler/pkg/scheduler/cache/commonstores/movement_store"
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/framework/handle"
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/metrics"
-	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
+	"k8s.io/kubernetes/godel-pkg/features"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	movementstore "k8s.io/kubernetes/godel-pkg/scheduler/cache/commonstores/movement_store"
+	"k8s.io/kubernetes/godel-pkg/scheduler/framework/handle"
+	"k8s.io/kubernetes/godel-pkg/scheduler/metrics"
+	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"

@@ -23,7 +23,7 @@ import (
 	"k8s.io/client-go/tools/record"
 
 	godelclient "github.com/kubewharf/godel-scheduler-api/pkg/client/clientset/versioned"
-	controllermanagerconfig "github.com/kubewharf/godel-scheduler/pkg/controller/apis/config"
+	controllermanagerconfig "k8s.io/kubernetes/godel-pkg/controller/apis/config"
 )
 
 // Config is the main context object for the controller manager.

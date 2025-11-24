@@ -32,13 +32,13 @@ import (
 
 	schedulingv1a1 "github.com/kubewharf/godel-scheduler-api/pkg/apis/scheduling/v1alpha1"
 	godelclientfake "github.com/kubewharf/godel-scheduler-api/pkg/client/clientset/versioned/fake"
-	commoncache "github.com/kubewharf/godel-scheduler/pkg/common/cache"
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	godelcache "github.com/kubewharf/godel-scheduler/pkg/scheduler/cache"
-	podgroupstore "github.com/kubewharf/godel-scheduler/pkg/scheduler/cache/commonstores/podgroup_store"
-	schedulertesting "github.com/kubewharf/godel-scheduler/pkg/scheduler/testing"
-	testinghelper "github.com/kubewharf/godel-scheduler/pkg/testing-helper"
-	podAnnotations "github.com/kubewharf/godel-scheduler/pkg/util/pod"
+	commoncache "k8s.io/kubernetes/godel-pkg/common/cache"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	godelcache "k8s.io/kubernetes/godel-pkg/scheduler/cache"
+	podgroupstore "k8s.io/kubernetes/godel-pkg/scheduler/cache/commonstores/podgroup_store"
+	schedulertesting "k8s.io/kubernetes/godel-pkg/scheduler/testing"
+	testinghelper "k8s.io/kubernetes/godel-pkg/testing-helper"
+	podAnnotations "k8s.io/kubernetes/godel-pkg/util/pod"
 )
 
 var (

@@ -29,7 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog/v2"
 
-	sche "github.com/kubewharf/godel-scheduler/pkg/dispatcher/internal/scheduler"
+	sche "k8s.io/kubernetes/godel-pkg/dispatcher/internal/scheduler"
 )
 
 // SchedulerMaintainer 是一个管理 Godel 调度器实例的结构体。

@@ -21,9 +21,9 @@ import (
 	"io/ioutil"
 	"os"
 
-	godelschedulerconfig "github.com/kubewharf/godel-scheduler/pkg/scheduler/apis/config"
-	godelschedulerscheme "github.com/kubewharf/godel-scheduler/pkg/scheduler/apis/config/scheme"
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/apis/config/v1beta1"
+	godelschedulerconfig "k8s.io/kubernetes/godel-pkg/scheduler/apis/config"
+	godelschedulerscheme "k8s.io/kubernetes/godel-pkg/scheduler/apis/config/scheme"
+	"k8s.io/kubernetes/godel-pkg/scheduler/apis/config/v1beta1"
 
 	"k8s.io/apimachinery/pkg/runtime"
 )

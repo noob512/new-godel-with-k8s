@@ -21,16 +21,16 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime"
 
-	"github.com/kubewharf/godel-scheduler/pkg/binder/apis/config"
-	"github.com/kubewharf/godel-scheduler/pkg/binder/framework/handle"
-	"github.com/kubewharf/godel-scheduler/pkg/binder/framework/plugins/defaultbinder"
-	"github.com/kubewharf/godel-scheduler/pkg/binder/framework/plugins/defaultpreemption"
-	"github.com/kubewharf/godel-scheduler/pkg/binder/framework/plugins/nodeports"
-	"github.com/kubewharf/godel-scheduler/pkg/binder/framework/plugins/noderesources"
-	"github.com/kubewharf/godel-scheduler/pkg/binder/framework/plugins/nodevolumelimits"
-	"github.com/kubewharf/godel-scheduler/pkg/binder/framework/plugins/nonnativeresource"
-	"github.com/kubewharf/godel-scheduler/pkg/binder/framework/plugins/volumebinding"
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
+	"k8s.io/kubernetes/godel-pkg/binder/apis/config"
+	"k8s.io/kubernetes/godel-pkg/binder/framework/handle"
+	"k8s.io/kubernetes/godel-pkg/binder/framework/plugins/defaultbinder"
+	"k8s.io/kubernetes/godel-pkg/binder/framework/plugins/defaultpreemption"
+	"k8s.io/kubernetes/godel-pkg/binder/framework/plugins/nodeports"
+	"k8s.io/kubernetes/godel-pkg/binder/framework/plugins/noderesources"
+	"k8s.io/kubernetes/godel-pkg/binder/framework/plugins/nodevolumelimits"
+	"k8s.io/kubernetes/godel-pkg/binder/framework/plugins/nonnativeresource"
+	"k8s.io/kubernetes/godel-pkg/binder/framework/plugins/volumebinding"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
 )
 
 // PluginFactory is a function that builds a plugin.

@@ -17,8 +17,8 @@ limitations under the License.
 package reservationstore
 
 import (
-	pkgmetrics "github.com/kubewharf/godel-scheduler/pkg/common/metrics"
-	schemetrics "github.com/kubewharf/godel-scheduler/pkg/scheduler/metrics"
+	pkgmetrics "k8s.io/kubernetes/godel-pkg/common/metrics"
+	schemetrics "k8s.io/kubernetes/godel-pkg/scheduler/metrics"
 
 	"k8s.io/component-base/metrics"
 )

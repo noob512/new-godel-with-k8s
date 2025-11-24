@@ -28,8 +28,8 @@ import (
 	"k8s.io/client-go/tools/events"
 	"k8s.io/klog/v2"
 
-	"github.com/kubewharf/godel-scheduler/pkg/dispatcher/metrics"
-	"github.com/kubewharf/godel-scheduler/pkg/framework/api"
+	"k8s.io/kubernetes/godel-pkg/dispatcher/metrics"
+	"k8s.io/kubernetes/godel-pkg/framework/api"
 )
 
 // UnitInfos 接口定义了 Pod 单元信息管理器的功能

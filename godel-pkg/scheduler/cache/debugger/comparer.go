@@ -25,9 +25,9 @@ import (
 	corelisters "k8s.io/client-go/listers/core/v1"
 	"k8s.io/klog/v2"
 
-	"github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	godelcache "github.com/kubewharf/godel-scheduler/pkg/scheduler/cache"
-	godelqueue "github.com/kubewharf/godel-scheduler/pkg/scheduler/queue"
+	"k8s.io/kubernetes/godel-pkg/framework/api"
+	godelcache "k8s.io/kubernetes/godel-pkg/scheduler/cache"
+	godelqueue "k8s.io/kubernetes/godel-pkg/scheduler/queue"
 )
 
 // CacheComparer is an implementation of the Scheduler's cache comparer.

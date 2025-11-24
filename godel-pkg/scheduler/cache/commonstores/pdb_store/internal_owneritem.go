@@ -17,8 +17,8 @@ limitations under the License.
 package pdbstore
 
 import (
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	"github.com/kubewharf/godel-scheduler/pkg/util/generationstore"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	"k8s.io/kubernetes/godel-pkg/util/generationstore"
 )
 
 // -------------------------------------- ownerItem --------------------------------------

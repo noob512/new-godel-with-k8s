@@ -17,7 +17,7 @@ limitations under the License.
 package util
 
 import (
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
 )
 
 func GetListIndex(pluginList framework.PluginList) framework.PluginOrder {

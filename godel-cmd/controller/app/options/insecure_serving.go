@@ -23,9 +23,9 @@ import (
 
 	"github.com/spf13/pflag"
 
-	cmdconfig "github.com/kubewharf/godel-scheduler/cmd/controller/app/config"
-	godelctrlmgrconfig "github.com/kubewharf/godel-scheduler/pkg/controller/apis/config"
+	godelctrlmgrconfig "k8s.io/kubernetes/godel-pkg/controller/apis/config"
 	apiserveroptions "k8s.io/apiserver/pkg/server/options"
+	cmdconfig "k8s.io/kubernetes/godel-cmd/controller/app/config"
 )
 
 // CombinedInsecureServingOptions sets up to two insecure listeners for healthz and metrics. The flags

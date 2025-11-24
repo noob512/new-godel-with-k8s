@@ -21,7 +21,7 @@ import (
 	//-------------------------------------------------------------------------------
 	godelclient "github.com/kubewharf/godel-scheduler-api/pkg/client/clientset/versioned"
 	crdinformers "github.com/kubewharf/godel-scheduler-api/pkg/client/informers/externalversions"
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/apis/config"
+	"k8s.io/kubernetes/godel-pkg/scheduler/apis/config"
 	//-------------------------------------------------------------------------------
 
 	apiserver "k8s.io/apiserver/pkg/server"

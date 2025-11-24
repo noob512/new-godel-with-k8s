@@ -30,8 +30,8 @@ import (
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/kubewharf/godel-scheduler/pkg/features"
-	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
+	"k8s.io/kubernetes/godel-pkg/features"
+	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
 )
 
 func makePriority(priority int32) *int32 {

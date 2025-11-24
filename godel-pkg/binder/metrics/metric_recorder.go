@@ -17,8 +17,8 @@ limitations under the License.
 package metrics
 
 import (
-	pkgmetrics "github.com/kubewharf/godel-scheduler/pkg/common/metrics"
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
+	pkgmetrics "k8s.io/kubernetes/godel-pkg/common/metrics"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
 )
 
 var _ pkgmetrics.MetricRecorder = &PendingUnitsRecorder{}

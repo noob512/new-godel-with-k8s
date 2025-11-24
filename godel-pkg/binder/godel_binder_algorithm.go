@@ -20,10 +20,10 @@ import (
 	"context"
 	"time"
 
-	"github.com/kubewharf/godel-scheduler/pkg/binder/framework/handle"
-	"github.com/kubewharf/godel-scheduler/pkg/binder/metrics"
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	"github.com/kubewharf/godel-scheduler/pkg/util/tracing"
+	"k8s.io/kubernetes/godel-pkg/binder/framework/handle"
+	"k8s.io/kubernetes/godel-pkg/binder/metrics"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	"k8s.io/kubernetes/godel-pkg/util/tracing"
 )
 
 // TODO: re-implement...

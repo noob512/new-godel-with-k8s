@@ -25,13 +25,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	defaultsconfig "github.com/kubewharf/godel-scheduler/pkg/apis/config"
-	commoncache "github.com/kubewharf/godel-scheduler/pkg/common/cache"
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/apis/config"
-	godelcache "github.com/kubewharf/godel-scheduler/pkg/scheduler/cache"
-	testing_helper "github.com/kubewharf/godel-scheduler/pkg/testing-helper"
-	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
+	defaultsconfig "k8s.io/kubernetes/godel-pkg/apis/config"
+	commoncache "k8s.io/kubernetes/godel-pkg/common/cache"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	"k8s.io/kubernetes/godel-pkg/scheduler/apis/config"
+	godelcache "k8s.io/kubernetes/godel-pkg/scheduler/cache"
+	testing_helper "k8s.io/kubernetes/godel-pkg/testing-helper"
+	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
 )
 
 func TestNewlyStartedProtectionChecker(t *testing.T) {

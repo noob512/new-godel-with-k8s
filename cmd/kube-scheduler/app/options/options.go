@@ -24,8 +24,8 @@ import (
 	"math"
 	//--------------------------------------------------
 	godelclient "github.com/kubewharf/godel-scheduler-api/pkg/client/clientset/versioned"
-	godelschedulerconfig "github.com/kubewharf/godel-scheduler/pkg/scheduler/apis/config"
-	"github.com/kubewharf/godel-scheduler/pkg/util/tracing"
+	godelschedulerconfig "k8s.io/kubernetes/godel-pkg/scheduler/apis/config"
+	"k8s.io/kubernetes/godel-pkg/util/tracing"
 
 	//-----
 	Godelcomponentbaseconfig "k8s.io/component-base/config/v1alpha1"

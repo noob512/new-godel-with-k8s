@@ -20,13 +20,13 @@ import (
 	katalystv1alpha1 "github.com/kubewharf/katalyst-api/pkg/apis/node/v1alpha1"
 	v1 "k8s.io/api/core/v1"
 
-	commoncache "github.com/kubewharf/godel-scheduler/pkg/common/cache"
-	commonstore "github.com/kubewharf/godel-scheduler/pkg/common/store"
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	"github.com/kubewharf/godel-scheduler/pkg/framework/utils"
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/cache/commonstores"
-	"github.com/kubewharf/godel-scheduler/pkg/util/generationstore"
-	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
+	commoncache "k8s.io/kubernetes/godel-pkg/common/cache"
+	commonstore "k8s.io/kubernetes/godel-pkg/common/store"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	"k8s.io/kubernetes/godel-pkg/framework/utils"
+	"k8s.io/kubernetes/godel-pkg/scheduler/cache/commonstores"
+	"k8s.io/kubernetes/godel-pkg/util/generationstore"
+	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
 )
 
 const Name commonstore.StoreName = "LoadAwareStore"

@@ -24,8 +24,8 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	testing_helper "github.com/kubewharf/godel-scheduler/pkg/testing-helper"
-	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
+	testing_helper "k8s.io/kubernetes/godel-pkg/testing-helper"
+	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
 )
 
 func TestGroupPodsAddPod(t *testing.T) {

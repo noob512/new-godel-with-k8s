@@ -19,9 +19,9 @@ package reservation
 import (
 	"fmt"
 
-	"github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	"github.com/kubewharf/godel-scheduler/pkg/util/generationstore"
+	"k8s.io/kubernetes/godel-pkg/framework/api"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	"k8s.io/kubernetes/godel-pkg/util/generationstore"
 
 	v1 "k8s.io/api/core/v1"
 )

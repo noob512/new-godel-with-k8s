@@ -28,12 +28,12 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	schedulingv1alpha1 "github.com/kubewharf/godel-scheduler-api/pkg/apis/scheduling/v1alpha1"
-	podstore "github.com/kubewharf/godel-scheduler/pkg/binder/cache/commonstores/pod_store"
-	commoncache "github.com/kubewharf/godel-scheduler/pkg/common/cache"
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	testing_helper "github.com/kubewharf/godel-scheduler/pkg/testing-helper"
-	"github.com/kubewharf/godel-scheduler/pkg/util"
-	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
+	podstore "k8s.io/kubernetes/godel-pkg/binder/cache/commonstores/pod_store"
+	commoncache "k8s.io/kubernetes/godel-pkg/common/cache"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	testing_helper "k8s.io/kubernetes/godel-pkg/testing-helper"
+	"k8s.io/kubernetes/godel-pkg/util"
+	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
 
 	"gotest.tools/assert"
 )

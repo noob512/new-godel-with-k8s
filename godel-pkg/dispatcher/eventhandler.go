@@ -27,12 +27,12 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
-	"github.com/kubewharf/godel-scheduler/pkg/dispatcher/internal/queue"
-	"github.com/kubewharf/godel-scheduler/pkg/dispatcher/metrics"
-	"github.com/kubewharf/godel-scheduler/pkg/features"
-	frwkutils "github.com/kubewharf/godel-scheduler/pkg/framework/utils"
-	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
-	"github.com/kubewharf/godel-scheduler/pkg/util/tracing"
+	"k8s.io/kubernetes/godel-pkg/dispatcher/internal/queue"
+	"k8s.io/kubernetes/godel-pkg/dispatcher/metrics"
+	"k8s.io/kubernetes/godel-pkg/features"
+	frwkutils "k8s.io/kubernetes/godel-pkg/framework/utils"
+	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
+	"k8s.io/kubernetes/godel-pkg/util/tracing"
 )
 
 func generateUnitKeyFromPod(pod *v1.Pod) string {

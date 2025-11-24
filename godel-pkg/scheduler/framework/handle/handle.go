@@ -26,9 +26,9 @@ import (
 	"k8s.io/client-go/tools/events"
 
 	crdinformers "github.com/kubewharf/godel-scheduler-api/pkg/client/informers/externalversions"
-	commonstore "github.com/kubewharf/godel-scheduler/pkg/common/store"
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	unitstatus "github.com/kubewharf/godel-scheduler/pkg/util/unitstatus"
+	commonstore "k8s.io/kubernetes/godel-pkg/common/store"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	unitstatus "k8s.io/kubernetes/godel-pkg/util/unitstatus"
 )
 
 // PodFrameworkHandle provides data and some tools that plugins can use in Scheduler. It is

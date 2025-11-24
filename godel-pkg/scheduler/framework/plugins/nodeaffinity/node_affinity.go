@@ -25,12 +25,12 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	pluginhelper "github.com/kubewharf/godel-scheduler/pkg/plugins/helper"
-	"github.com/kubewharf/godel-scheduler/pkg/plugins/podlauncher"
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/framework/handle"
-	"github.com/kubewharf/godel-scheduler/pkg/util/helper"
-	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	pluginhelper "k8s.io/kubernetes/godel-pkg/plugins/helper"
+	"k8s.io/kubernetes/godel-pkg/plugins/podlauncher"
+	"k8s.io/kubernetes/godel-pkg/scheduler/framework/handle"
+	"k8s.io/kubernetes/godel-pkg/util/helper"
+	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
 )
 
 const (

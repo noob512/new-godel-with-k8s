@@ -27,7 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	componentbaseconfig "k8s.io/component-base/config/v1alpha1"
 
-	"github.com/kubewharf/godel-scheduler/pkg/util/tracing"
+	"k8s.io/kubernetes/godel-pkg/util/tracing"
 
 	"sigs.k8s.io/yaml"
 )

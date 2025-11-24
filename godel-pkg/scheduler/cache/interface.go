@@ -20,10 +20,10 @@ import (
 	v1 "k8s.io/api/core/v1"
 
 	schedulingv1a1 "github.com/kubewharf/godel-scheduler-api/pkg/apis/scheduling/v1alpha1"
-	commoncache "github.com/kubewharf/godel-scheduler/pkg/common/cache"
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	"github.com/kubewharf/godel-scheduler/pkg/util/generationstore"
-	unitstatus "github.com/kubewharf/godel-scheduler/pkg/util/unitstatus"
+	commoncache "k8s.io/kubernetes/godel-pkg/common/cache"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	"k8s.io/kubernetes/godel-pkg/util/generationstore"
+	unitstatus "k8s.io/kubernetes/godel-pkg/util/unitstatus"
 )
 
 // SchedulerCache collects pods' information and provides node-level aggregated information.

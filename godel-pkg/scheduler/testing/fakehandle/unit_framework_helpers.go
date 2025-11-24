@@ -22,11 +22,11 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/events"
 
-	commonstore "github.com/kubewharf/godel-scheduler/pkg/common/store"
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/cache"
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/framework/handle"
-	unitstatus "github.com/kubewharf/godel-scheduler/pkg/util/unitstatus"
+	commonstore "k8s.io/kubernetes/godel-pkg/common/store"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	"k8s.io/kubernetes/godel-pkg/scheduler/cache"
+	"k8s.io/kubernetes/godel-pkg/scheduler/framework/handle"
+	unitstatus "k8s.io/kubernetes/godel-pkg/util/unitstatus"
 
 	corelister "k8s.io/client-go/listers/core/v1"
 )

@@ -22,8 +22,8 @@ import (
 	v1 "k8s.io/api/core/v1"
 	schedulingv1 "k8s.io/api/scheduling/v1"
 
-	testing_helper "github.com/kubewharf/godel-scheduler/pkg/testing-helper"
-	"github.com/kubewharf/godel-scheduler/pkg/util"
+	testing_helper "k8s.io/kubernetes/godel-pkg/testing-helper"
+	"k8s.io/kubernetes/godel-pkg/util"
 )
 
 func TestPodEligibleToPreemptOthers(t *testing.T) {

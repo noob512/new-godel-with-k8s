@@ -22,16 +22,16 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/klog/v2"
 
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	schedulerconfig "github.com/kubewharf/godel-scheduler/pkg/scheduler/apis/config"
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/framework/handle"
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/framework/unit_plugins/daemonset"
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/framework/unit_plugins/joblevelaffinity"
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/framework/unit_plugins/noop"
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/framework/unit_plugins/rescheduling"
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/framework/unit_plugins/reservation"
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/framework/unit_plugins/virtualkubelet"
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/util"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	schedulerconfig "k8s.io/kubernetes/godel-pkg/scheduler/apis/config"
+	"k8s.io/kubernetes/godel-pkg/scheduler/framework/handle"
+	"k8s.io/kubernetes/godel-pkg/scheduler/framework/unit_plugins/daemonset"
+	"k8s.io/kubernetes/godel-pkg/scheduler/framework/unit_plugins/joblevelaffinity"
+	"k8s.io/kubernetes/godel-pkg/scheduler/framework/unit_plugins/noop"
+	"k8s.io/kubernetes/godel-pkg/scheduler/framework/unit_plugins/rescheduling"
+	"k8s.io/kubernetes/godel-pkg/scheduler/framework/unit_plugins/reservation"
+	"k8s.io/kubernetes/godel-pkg/scheduler/framework/unit_plugins/virtualkubelet"
+	"k8s.io/kubernetes/godel-pkg/scheduler/util"
 )
 
 // UnitPluginFactory is a function that builds a plugin.

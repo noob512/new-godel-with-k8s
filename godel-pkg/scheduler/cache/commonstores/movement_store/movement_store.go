@@ -22,13 +22,13 @@ import (
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
 
 	schedulingv1a1 "github.com/kubewharf/godel-scheduler-api/pkg/apis/scheduling/v1alpha1"
-	commoncache "github.com/kubewharf/godel-scheduler/pkg/common/cache"
-	commonstore "github.com/kubewharf/godel-scheduler/pkg/common/store"
-	"github.com/kubewharf/godel-scheduler/pkg/features"
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	"github.com/kubewharf/godel-scheduler/pkg/framework/utils"
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/cache/commonstores"
-	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
+	commoncache "k8s.io/kubernetes/godel-pkg/common/cache"
+	commonstore "k8s.io/kubernetes/godel-pkg/common/store"
+	"k8s.io/kubernetes/godel-pkg/features"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	"k8s.io/kubernetes/godel-pkg/framework/utils"
+	"k8s.io/kubernetes/godel-pkg/scheduler/cache/commonstores"
+	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
 )
 
 const Name commonstore.StoreName = "MovementStore"

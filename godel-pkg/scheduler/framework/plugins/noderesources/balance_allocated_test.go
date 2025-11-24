@@ -28,12 +28,12 @@ import (
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	featuregatetesting "k8s.io/component-base/featuregate/testing"
 
-	commoncache "github.com/kubewharf/godel-scheduler/pkg/common/cache"
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	godelcache "github.com/kubewharf/godel-scheduler/pkg/scheduler/cache"
-	testutil "github.com/kubewharf/godel-scheduler/pkg/scheduler/testing"
-	"github.com/kubewharf/godel-scheduler/pkg/util/features"
-	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
+	commoncache "k8s.io/kubernetes/godel-pkg/common/cache"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	godelcache "k8s.io/kubernetes/godel-pkg/scheduler/cache"
+	testutil "k8s.io/kubernetes/godel-pkg/scheduler/testing"
+	"k8s.io/kubernetes/godel-pkg/util/features"
+	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
 )
 
 // getExistingVolumeCountForNode gets the current number of volumes on node.

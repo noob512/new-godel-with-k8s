@@ -19,9 +19,9 @@ package reservationstore
 import (
 	"strconv"
 
-	"github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	schedmetrics "github.com/kubewharf/godel-scheduler/pkg/scheduler/metrics"
-	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
+	"k8s.io/kubernetes/godel-pkg/framework/api"
+	schedmetrics "k8s.io/kubernetes/godel-pkg/scheduler/metrics"
+	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
 
 	v1 "k8s.io/api/core/v1"
 )

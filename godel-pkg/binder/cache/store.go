@@ -17,13 +17,13 @@ limitations under the License.
 package cache
 
 import (
-	deletedmarkerstore "github.com/kubewharf/godel-scheduler/pkg/binder/cache/commonstores/deleted_marker_store"
-	nodestore "github.com/kubewharf/godel-scheduler/pkg/binder/cache/commonstores/node_store"
-	pdbstore "github.com/kubewharf/godel-scheduler/pkg/binder/cache/commonstores/pdb_store"
-	podstore "github.com/kubewharf/godel-scheduler/pkg/binder/cache/commonstores/pod_store"
-	reservationstore "github.com/kubewharf/godel-scheduler/pkg/binder/cache/commonstores/reservation_store"
-	unitstatusstore "github.com/kubewharf/godel-scheduler/pkg/binder/cache/commonstores/unit_status_store"
-	commonstore "github.com/kubewharf/godel-scheduler/pkg/common/store"
+	deletedmarkerstore "k8s.io/kubernetes/godel-pkg/binder/cache/commonstores/deleted_marker_store"
+	nodestore "k8s.io/kubernetes/godel-pkg/binder/cache/commonstores/node_store"
+	pdbstore "k8s.io/kubernetes/godel-pkg/binder/cache/commonstores/pdb_store"
+	podstore "k8s.io/kubernetes/godel-pkg/binder/cache/commonstores/pod_store"
+	reservationstore "k8s.io/kubernetes/godel-pkg/binder/cache/commonstores/reservation_store"
+	unitstatusstore "k8s.io/kubernetes/godel-pkg/binder/cache/commonstores/unit_status_store"
+	commonstore "k8s.io/kubernetes/godel-pkg/common/store"
 )
 
 // ATTENTION: The stores should be called in a certain order.

@@ -23,12 +23,12 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/klog/v2"
 
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	frameworkutils "github.com/kubewharf/godel-scheduler/pkg/framework/utils"
-	preemptionstore "github.com/kubewharf/godel-scheduler/pkg/scheduler/cache/commonstores/preemption_store"
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/framework/handle"
-	"github.com/kubewharf/godel-scheduler/pkg/util"
-	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	frameworkutils "k8s.io/kubernetes/godel-pkg/framework/utils"
+	preemptionstore "k8s.io/kubernetes/godel-pkg/scheduler/cache/commonstores/preemption_store"
+	"k8s.io/kubernetes/godel-pkg/scheduler/framework/handle"
+	"k8s.io/kubernetes/godel-pkg/util"
+	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
 )
 
 // Before performing the real preemption calculation, we perform heuristic check to end the preemption

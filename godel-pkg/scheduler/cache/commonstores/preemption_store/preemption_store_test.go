@@ -24,11 +24,11 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	commoncache "github.com/kubewharf/godel-scheduler/pkg/common/cache"
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	testing_helper "github.com/kubewharf/godel-scheduler/pkg/testing-helper"
-	"github.com/kubewharf/godel-scheduler/pkg/util/generationstore"
-	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
+	commoncache "k8s.io/kubernetes/godel-pkg/common/cache"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	testing_helper "k8s.io/kubernetes/godel-pkg/testing-helper"
+	"k8s.io/kubernetes/godel-pkg/util/generationstore"
+	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
 )
 
 func makeGenerationPreemptionDetailForNode(data map[string]sets.String) *PreemptionDetailForNode {

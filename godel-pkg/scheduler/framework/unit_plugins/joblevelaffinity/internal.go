@@ -25,9 +25,9 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	"github.com/kubewharf/godel-scheduler/pkg/util/parallelize"
-	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	"k8s.io/kubernetes/godel-pkg/util/parallelize"
+	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
 )
 
 // ------------------------------------------------------------------------------------------

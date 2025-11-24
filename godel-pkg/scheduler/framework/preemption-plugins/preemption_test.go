@@ -35,13 +35,13 @@ import (
 	appv1listers "k8s.io/client-go/listers/apps/v1"
 	schedulingv1beta1listers "k8s.io/client-go/listers/scheduling/v1beta1"
 
-	commoncache "github.com/kubewharf/godel-scheduler/pkg/common/cache"
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	godelcache "github.com/kubewharf/godel-scheduler/pkg/scheduler/cache"
-	st "github.com/kubewharf/godel-scheduler/pkg/scheduler/testing"
-	testinghelper "github.com/kubewharf/godel-scheduler/pkg/testing-helper"
-	"github.com/kubewharf/godel-scheduler/pkg/util"
-	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
+	commoncache "k8s.io/kubernetes/godel-pkg/common/cache"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	godelcache "k8s.io/kubernetes/godel-pkg/scheduler/cache"
+	st "k8s.io/kubernetes/godel-pkg/scheduler/testing"
+	testinghelper "k8s.io/kubernetes/godel-pkg/testing-helper"
+	"k8s.io/kubernetes/godel-pkg/util"
+	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
 	"github.com/kubewharf/godel-scheduler/test/utils"
 )
 

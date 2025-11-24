@@ -19,9 +19,9 @@ package cache
 import (
 	"fmt"
 
-	commonstore "github.com/kubewharf/godel-scheduler/pkg/common/store"
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
+	commonstore "k8s.io/kubernetes/godel-pkg/common/store"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
 
 	v1 "k8s.io/api/core/v1"
 )

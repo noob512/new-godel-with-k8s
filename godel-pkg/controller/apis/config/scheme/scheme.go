@@ -22,8 +22,8 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	componentbaseconfigv1alpha1 "k8s.io/component-base/config/v1alpha1"
 
-	controllermanagerconfig "github.com/kubewharf/godel-scheduler/pkg/controller/apis/config"
-	controllermanagerconfigv1a1 "github.com/kubewharf/godel-scheduler/pkg/controller/apis/config/v1alpha1"
+	controllermanagerconfig "k8s.io/kubernetes/godel-pkg/controller/apis/config"
+	controllermanagerconfigv1a1 "k8s.io/kubernetes/godel-pkg/controller/apis/config/v1alpha1"
 )
 
 var (

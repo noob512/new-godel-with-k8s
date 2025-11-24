@@ -21,8 +21,8 @@ import (
 
 	"github.com/spf13/pflag"
 
-	"github.com/kubewharf/godel-scheduler/pkg/controller/apis/config"
-	leadermigrationconfig "github.com/kubewharf/godel-scheduler/pkg/controller/leadermigration/config"
+	"k8s.io/kubernetes/godel-pkg/controller/apis/config"
+	leadermigrationconfig "k8s.io/kubernetes/godel-pkg/controller/leadermigration/config"
 )
 
 // LeaderMigrationOptions is the set of options for Leader Migration,

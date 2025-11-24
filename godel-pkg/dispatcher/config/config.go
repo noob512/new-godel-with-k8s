@@ -19,7 +19,7 @@ package config
 import (
 	componentbaseconfig "k8s.io/component-base/config/v1alpha1"
 
-	"github.com/kubewharf/godel-scheduler/pkg/util/tracing"
+	"k8s.io/kubernetes/godel-pkg/util/tracing"
 )
 
 // GodelDispatcherConfiguration configures a godel dispatcher.

@@ -35,9 +35,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
 
-	godelfeatures "github.com/kubewharf/godel-scheduler/pkg/features"
-	"github.com/kubewharf/godel-scheduler/pkg/util"
-	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
+	godelfeatures "k8s.io/kubernetes/godel-pkg/features"
+	"k8s.io/kubernetes/godel-pkg/util"
+	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
 )
 
 func fakeNodeInfo(pods ...*v1.Pod) NodeInfo {

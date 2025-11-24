@@ -30,9 +30,9 @@ import (
 	storagelisters "k8s.io/client-go/listers/storage/v1"
 	"k8s.io/client-go/tools/reference"
 
-	"github.com/kubewharf/godel-scheduler/pkg/util/features"
-	"github.com/kubewharf/godel-scheduler/pkg/util/helper"
-	volumeutil "github.com/kubewharf/godel-scheduler/pkg/util/volume/util"
+	"k8s.io/kubernetes/godel-pkg/util/features"
+	"k8s.io/kubernetes/godel-pkg/util/helper"
+	volumeutil "k8s.io/kubernetes/godel-pkg/util/volume/util"
 )
 
 const (

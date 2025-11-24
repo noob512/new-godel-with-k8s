@@ -31,9 +31,9 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	godelclientfake "github.com/kubewharf/godel-scheduler-api/pkg/client/clientset/versioned/fake"
-	"github.com/kubewharf/godel-scheduler/pkg/binder/cache"
-	pt "github.com/kubewharf/godel-scheduler/pkg/binder/testing"
-	commoncache "github.com/kubewharf/godel-scheduler/pkg/common/cache"
+	"k8s.io/kubernetes/godel-pkg/binder/cache"
+	pt "k8s.io/kubernetes/godel-pkg/binder/testing"
+	commoncache "k8s.io/kubernetes/godel-pkg/common/cache"
 )
 
 func TestDefaultBinder(t *testing.T) {

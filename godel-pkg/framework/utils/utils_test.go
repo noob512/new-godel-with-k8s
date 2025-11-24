@@ -24,8 +24,8 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
 )
 
 func newPriorityPodWithStartTime(name string, priority int32, startTime time.Time) *v1.Pod {

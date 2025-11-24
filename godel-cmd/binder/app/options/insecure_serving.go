@@ -24,8 +24,8 @@ import (
 	"github.com/spf13/pflag"
 	apiserveroptions "k8s.io/apiserver/pkg/server/options"
 
-	binderappconfig "github.com/kubewharf/godel-scheduler/cmd/binder/app/config"
-	godelbinderconfig "github.com/kubewharf/godel-scheduler/pkg/binder/apis/config"
+	godelbinderconfig "k8s.io/kubernetes/godel-pkg/binder/apis/config"
+	binderappconfig "k8s.io/kubernetes/godel-cmd/binder/app/config"
 )
 
 // CombinedInsecureServingOptions sets up to two insecure listeners for healthz and metrics. The flags

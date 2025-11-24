@@ -20,7 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"github.com/kubewharf/godel-scheduler/pkg/binder/apis/config"
+	"k8s.io/kubernetes/godel-pkg/binder/apis/config"
 )
 
 // GroupName is the group name used in this package

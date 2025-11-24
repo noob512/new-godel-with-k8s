@@ -23,8 +23,8 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	corelister "k8s.io/client-go/listers/core/v1"
 
-	podAnnotations "github.com/kubewharf/godel-scheduler/pkg/util/pod"
-	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
+	podAnnotations "k8s.io/kubernetes/godel-pkg/util/pod"
+	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
 )
 
 // getPodGroupNameFromAnnotation get pod group name from pod group annotation key

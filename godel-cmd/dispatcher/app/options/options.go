@@ -42,10 +42,10 @@ import (
 	componentbaseconfig "k8s.io/component-base/config/v1alpha1"
 	"k8s.io/klog/v2"
 
-	dispatcherappconfig "github.com/kubewharf/godel-scheduler/cmd/dispatcher/app/config"
-	dispatcherconfig "github.com/kubewharf/godel-scheduler/pkg/dispatcher/config"
-	"github.com/kubewharf/godel-scheduler/pkg/dispatcher/config/validation"
-	cmdutil "github.com/kubewharf/godel-scheduler/pkg/util/cmd"
+	dispatcherconfig "k8s.io/kubernetes/godel-pkg/dispatcher/config"
+	"k8s.io/kubernetes/godel-pkg/dispatcher/config/validation"
+	cmdutil "k8s.io/kubernetes/godel-pkg/util/cmd"
+	dispatcherappconfig "k8s.io/kubernetes/godel-cmd/dispatcher/app/config"
 )
 
 const DefaultLeaderElectionName = "dispatcher"
@@ -90,7 +90,7 @@ func NewOptions() (*Options, error) {
 		},
 		DispatcherConfig: *cfg,
 	}
-	
+
 	return o, nil
 }
 
@@ -162,7 +162,7 @@ func (o *Options) Config() (*dispatcherappconfig.Config, error) {
 	}
 
 	// 创建 Kubernetes 客户端集合：核心客户端、领导者选举客户端、事件客户端、Godel CRD 客户端
-	client,eventClient, godelCrdClient, err := createClients(c.DispatcherConfig.ClientConnection, o.Master, c.DispatcherConfig.LeaderElection.RenewDeadline.Duration)
+	client, eventClient, godelCrdClient, err := createClients(c.DispatcherConfig.ClientConnection, o.Master, c.DispatcherConfig.LeaderElection.RenewDeadline.Duration)
 	if err != nil {
 		return nil, err
 	}
@@ -236,18 +236,18 @@ func createClients(config componentbaseconfig.ClientConnectionConfiguration, mas
 	// 创建基础的 kubeconfig 配置
 	// 首先加载指定的 kubeconfig 文件，然后覆盖 Master 地址（如果提供了 masterOverride）
 	kubeConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
-		&clientcmd.ClientConfigLoadingRules{ExplicitPath: config.Kubeconfig}, // 指定 kubeconfig 文件路径
+		&clientcmd.ClientConfigLoadingRules{ExplicitPath: config.Kubeconfig},                                 // 指定 kubeconfig 文件路径
 		&clientcmd.ConfigOverrides{ClusterInfo: clientcmdapi.Cluster{Server: masterOverride}}).ClientConfig() // 覆盖集群服务器地址
 	if err != nil {
-		return nil, nil, nil,  err
+		return nil, nil, nil, err
 	}
 
 	// 应用客户端连接配置参数到 kubeConfig
-	kubeConfig.DisableCompression = true // 禁用压缩以提高性能
+	kubeConfig.DisableCompression = true                      // 禁用压缩以提高性能
 	kubeConfig.AcceptContentTypes = config.AcceptContentTypes // 设置接受的内容类型
-	kubeConfig.ContentType = config.ContentType // 设置内容类型
-	kubeConfig.QPS = config.QPS // 设置每秒查询率
-	kubeConfig.Burst = int(config.Burst) // 设置突发请求数
+	kubeConfig.ContentType = config.ContentType               // 设置内容类型
+	kubeConfig.QPS = config.QPS                               // 设置每秒查询率
+	kubeConfig.Burst = int(config.Burst)                      // 设置突发请求数
 
 	// 创建核心 API 客户端，用于与标准 Kubernetes API 交互，添加 "dispatcher" 用户代理
 	client, err := clientset.NewForConfig(restclient.AddUserAgent(kubeConfig, "dispatcher"))
@@ -255,15 +255,13 @@ func createClients(config componentbaseconfig.ClientConnectionConfiguration, mas
 		return nil, nil, nil, err
 	}
 
-	
-
 	// 将 Godel 客户端 Scheme 添加到标准客户端 Scheme 中，确保能够处理 Godel 自定义资源
 	utilruntime.Must(godelclientscheme.AddToScheme(clientsetscheme.Scheme))
-	
+
 	// 创建事件客户端，用于发送和管理 Kubernetes 事件
 	eventClient, err := clientset.NewForConfig(kubeConfig)
 	if err != nil {
-		return nil, nil, nil,err
+		return nil, nil, nil, err
 	}
 
 	// 为 Godel CRD 客户端创建新的 kubeconfig 配置
@@ -272,21 +270,21 @@ func createClients(config componentbaseconfig.ClientConnectionConfiguration, mas
 		&clientcmd.ClientConfigLoadingRules{ExplicitPath: config.Kubeconfig},
 		&clientcmd.ConfigOverrides{ClusterInfo: clientcmdapi.Cluster{Server: masterOverride}}).ClientConfig()
 	if err != nil {
-		return nil, nil, nil,err
+		return nil, nil, nil, err
 	}
 
 	// 应用基本的连接配置到 CRD 客户端配置
 	crdKubeConfig.DisableCompression = true // 禁用压缩
-	crdKubeConfig.QPS = config.QPS // 设置 QPS
+	crdKubeConfig.QPS = config.QPS          // 设置 QPS
 	// TODO: 考虑让配置结构体使用 int 而不是 int32？
 	crdKubeConfig.Burst = int(config.Burst) // 设置突发请求数
 
 	// 创建 Godel CRD 客户端，用于与 Godel 自定义资源定义进行交互，添加 "dispatcher" 用户代理
 	godelCrdClient, err := godelclient.NewForConfig(restclient.AddUserAgent(crdKubeConfig, "dispatcher"))
 	if err != nil {
-		return nil, nil, nil,err
+		return nil, nil, nil, err
 	}
 
 	// 返回所有创建的客户端
-	return client,eventClient, godelCrdClient, nil
+	return client, eventClient, godelCrdClient, nil
 }

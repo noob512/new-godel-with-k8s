@@ -26,12 +26,12 @@ import (
 	godelclient "github.com/kubewharf/godel-scheduler-api/pkg/client/clientset/versioned"
 	crdinformers "github.com/kubewharf/godel-scheduler-api/pkg/client/informers/externalversions"
 	"k8s.io/apimachinery/pkg/util/clock"
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/apis/config"
-	commoncache "github.com/kubewharf/godel-scheduler/pkg/common/cache"
-	godelcache "github.com/kubewharf/godel-scheduler/pkg/scheduler/cache"
+	"k8s.io/kubernetes/godel-pkg/scheduler/apis/config"
+	commoncache "k8s.io/kubernetes/godel-pkg/common/cache"
+	godelcache "k8s.io/kubernetes/godel-pkg/scheduler/cache"
 	"k8s.io/client-go/tools/events"
-	godelutil "github.com/kubewharf/godel-scheduler/pkg/util"
-	godelframework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
+	godelutil "k8s.io/kubernetes/godel-pkg/util"
+	godelframework "k8s.io/kubernetes/godel-pkg/framework/api"
 	"github.com/kubewharf/godel-scheduler-api/pkg/apis/scheduling/v1alpha1"
 	//-------------------------------------------------------------------------------------
 

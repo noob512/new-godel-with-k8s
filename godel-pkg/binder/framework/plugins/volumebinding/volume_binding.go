@@ -22,10 +22,10 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	"github.com/kubewharf/godel-scheduler/pkg/binder/framework/handle"
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
-	"github.com/kubewharf/godel-scheduler/pkg/volume/scheduling"
+	"k8s.io/kubernetes/godel-pkg/binder/framework/handle"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
+	"k8s.io/kubernetes/godel-pkg/volume/scheduling"
 )
 
 // VolumeBinding is a plugin that binds pod volumes in scheduling.

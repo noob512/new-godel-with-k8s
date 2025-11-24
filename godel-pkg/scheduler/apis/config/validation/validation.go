@@ -21,8 +21,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/apis/config"
-	godelvalidation "github.com/kubewharf/godel-scheduler/pkg/util/validation"
+	"k8s.io/kubernetes/godel-pkg/scheduler/apis/config"
+	godelvalidation "k8s.io/kubernetes/godel-pkg/util/validation"
 )
 
 func ValidateGodelSchedulerConfiguration(cc *config.GodelSchedulerConfiguration) field.ErrorList {

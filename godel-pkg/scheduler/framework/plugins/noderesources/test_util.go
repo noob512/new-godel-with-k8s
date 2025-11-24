@@ -21,7 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
 )
 
 func MakeNode(node string, milliCPU, memory int64) *v1.Node {

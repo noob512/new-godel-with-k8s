@@ -22,8 +22,8 @@ import (
 
 	corelisters "k8s.io/client-go/listers/core/v1"
 
-	godelcache "github.com/kubewharf/godel-scheduler/pkg/binder/cache"
-	godelqueue "github.com/kubewharf/godel-scheduler/pkg/binder/queue"
+	godelcache "k8s.io/kubernetes/godel-pkg/binder/cache"
+	godelqueue "k8s.io/kubernetes/godel-pkg/binder/queue"
 )
 
 // CacheDebugger provides ways to check and write cache information for debugging.

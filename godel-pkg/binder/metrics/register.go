@@ -23,7 +23,7 @@ import (
 	"k8s.io/component-base/metrics/legacyregistry"
 	"k8s.io/klog/v2"
 
-	"github.com/kubewharf/godel-scheduler/pkg/version"
+	"k8s.io/kubernetes/godel-pkg/version"
 )
 
 var metricsList = []metrics.Registerable{

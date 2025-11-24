@@ -27,12 +27,12 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	utils "github.com/kubewharf/godel-scheduler/pkg/plugins/noderesources"
-	"github.com/kubewharf/godel-scheduler/pkg/plugins/podlauncher"
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/apis/config"
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/framework/handle"
-	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	utils "k8s.io/kubernetes/godel-pkg/plugins/noderesources"
+	"k8s.io/kubernetes/godel-pkg/plugins/podlauncher"
+	"k8s.io/kubernetes/godel-pkg/scheduler/apis/config"
+	"k8s.io/kubernetes/godel-pkg/scheduler/framework/handle"
+	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
 )
 
 var (

@@ -21,8 +21,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 
-	godelbinderconfig "github.com/kubewharf/godel-scheduler/pkg/binder/apis/config"
-	godelbinderconfigv1beta1 "github.com/kubewharf/godel-scheduler/pkg/binder/apis/config/v1beta1"
+	godelbinderconfig "k8s.io/kubernetes/godel-pkg/binder/apis/config"
+	godelbinderconfigv1beta1 "k8s.io/kubernetes/godel-pkg/binder/apis/config/v1beta1"
 )
 
 var (

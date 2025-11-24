@@ -27,9 +27,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
 
-	"github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	"github.com/kubewharf/godel-scheduler/pkg/util"
-	unitutil "github.com/kubewharf/godel-scheduler/pkg/util/unit"
+	"k8s.io/kubernetes/godel-pkg/framework/api"
+	"k8s.io/kubernetes/godel-pkg/util"
+	unitutil "k8s.io/kubernetes/godel-pkg/util/unit"
 )
 
 const MaxRetryAttempts = 3 // TODO: 5 will cause a timeout in UT (30s)

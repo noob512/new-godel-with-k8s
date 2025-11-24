@@ -19,7 +19,7 @@ package controller
 import (
 	"net/http"
 
-	"github.com/kubewharf/godel-scheduler/pkg/controller/healthz"
+	"k8s.io/kubernetes/godel-pkg/controller/healthz"
 )
 
 // Interface defines the base of a controller managed by a controller manager

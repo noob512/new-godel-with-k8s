@@ -25,8 +25,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	componentbaseconfig "k8s.io/component-base/config/v1alpha1"
 
-	reservationconfig "github.com/kubewharf/godel-scheduler/pkg/controller/reservation/config"
-	"github.com/kubewharf/godel-scheduler/pkg/util/tracing"
+	reservationconfig "k8s.io/kubernetes/godel-pkg/controller/reservation/config"
+	"k8s.io/kubernetes/godel-pkg/util/tracing"
 )
 
 const (

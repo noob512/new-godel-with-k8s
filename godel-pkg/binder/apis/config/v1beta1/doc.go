@@ -15,8 +15,8 @@ limitations under the License.
 */
 
 // +k8s:deepcopy-gen=package
-// +k8s:conversion-gen=github.com/kubewharf/godel-scheduler/pkg/binder/apis/config
-// +k8s:conversion-gen-external-types=github.com/kubewharf/godel-scheduler/pkg/binder/apis/config/v1beta1
+// +k8s:conversion-gen=k8s.io/kubernetes/godel-pkg/binder/apis/config
+// +k8s:conversion-gen-external-types=k8s.io/kubernetes/godel-pkg/binder/apis/config/v1beta1
 // +k8s:defaulter-gen=TypeMeta
 // +groupName=godelbinder.config.kubewharf.io
 

@@ -27,14 +27,14 @@ import (
 	schedulingv1 "k8s.io/client-go/listers/scheduling/v1"
 	"k8s.io/klog/v2"
 
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	"github.com/kubewharf/godel-scheduler/pkg/framework/utils"
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/cache"
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/metrics"
-	godelutil "github.com/kubewharf/godel-scheduler/pkg/util"
-	"github.com/kubewharf/godel-scheduler/pkg/util/heap"
-	metricsutil "github.com/kubewharf/godel-scheduler/pkg/util/metrics"
-	unitstatus "github.com/kubewharf/godel-scheduler/pkg/util/unitstatus"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	"k8s.io/kubernetes/godel-pkg/framework/utils"
+	"k8s.io/kubernetes/godel-pkg/scheduler/cache"
+	"k8s.io/kubernetes/godel-pkg/scheduler/metrics"
+	godelutil "k8s.io/kubernetes/godel-pkg/util"
+	"k8s.io/kubernetes/godel-pkg/util/heap"
+	metricsutil "k8s.io/kubernetes/godel-pkg/util/metrics"
+	unitstatus "k8s.io/kubernetes/godel-pkg/util/unitstatus"
 )
 
 // BlockQueue implements a scheduling queue.

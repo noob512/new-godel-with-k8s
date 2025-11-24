@@ -21,9 +21,9 @@ import (
 	schedulerapi "github.com/kubewharf/godel-scheduler-api/pkg/apis/scheduling/v1alpha1"
 	v1 "k8s.io/api/core/v1"
 
-	sche "github.com/kubewharf/godel-scheduler/pkg/dispatcher/internal/scheduler"
-	"github.com/kubewharf/godel-scheduler/pkg/dispatcher/metrics"
-	nodeutil "github.com/kubewharf/godel-scheduler/pkg/util/node"
+	sche "k8s.io/kubernetes/godel-pkg/dispatcher/internal/scheduler"
+	"k8s.io/kubernetes/godel-pkg/dispatcher/metrics"
+	nodeutil "k8s.io/kubernetes/godel-pkg/util/node"
 )
 
 // AddScheduler adds schedulers to maintainer cache

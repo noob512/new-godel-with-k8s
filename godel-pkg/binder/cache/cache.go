@@ -24,17 +24,17 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 
-	"github.com/kubewharf/godel-scheduler/pkg/binder/cache/commonstores"
-	deletedmarkerstore "github.com/kubewharf/godel-scheduler/pkg/binder/cache/commonstores/deleted_marker_store"
-	nodestore "github.com/kubewharf/godel-scheduler/pkg/binder/cache/commonstores/node_store"
-	podstore "github.com/kubewharf/godel-scheduler/pkg/binder/cache/commonstores/pod_store"
-	reservationstore "github.com/kubewharf/godel-scheduler/pkg/binder/cache/commonstores/reservation_store"
-	unitstatusstore "github.com/kubewharf/godel-scheduler/pkg/binder/cache/commonstores/unit_status_store"
-	"github.com/kubewharf/godel-scheduler/pkg/binder/metrics"
-	commoncache "github.com/kubewharf/godel-scheduler/pkg/common/cache"
-	commonstore "github.com/kubewharf/godel-scheduler/pkg/common/store"
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	unitstatus "github.com/kubewharf/godel-scheduler/pkg/util/unitstatus"
+	"k8s.io/kubernetes/godel-pkg/binder/cache/commonstores"
+	deletedmarkerstore "k8s.io/kubernetes/godel-pkg/binder/cache/commonstores/deleted_marker_store"
+	nodestore "k8s.io/kubernetes/godel-pkg/binder/cache/commonstores/node_store"
+	podstore "k8s.io/kubernetes/godel-pkg/binder/cache/commonstores/pod_store"
+	reservationstore "k8s.io/kubernetes/godel-pkg/binder/cache/commonstores/reservation_store"
+	unitstatusstore "k8s.io/kubernetes/godel-pkg/binder/cache/commonstores/unit_status_store"
+	"k8s.io/kubernetes/godel-pkg/binder/metrics"
+	commoncache "k8s.io/kubernetes/godel-pkg/common/cache"
+	commonstore "k8s.io/kubernetes/godel-pkg/common/store"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	unitstatus "k8s.io/kubernetes/godel-pkg/util/unitstatus"
 )
 
 // New returns a BinderCache implementation.

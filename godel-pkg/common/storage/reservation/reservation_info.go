@@ -20,8 +20,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/kubewharf/godel-scheduler/pkg/framework/utils"
-	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
+	"k8s.io/kubernetes/godel-pkg/framework/utils"
+	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
 
 	v1 "k8s.io/api/core/v1"
 )

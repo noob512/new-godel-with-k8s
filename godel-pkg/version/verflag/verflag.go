@@ -25,7 +25,7 @@ import (
 
 	"github.com/spf13/pflag"
 
-	"github.com/kubewharf/godel-scheduler/pkg/version"
+	"k8s.io/kubernetes/godel-pkg/version"
 )
 
 type versionValue int

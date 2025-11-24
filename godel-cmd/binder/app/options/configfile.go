@@ -20,9 +20,9 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	godelbinderconfig "github.com/kubewharf/godel-scheduler/pkg/binder/apis/config"
-	godelbinderscheme "github.com/kubewharf/godel-scheduler/pkg/binder/apis/config/scheme"
-	"github.com/kubewharf/godel-scheduler/pkg/binder/apis/config/v1beta1"
+	godelbinderconfig "k8s.io/kubernetes/godel-pkg/binder/apis/config"
+	godelbinderscheme "k8s.io/kubernetes/godel-pkg/binder/apis/config/scheme"
+	"k8s.io/kubernetes/godel-pkg/binder/apis/config/v1beta1"
 )
 
 func loadProfileFromFile(file string) (*godelbinderconfig.GodelBinderProfile, error) {

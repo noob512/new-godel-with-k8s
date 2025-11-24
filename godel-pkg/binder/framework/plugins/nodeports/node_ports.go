@@ -22,9 +22,9 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	"github.com/kubewharf/godel-scheduler/pkg/binder/framework/handle"
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	utils "github.com/kubewharf/godel-scheduler/pkg/plugins/nodeports"
+	"k8s.io/kubernetes/godel-pkg/binder/framework/handle"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	utils "k8s.io/kubernetes/godel-pkg/plugins/nodeports"
 )
 
 // NodePorts is a plugin that checks if a node has free ports for the requested pod ports.

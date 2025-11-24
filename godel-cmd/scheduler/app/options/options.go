@@ -46,13 +46,13 @@ import (
 	componentbaseconfig "k8s.io/component-base/config/v1alpha1"
 	"k8s.io/klog/v2"
 
-	schedulerappconfig "github.com/kubewharf/godel-scheduler/cmd/scheduler/app/config"
-	"github.com/kubewharf/godel-scheduler/cmd/scheduler/app/util/ports"
-	defaultsconfig "github.com/kubewharf/godel-scheduler/pkg/apis/config"
-	godelschedulerconfig "github.com/kubewharf/godel-scheduler/pkg/scheduler/apis/config"
-	godelschedulerscheme "github.com/kubewharf/godel-scheduler/pkg/scheduler/apis/config/scheme"
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/apis/config/validation"
-	cmdutil "github.com/kubewharf/godel-scheduler/pkg/util/cmd"
+	defaultsconfig "k8s.io/kubernetes/godel-pkg/apis/config"
+	godelschedulerconfig "k8s.io/kubernetes/godel-pkg/scheduler/apis/config"
+	godelschedulerscheme "k8s.io/kubernetes/godel-pkg/scheduler/apis/config/scheme"
+	"k8s.io/kubernetes/godel-pkg/scheduler/apis/config/validation"
+	cmdutil "k8s.io/kubernetes/godel-pkg/util/cmd"
+	schedulerappconfig "k8s.io/kubernetes/godel-cmd/scheduler/app/config"
+	"k8s.io/kubernetes/godel-cmd/scheduler/app/util/ports"
 )
 
 var DefaultLeaderElectionConfig = "scheduler"
@@ -455,7 +455,6 @@ func (o *Options) Config() (*schedulerappconfig.Config, error) {
 
 	// 如果启用了 Leader 选举（多副本部署时确保只有一个调度器实例处于活跃状态），
 	// 则构建 LeaderElectionConfig。
-
 
 	// 填充配置中的客户端和 Informer 工厂：
 	c.Client = client

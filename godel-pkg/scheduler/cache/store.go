@@ -17,16 +17,16 @@ limitations under the License.
 package cache
 
 import (
-	commonstore "github.com/kubewharf/godel-scheduler/pkg/common/store"
-	loadawarestore "github.com/kubewharf/godel-scheduler/pkg/scheduler/cache/commonstores/load_aware_store"
-	movementstore "github.com/kubewharf/godel-scheduler/pkg/scheduler/cache/commonstores/movement_store"
-	nodestore "github.com/kubewharf/godel-scheduler/pkg/scheduler/cache/commonstores/node_store"
-	pdbstore "github.com/kubewharf/godel-scheduler/pkg/scheduler/cache/commonstores/pdb_store"
-	podstore "github.com/kubewharf/godel-scheduler/pkg/scheduler/cache/commonstores/pod_store"
-	podgroupstore "github.com/kubewharf/godel-scheduler/pkg/scheduler/cache/commonstores/podgroup_store"
-	preemptionstore "github.com/kubewharf/godel-scheduler/pkg/scheduler/cache/commonstores/preemption_store"
-	reservationstore "github.com/kubewharf/godel-scheduler/pkg/scheduler/cache/commonstores/reservation_store"
-	unitstatusstore "github.com/kubewharf/godel-scheduler/pkg/scheduler/cache/commonstores/unit_status_store"
+	commonstore "k8s.io/kubernetes/godel-pkg/common/store"
+	loadawarestore "k8s.io/kubernetes/godel-pkg/scheduler/cache/commonstores/load_aware_store"
+	movementstore "k8s.io/kubernetes/godel-pkg/scheduler/cache/commonstores/movement_store"
+	nodestore "k8s.io/kubernetes/godel-pkg/scheduler/cache/commonstores/node_store"
+	pdbstore "k8s.io/kubernetes/godel-pkg/scheduler/cache/commonstores/pdb_store"
+	podstore "k8s.io/kubernetes/godel-pkg/scheduler/cache/commonstores/pod_store"
+	podgroupstore "k8s.io/kubernetes/godel-pkg/scheduler/cache/commonstores/podgroup_store"
+	preemptionstore "k8s.io/kubernetes/godel-pkg/scheduler/cache/commonstores/preemption_store"
+	reservationstore "k8s.io/kubernetes/godel-pkg/scheduler/cache/commonstores/reservation_store"
+	unitstatusstore "k8s.io/kubernetes/godel-pkg/scheduler/cache/commonstores/unit_status_store"
 )
 
 // ATTENTION: The stores should be called in a certain order.

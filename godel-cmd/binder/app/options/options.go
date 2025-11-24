@@ -44,11 +44,11 @@ import (
 	componentbaseconfig "k8s.io/component-base/config/v1alpha1"
 	"k8s.io/klog/v2"
 
-	binderappconfig "github.com/kubewharf/godel-scheduler/cmd/binder/app/config"
-	defaultconfig "github.com/kubewharf/godel-scheduler/pkg/apis/config"
-	binderconfig "github.com/kubewharf/godel-scheduler/pkg/binder/apis/config"
-	"github.com/kubewharf/godel-scheduler/pkg/binder/apis/config/validation"
-	cmdutil "github.com/kubewharf/godel-scheduler/pkg/util/cmd"
+	defaultconfig "k8s.io/kubernetes/godel-pkg/apis/config"
+	binderconfig "k8s.io/kubernetes/godel-pkg/binder/apis/config"
+	"k8s.io/kubernetes/godel-pkg/binder/apis/config/validation"
+	cmdutil "k8s.io/kubernetes/godel-pkg/util/cmd"
+	binderappconfig "k8s.io/kubernetes/godel-cmd/binder/app/config"
 )
 
 const DefaultLeaderElectionName = "binder"

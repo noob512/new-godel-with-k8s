@@ -22,9 +22,9 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	"github.com/kubewharf/godel-scheduler/pkg/binder/framework/handle"
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	"github.com/kubewharf/godel-scheduler/pkg/plugins/nodevolumelimits"
+	"k8s.io/kubernetes/godel-pkg/binder/framework/handle"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	"k8s.io/kubernetes/godel-pkg/plugins/nodevolumelimits"
 )
 
 // CSILimits is a plugin that checks node volume limits.

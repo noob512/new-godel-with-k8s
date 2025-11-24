@@ -19,10 +19,10 @@ package cache
 import (
 	v1 "k8s.io/api/core/v1"
 
-	commoncache "github.com/kubewharf/godel-scheduler/pkg/common/cache"
-	commonstore "github.com/kubewharf/godel-scheduler/pkg/common/store"
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	unitstatus "github.com/kubewharf/godel-scheduler/pkg/util/unitstatus"
+	commoncache "k8s.io/kubernetes/godel-pkg/common/cache"
+	commonstore "k8s.io/kubernetes/godel-pkg/common/store"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	unitstatus "k8s.io/kubernetes/godel-pkg/util/unitstatus"
 )
 
 // BinderCache collects pods' information and provides node-level aggregated information.

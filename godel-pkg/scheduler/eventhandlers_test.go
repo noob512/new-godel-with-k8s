@@ -24,8 +24,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	fakecache "github.com/kubewharf/godel-scheduler/pkg/scheduler/cache/fake"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	fakecache "k8s.io/kubernetes/godel-pkg/scheduler/cache/fake"
 )
 
 func TestNodeAllocatableChanged(t *testing.T) {

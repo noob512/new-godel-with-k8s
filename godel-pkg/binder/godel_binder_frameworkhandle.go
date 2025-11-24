@@ -26,14 +26,14 @@ import (
 
 	godelclient "github.com/kubewharf/godel-scheduler-api/pkg/client/clientset/versioned"
 	crdinformers "github.com/kubewharf/godel-scheduler-api/pkg/client/informers/externalversions"
-	"github.com/kubewharf/godel-scheduler/pkg/binder/apis"
-	godelcache "github.com/kubewharf/godel-scheduler/pkg/binder/cache"
-	binderframework "github.com/kubewharf/godel-scheduler/pkg/binder/framework"
-	"github.com/kubewharf/godel-scheduler/pkg/binder/framework/handle"
-	"github.com/kubewharf/godel-scheduler/pkg/binder/framework/runtime"
-	commonstore "github.com/kubewharf/godel-scheduler/pkg/common/store"
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	"github.com/kubewharf/godel-scheduler/pkg/volume/scheduling"
+	"k8s.io/kubernetes/godel-pkg/binder/apis"
+	godelcache "k8s.io/kubernetes/godel-pkg/binder/cache"
+	binderframework "k8s.io/kubernetes/godel-pkg/binder/framework"
+	"k8s.io/kubernetes/godel-pkg/binder/framework/handle"
+	"k8s.io/kubernetes/godel-pkg/binder/framework/runtime"
+	commonstore "k8s.io/kubernetes/godel-pkg/common/store"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	"k8s.io/kubernetes/godel-pkg/volume/scheduling"
 )
 
 type frameworkHandleImpl struct {

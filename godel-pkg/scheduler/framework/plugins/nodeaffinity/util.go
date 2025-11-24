@@ -23,7 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 
-	"github.com/kubewharf/godel-scheduler/pkg/util"
+	"k8s.io/kubernetes/godel-pkg/util"
 )
 
 var (

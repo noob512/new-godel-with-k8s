@@ -21,12 +21,12 @@ import (
 
 	schedulingv1a1 "github.com/kubewharf/godel-scheduler-api/pkg/apis/scheduling/v1alpha1"
 
-	commoncache "github.com/kubewharf/godel-scheduler/pkg/common/cache"
-	commonstore "github.com/kubewharf/godel-scheduler/pkg/common/store"
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/cache/commonstores"
-	"github.com/kubewharf/godel-scheduler/pkg/util/generationstore"
-	unitutil "github.com/kubewharf/godel-scheduler/pkg/util/unit"
+	commoncache "k8s.io/kubernetes/godel-pkg/common/cache"
+	commonstore "k8s.io/kubernetes/godel-pkg/common/store"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	"k8s.io/kubernetes/godel-pkg/scheduler/cache/commonstores"
+	"k8s.io/kubernetes/godel-pkg/util/generationstore"
+	unitutil "k8s.io/kubernetes/godel-pkg/util/unit"
 )
 
 const Name commonstore.StoreName = "PodGroupStore"

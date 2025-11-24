@@ -24,9 +24,9 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
-	"github.com/kubewharf/godel-scheduler/pkg/controller"
-	"github.com/kubewharf/godel-scheduler/pkg/controller/reservation"
-	"github.com/kubewharf/godel-scheduler/pkg/controller/reservation/utils"
+	"k8s.io/kubernetes/godel-pkg/controller"
+	"k8s.io/kubernetes/godel-pkg/controller/reservation"
+	"k8s.io/kubernetes/godel-pkg/controller/reservation/utils"
 )
 
 func startReservationController(ctx context.Context, controllerContext ControllerContext) (controller.Interface, bool, error) {

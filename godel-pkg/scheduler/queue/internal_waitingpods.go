@@ -27,12 +27,12 @@ import (
 	k8smetrics "k8s.io/component-base/metrics"
 	"k8s.io/klog/v2"
 
-	pkgmetrics "github.com/kubewharf/godel-scheduler/pkg/common/metrics"
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	"github.com/kubewharf/godel-scheduler/pkg/framework/utils"
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/metrics"
-	"github.com/kubewharf/godel-scheduler/pkg/util"
-	"github.com/kubewharf/godel-scheduler/pkg/util/heap"
+	pkgmetrics "k8s.io/kubernetes/godel-pkg/common/metrics"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	"k8s.io/kubernetes/godel-pkg/framework/utils"
+	"k8s.io/kubernetes/godel-pkg/scheduler/metrics"
+	"k8s.io/kubernetes/godel-pkg/util"
+	"k8s.io/kubernetes/godel-pkg/util/heap"
 )
 
 // waitingPods holds the pods in the same podgroup (that we can't create ScheduleUnit for now).

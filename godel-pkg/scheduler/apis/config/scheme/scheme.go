@@ -24,8 +24,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/klog/v2"
-	godelschedulerconfig "github.com/kubewharf/godel-scheduler/pkg/scheduler/apis/config"
-	godelschedulerconfigv1beta1 "github.com/kubewharf/godel-scheduler/pkg/scheduler/apis/config/v1beta1"
+	godelschedulerconfig "k8s.io/kubernetes/godel-pkg/scheduler/apis/config"
+	godelschedulerconfigv1beta1 "k8s.io/kubernetes/godel-pkg/scheduler/apis/config/v1beta1"
 )
 
 var (

@@ -28,10 +28,10 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
 
-	"github.com/kubewharf/godel-scheduler/pkg/binder/apis/config"
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	v1helper "github.com/kubewharf/godel-scheduler/pkg/util/helper"
-	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
+	"k8s.io/kubernetes/godel-pkg/binder/apis/config"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	v1helper "k8s.io/kubernetes/godel-pkg/util/helper"
+	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
 )
 
 var (

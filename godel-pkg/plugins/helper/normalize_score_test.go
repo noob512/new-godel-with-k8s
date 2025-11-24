@@ -20,7 +20,7 @@ import (
 	"reflect"
 	"testing"
 
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
 )
 
 func TestDefaultNormalizeScore(t *testing.T) {

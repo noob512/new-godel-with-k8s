@@ -19,8 +19,8 @@ package runtime
 import (
 	"time"
 
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/metrics"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	"k8s.io/kubernetes/godel-pkg/scheduler/metrics"
 )
 
 // frameworkMetric is the data structure passed in the buffer channel between the main framework thread

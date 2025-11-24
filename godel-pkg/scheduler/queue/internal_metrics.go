@@ -20,9 +20,9 @@ import (
 	"strconv"
 	"time"
 
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/metrics"
-	"github.com/kubewharf/godel-scheduler/pkg/util"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	"k8s.io/kubernetes/godel-pkg/scheduler/metrics"
+	"k8s.io/kubernetes/godel-pkg/util"
 )
 
 // metricsRecorder

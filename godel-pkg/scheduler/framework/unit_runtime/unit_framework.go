@@ -28,15 +28,15 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/klog/v2"
 
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/core"
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/framework/handle"
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/framework/unit_plugins/joblevelaffinity"
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/metrics"
-	"github.com/kubewharf/godel-scheduler/pkg/util/helper"
-	"github.com/kubewharf/godel-scheduler/pkg/util/interpretabity"
-	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
-	"github.com/kubewharf/godel-scheduler/pkg/util/tracing"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	"k8s.io/kubernetes/godel-pkg/scheduler/core"
+	"k8s.io/kubernetes/godel-pkg/scheduler/framework/handle"
+	"k8s.io/kubernetes/godel-pkg/scheduler/framework/unit_plugins/joblevelaffinity"
+	"k8s.io/kubernetes/godel-pkg/scheduler/metrics"
+	"k8s.io/kubernetes/godel-pkg/util/helper"
+	"k8s.io/kubernetes/godel-pkg/util/interpretabity"
+	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
+	"k8s.io/kubernetes/godel-pkg/util/tracing"
 )
 
 type SchedulerUnitFramework interface {

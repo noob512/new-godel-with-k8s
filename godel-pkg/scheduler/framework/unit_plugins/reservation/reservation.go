@@ -19,11 +19,11 @@ package reservation
 import (
 	"context"
 
-	"github.com/kubewharf/godel-scheduler/pkg/features"
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	reservationstore "github.com/kubewharf/godel-scheduler/pkg/scheduler/cache/commonstores/reservation_store"
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/framework/handle"
-	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
+	"k8s.io/kubernetes/godel-pkg/features"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	reservationstore "k8s.io/kubernetes/godel-pkg/scheduler/cache/commonstores/reservation_store"
+	"k8s.io/kubernetes/godel-pkg/scheduler/framework/handle"
+	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"

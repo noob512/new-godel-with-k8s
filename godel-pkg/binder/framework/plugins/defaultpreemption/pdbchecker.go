@@ -20,11 +20,11 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	pdbstore "github.com/kubewharf/godel-scheduler/pkg/binder/cache/commonstores/pdb_store"
-	"github.com/kubewharf/godel-scheduler/pkg/binder/framework/handle"
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	"github.com/kubewharf/godel-scheduler/pkg/plugins/preempting/pdbchecker"
-	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
+	pdbstore "k8s.io/kubernetes/godel-pkg/binder/cache/commonstores/pdb_store"
+	"k8s.io/kubernetes/godel-pkg/binder/framework/handle"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	"k8s.io/kubernetes/godel-pkg/plugins/preempting/pdbchecker"
+	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
 )
 
 const PDBCheckerName string = "PDBChecker"

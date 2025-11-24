@@ -29,12 +29,12 @@ import (
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes/fake"
 
-	"github.com/kubewharf/godel-scheduler/pkg/binder/cache"
-	pdbstore "github.com/kubewharf/godel-scheduler/pkg/binder/cache/commonstores/pdb_store"
-	pt "github.com/kubewharf/godel-scheduler/pkg/binder/testing"
-	commoncache "github.com/kubewharf/godel-scheduler/pkg/common/cache"
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	testing_helper "github.com/kubewharf/godel-scheduler/pkg/testing-helper"
+	"k8s.io/kubernetes/godel-pkg/binder/cache"
+	pdbstore "k8s.io/kubernetes/godel-pkg/binder/cache/commonstores/pdb_store"
+	pt "k8s.io/kubernetes/godel-pkg/binder/testing"
+	commoncache "k8s.io/kubernetes/godel-pkg/common/cache"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	testing_helper "k8s.io/kubernetes/godel-pkg/testing-helper"
 )
 
 func TestPDBChecker(t *testing.T) {

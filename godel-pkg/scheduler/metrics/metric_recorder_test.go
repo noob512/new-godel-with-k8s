@@ -21,7 +21,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/kubewharf/godel-scheduler/pkg/common/metrics"
+	"k8s.io/kubernetes/godel-pkg/common/metrics"
 )
 
 var _ metrics.MetricRecorder = &fakePodsRecorder{}

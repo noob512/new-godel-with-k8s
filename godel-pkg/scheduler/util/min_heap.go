@@ -19,7 +19,7 @@ package util
 import (
 	"fmt"
 
-	"github.com/kubewharf/godel-scheduler/pkg/framework/api"
+	"k8s.io/kubernetes/godel-pkg/framework/api"
 )
 
 // MinHeap implements a min-heap with the smallest of all data stored at the top of the heap.

@@ -29,15 +29,15 @@ import (
 	k8scache "k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
-	"github.com/kubewharf/godel-scheduler/pkg/binder/cache"
-	"github.com/kubewharf/godel-scheduler/pkg/binder/metrics"
-	binderutils "github.com/kubewharf/godel-scheduler/pkg/binder/utils"
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	"github.com/kubewharf/godel-scheduler/pkg/framework/utils"
-	"github.com/kubewharf/godel-scheduler/pkg/util"
-	"github.com/kubewharf/godel-scheduler/pkg/util/heap"
-	"github.com/kubewharf/godel-scheduler/pkg/util/tracing"
-	status "github.com/kubewharf/godel-scheduler/pkg/util/unitstatus"
+	"k8s.io/kubernetes/godel-pkg/binder/cache"
+	"k8s.io/kubernetes/godel-pkg/binder/metrics"
+	binderutils "k8s.io/kubernetes/godel-pkg/binder/utils"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	"k8s.io/kubernetes/godel-pkg/framework/utils"
+	"k8s.io/kubernetes/godel-pkg/util"
+	"k8s.io/kubernetes/godel-pkg/util/heap"
+	"k8s.io/kubernetes/godel-pkg/util/tracing"
+	status "k8s.io/kubernetes/godel-pkg/util/unitstatus"
 )
 
 const (

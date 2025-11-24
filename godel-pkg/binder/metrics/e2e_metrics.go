@@ -21,8 +21,8 @@ import (
 
 	"k8s.io/component-base/metrics"
 
-	pkgmetrics "github.com/kubewharf/godel-scheduler/pkg/common/metrics"
-	"github.com/kubewharf/godel-scheduler/pkg/framework/api"
+	pkgmetrics "k8s.io/kubernetes/godel-pkg/common/metrics"
+	"k8s.io/kubernetes/godel-pkg/framework/api"
 )
 
 var (

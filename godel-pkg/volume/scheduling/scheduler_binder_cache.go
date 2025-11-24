@@ -21,7 +21,7 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 
-	"github.com/kubewharf/godel-scheduler/pkg/volume/scheduling/metrics"
+	"k8s.io/kubernetes/godel-pkg/volume/scheduling/metrics"
 )
 
 // PodBindingCache stores PV binding decisions per pod per node.

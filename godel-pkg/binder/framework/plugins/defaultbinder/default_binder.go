@@ -25,9 +25,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/klog/v2"
 
-	"github.com/kubewharf/godel-scheduler/pkg/binder/framework/handle"
-	"github.com/kubewharf/godel-scheduler/pkg/binder/metrics"
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
+	"k8s.io/kubernetes/godel-pkg/binder/framework/handle"
+	"k8s.io/kubernetes/godel-pkg/binder/metrics"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
 )
 
 // Name of the plugin used in the plugin registry and configurations.

@@ -25,7 +25,7 @@ import (
 	componentbaseconfig "k8s.io/component-base/config/v1alpha1"
 	"sigs.k8s.io/yaml"
 
-	"github.com/kubewharf/godel-scheduler/pkg/util/tracing"
+	"k8s.io/kubernetes/godel-pkg/util/tracing"
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

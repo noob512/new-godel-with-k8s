@@ -19,7 +19,7 @@ package rescheduling
 import (
 	"fmt"
 
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
 )
 
 type ownerRecommondations struct {

@@ -17,8 +17,8 @@ limitations under the License.
 package config
 
 import (
-	reservationconfig "github.com/kubewharf/godel-scheduler/pkg/controller/reservation/config"
-	"github.com/kubewharf/godel-scheduler/pkg/util/tracing"
+	reservationconfig "k8s.io/kubernetes/godel-pkg/controller/reservation/config"
+	"k8s.io/kubernetes/godel-pkg/util/tracing"
 )
 
 func NewEmptyGodelControllerManagerConfiguration() *GodelControllerManagerConfiguration {

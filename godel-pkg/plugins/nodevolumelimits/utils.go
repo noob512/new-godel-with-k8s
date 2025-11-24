@@ -25,7 +25,7 @@ import (
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	csilibplugins "k8s.io/csi-translation-lib/plugins"
 
-	"github.com/kubewharf/godel-scheduler/pkg/util/features"
+	"k8s.io/kubernetes/godel-pkg/util/features"
 )
 
 // isCSIMigrationOn returns a boolean value indicating whether

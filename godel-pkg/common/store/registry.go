@@ -16,7 +16,7 @@ limitations under the License.
 
 package store
 
-import commoncache "github.com/kubewharf/godel-scheduler/pkg/common/cache"
+import commoncache "k8s.io/kubernetes/godel-pkg/common/cache"
 
 type (
 	StoreName string

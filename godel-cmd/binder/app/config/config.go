@@ -27,8 +27,8 @@ import (
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/leaderelection"
 
-	binderconfig "github.com/kubewharf/godel-scheduler/pkg/binder/apis/config"
-	cmdutil "github.com/kubewharf/godel-scheduler/pkg/util/cmd"
+	binderconfig "k8s.io/kubernetes/godel-pkg/binder/apis/config"
+	cmdutil "k8s.io/kubernetes/godel-pkg/util/cmd"
 )
 
 type Config struct {

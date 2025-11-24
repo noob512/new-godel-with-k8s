@@ -23,10 +23,10 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	defaultsconfig "github.com/kubewharf/godel-scheduler/pkg/apis/config"
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/apis/config"
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/framework/handle"
+	defaultsconfig "k8s.io/kubernetes/godel-pkg/apis/config"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	"k8s.io/kubernetes/godel-pkg/scheduler/apis/config"
+	"k8s.io/kubernetes/godel-pkg/scheduler/framework/handle"
 )
 
 const NewlyStartedProtectionCheckerName string = "NewlyStartedProtectionChecker"

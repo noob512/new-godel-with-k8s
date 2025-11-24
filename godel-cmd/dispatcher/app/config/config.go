@@ -25,8 +25,8 @@ import (
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/leaderelection"
 
-	dispatcherconfig "github.com/kubewharf/godel-scheduler/pkg/dispatcher/config"
-	cmdutil "github.com/kubewharf/godel-scheduler/pkg/util/cmd"
+	dispatcherconfig "k8s.io/kubernetes/godel-pkg/dispatcher/config"
+	cmdutil "k8s.io/kubernetes/godel-pkg/util/cmd"
 )
 
 // Config 定义了 Dispatcher 应用程序的配置结构

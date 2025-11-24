@@ -19,8 +19,8 @@ package reservationstore
 import (
 	"k8s.io/component-base/metrics"
 
-	bmetrics "github.com/kubewharf/godel-scheduler/pkg/binder/metrics"
-	pkgmetrics "github.com/kubewharf/godel-scheduler/pkg/common/metrics"
+	bmetrics "k8s.io/kubernetes/godel-pkg/binder/metrics"
+	pkgmetrics "k8s.io/kubernetes/godel-pkg/common/metrics"
 )
 
 func init() {

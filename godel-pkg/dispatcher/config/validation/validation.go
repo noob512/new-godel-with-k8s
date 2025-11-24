@@ -20,8 +20,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 
-	"github.com/kubewharf/godel-scheduler/pkg/dispatcher/config"
-	godelvalidation "github.com/kubewharf/godel-scheduler/pkg/util/validation"
+	"k8s.io/kubernetes/godel-pkg/dispatcher/config"
+	godelvalidation "k8s.io/kubernetes/godel-pkg/util/validation"
 )
 
 func ValidateGodelDispatcherConfiguration(cc *config.GodelDispatcherConfiguration) field.ErrorList {

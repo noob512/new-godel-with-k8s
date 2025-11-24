@@ -38,7 +38,7 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	core "k8s.io/client-go/testing"
 
-	"github.com/kubewharf/godel-scheduler/pkg/util/controller"
+	"k8s.io/kubernetes/godel-pkg/util/controller"
 )
 
 func addListRSReactor(fakeClient *fake.Clientset, obj runtime.Object) *fake.Clientset {

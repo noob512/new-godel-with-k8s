@@ -27,10 +27,10 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 
-	"github.com/kubewharf/godel-scheduler/pkg/binder/apis/config"
-	"github.com/kubewharf/godel-scheduler/pkg/binder/framework/handle"
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	utils "github.com/kubewharf/godel-scheduler/pkg/plugins/noderesources"
+	"k8s.io/kubernetes/godel-pkg/binder/apis/config"
+	"k8s.io/kubernetes/godel-pkg/binder/framework/handle"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	utils "k8s.io/kubernetes/godel-pkg/plugins/noderesources"
 )
 
 const (

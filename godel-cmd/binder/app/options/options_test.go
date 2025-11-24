@@ -20,8 +20,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/kubewharf/godel-scheduler/cmd/binder/app/config"
-	binderconfig "github.com/kubewharf/godel-scheduler/pkg/binder/apis/config"
+	binderconfig "k8s.io/kubernetes/godel-pkg/binder/apis/config"
+	"k8s.io/kubernetes/godel-cmd/binder/app/config"
 )
 
 func TestLoadProfile(t *testing.T) {

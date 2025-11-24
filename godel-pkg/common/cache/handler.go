@@ -25,7 +25,7 @@ import (
 	coreinformers "k8s.io/client-go/informers/core/v1"
 	corelister "k8s.io/client-go/listers/core/v1"
 
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
 )
 
 type (

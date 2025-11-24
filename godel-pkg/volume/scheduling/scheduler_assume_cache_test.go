@@ -23,7 +23,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	pvutil "github.com/kubewharf/godel-scheduler/pkg/volume/persistentvolume/util"
+	pvutil "k8s.io/kubernetes/godel-pkg/volume/persistentvolume/util"
 )
 
 func makePV(name, version, storageClass string) *v1.PersistentVolume {

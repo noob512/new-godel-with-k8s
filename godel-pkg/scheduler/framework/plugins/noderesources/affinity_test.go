@@ -25,13 +25,13 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	commoncache "github.com/kubewharf/godel-scheduler/pkg/common/cache"
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/apis/config"
-	godelcache "github.com/kubewharf/godel-scheduler/pkg/scheduler/cache"
-	testutil "github.com/kubewharf/godel-scheduler/pkg/scheduler/testing"
-	testing_helper "github.com/kubewharf/godel-scheduler/pkg/testing-helper"
-	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
+	commoncache "k8s.io/kubernetes/godel-pkg/common/cache"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	"k8s.io/kubernetes/godel-pkg/scheduler/apis/config"
+	godelcache "k8s.io/kubernetes/godel-pkg/scheduler/cache"
+	testutil "k8s.io/kubernetes/godel-pkg/scheduler/testing"
+	testing_helper "k8s.io/kubernetes/godel-pkg/testing-helper"
+	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
 )
 
 func makeResourcePod(res map[v1.ResourceName]string) *v1.Pod {

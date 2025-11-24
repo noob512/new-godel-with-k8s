@@ -20,7 +20,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/kubewharf/godel-scheduler/pkg/framework/api"
+	"k8s.io/kubernetes/godel-pkg/framework/api"
 )
 
 func TestSchedulingFailureInterpreter(t *testing.T) {

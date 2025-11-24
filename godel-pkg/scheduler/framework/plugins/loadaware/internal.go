@@ -19,8 +19,8 @@ package loadaware
 import (
 	v1 "k8s.io/api/core/v1"
 
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/apis/config"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	"k8s.io/kubernetes/godel-pkg/scheduler/apis/config"
 )
 
 // The unused capacity is calculated on a scale of 0-MaxNodeScore

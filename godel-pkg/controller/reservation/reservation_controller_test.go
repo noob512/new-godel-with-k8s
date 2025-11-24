@@ -30,9 +30,9 @@ import (
 	schedulingv1a1 "github.com/kubewharf/godel-scheduler-api/pkg/apis/scheduling/v1alpha1"
 	godelfake "github.com/kubewharf/godel-scheduler-api/pkg/client/clientset/versioned/fake"
 	crdinformers "github.com/kubewharf/godel-scheduler-api/pkg/client/informers/externalversions"
-	testinghelper "github.com/kubewharf/godel-scheduler/pkg/testing-helper"
-	"github.com/kubewharf/godel-scheduler/pkg/util/controller"
-	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
+	testinghelper "k8s.io/kubernetes/godel-pkg/testing-helper"
+	"k8s.io/kubernetes/godel-pkg/util/controller"
+	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
 )
 
 const (

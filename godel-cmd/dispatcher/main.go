@@ -24,13 +24,13 @@ import (
 	"os"        // 导入 os 包，用于操作系统相关的功能（如程序退出）
 	"time"      // 导入 time 包，用于时间相关的功能（如获取当前时间）
 
-	"github.com/spf13/pflag"        // 导入 spf13/pflag 包，用于解析命令行参数
-	cliflag "k8s.io/component-base/cli/flag" // 导入 k8s.io 的 CLI flag 工具包
-	"k8s.io/component-base/logs"            // 导入 k8s.io 的日志初始化和管理包
+	"github.com/spf13/pflag"                              // 导入 spf13/pflag 包，用于解析命令行参数
+	cliflag "k8s.io/component-base/cli/flag"              // 导入 k8s.io 的 CLI flag 工具包
+	"k8s.io/component-base/logs"                          // 导入 k8s.io 的日志初始化和管理包
 	_ "k8s.io/component-base/metrics/prometheus/clientgo" // 导入 prometheus 客户端，用于指标收集 (副作用导入)
-	"k8s.io/klog/v2" // 导入 klog/v2 用于日志记录
+	"k8s.io/klog/v2"                                      // 导入 klog/v2 用于日志记录
 
-	"github.com/kubewharf/godel-scheduler/cmd/dispatcher/app" // 导入 app 包，其中包含构建 Dispatcher 命令行应用的逻辑
+	"k8s.io/kubernetes/godel-cmd/dispatcher/app" // 导入 app 包，其中包含构建 Dispatcher 命令行应用的逻辑
 )
 
 // main 函数是程序的入口点。
@@ -40,7 +40,7 @@ func main() {
 	// 使用当前时间的纳秒级时间戳作为随机数种子，以确保每次运行程序时生成的随机数序列不同。
 	// rand.Seed 是旧版函数，Go 1.20+ 推荐使用 rand.NewSource，但此处可能为兼容性保留。
 	rand.Seed(time.Now().UnixNano())
-	
+
 	// 添加一条信息级别的日志，表示 Dispatcher 程序已开始启动。
 	// 这是程序启动后打印的第一条日志，用于确认程序已开始执行。
 	klog.Info("删去所有钩子函数")

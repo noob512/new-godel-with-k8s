@@ -22,8 +22,8 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 
-	testinghelper "github.com/kubewharf/godel-scheduler/pkg/testing-helper"
-	podAnnotations "github.com/kubewharf/godel-scheduler/pkg/util/pod"
+	testinghelper "k8s.io/kubernetes/godel-pkg/testing-helper"
+	podAnnotations "k8s.io/kubernetes/godel-pkg/util/pod"
 )
 
 func Test_GetPodGroupNameFromAnnotation(t *testing.T) {

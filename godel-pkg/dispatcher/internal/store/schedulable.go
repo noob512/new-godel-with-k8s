@@ -19,8 +19,8 @@ package store
 import (
 	v1 "k8s.io/api/core/v1"
 
-	"github.com/kubewharf/godel-scheduler/pkg/dispatcher/util"
-	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
+	"k8s.io/kubernetes/godel-pkg/dispatcher/util"
+	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
 )
 
 // Schedulable represents an entity that can be scheduled such as an application

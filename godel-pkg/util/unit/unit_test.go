@@ -22,8 +22,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	testinghelper "github.com/kubewharf/godel-scheduler/pkg/testing-helper"
-	podAnnotations "github.com/kubewharf/godel-scheduler/pkg/util/pod"
+	testinghelper "k8s.io/kubernetes/godel-pkg/testing-helper"
+	podAnnotations "k8s.io/kubernetes/godel-pkg/util/pod"
 )
 
 func TestPodGroupName(t *testing.T) {

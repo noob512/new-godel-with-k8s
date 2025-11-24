@@ -29,9 +29,9 @@ import (
 	csitrans "k8s.io/csi-translation-lib"
 	"k8s.io/klog/v2"
 
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	"github.com/kubewharf/godel-scheduler/pkg/util/helper"
-	volumeutil "github.com/kubewharf/godel-scheduler/pkg/util/volume/util"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	"k8s.io/kubernetes/godel-pkg/util/helper"
+	volumeutil "k8s.io/kubernetes/godel-pkg/util/volume/util"
 )
 
 // InTreeToCSITranslator contains methods required to check migratable status

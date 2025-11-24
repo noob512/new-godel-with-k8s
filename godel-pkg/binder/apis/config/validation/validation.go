@@ -20,8 +20,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 
-	"github.com/kubewharf/godel-scheduler/pkg/binder/apis/config"
-	godelvalidation "github.com/kubewharf/godel-scheduler/pkg/util/validation"
+	"k8s.io/kubernetes/godel-pkg/binder/apis/config"
+	godelvalidation "k8s.io/kubernetes/godel-pkg/util/validation"
 )
 
 func ValidateGodelBinderConfiguration(cc *config.GodelBinderConfiguration) field.ErrorList {

@@ -31,9 +31,9 @@ import (
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes/fake"
 
-	testinghelper "github.com/kubewharf/godel-scheduler/pkg/testing-helper"
-	"github.com/kubewharf/godel-scheduler/pkg/util/controller"
-	podAnnotations "github.com/kubewharf/godel-scheduler/pkg/util/pod"
+	testinghelper "k8s.io/kubernetes/godel-pkg/testing-helper"
+	"k8s.io/kubernetes/godel-pkg/util/controller"
+	podAnnotations "k8s.io/kubernetes/godel-pkg/util/pod"
 )
 
 const (

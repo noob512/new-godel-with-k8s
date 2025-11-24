@@ -32,10 +32,10 @@ import (
 	csilibplugins "k8s.io/csi-translation-lib/plugins"
 	utilpointer "k8s.io/utils/pointer"
 
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	fakelisters "github.com/kubewharf/godel-scheduler/pkg/framework/api/fake"
-	st "github.com/kubewharf/godel-scheduler/pkg/scheduler/testing"
-	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	fakelisters "k8s.io/kubernetes/godel-pkg/framework/api/fake"
+	st "k8s.io/kubernetes/godel-pkg/scheduler/testing"
+	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
 )
 
 func TestAzureDiskLimits(t *testing.T) {

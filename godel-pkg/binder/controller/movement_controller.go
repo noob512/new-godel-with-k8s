@@ -26,8 +26,8 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
-	binderutils "github.com/kubewharf/godel-scheduler/pkg/binder/utils"
-	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
+	binderutils "k8s.io/kubernetes/godel-pkg/binder/utils"
+	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
 )
 
 const MaxRetryAttempts int = 10

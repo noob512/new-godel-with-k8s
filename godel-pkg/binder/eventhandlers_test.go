@@ -31,12 +31,12 @@ import (
 	nodev1alpha1 "github.com/kubewharf/godel-scheduler-api/pkg/apis/node/v1alpha1"
 	godelclientfake "github.com/kubewharf/godel-scheduler-api/pkg/client/clientset/versioned/fake"
 	crdinformers "github.com/kubewharf/godel-scheduler-api/pkg/client/informers/externalversions"
-	"github.com/kubewharf/godel-scheduler/pkg/binder/cache"
-	"github.com/kubewharf/godel-scheduler/pkg/binder/queue"
-	commoncache "github.com/kubewharf/godel-scheduler/pkg/common/cache"
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	podAnnotation "github.com/kubewharf/godel-scheduler/pkg/util/pod"
-	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
+	"k8s.io/kubernetes/godel-pkg/binder/cache"
+	"k8s.io/kubernetes/godel-pkg/binder/queue"
+	commoncache "k8s.io/kubernetes/godel-pkg/common/cache"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	podAnnotation "k8s.io/kubernetes/godel-pkg/util/pod"
+	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
 )
 
 var testSchedulerName = "test-scheduler"

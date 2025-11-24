@@ -21,9 +21,9 @@ import (
 	"reflect"
 	"strings"
 
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/apis/config"
-	preemptionstore "github.com/kubewharf/godel-scheduler/pkg/scheduler/cache/commonstores/preemption_store"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	"k8s.io/kubernetes/godel-pkg/scheduler/apis/config"
+	preemptionstore "k8s.io/kubernetes/godel-pkg/scheduler/cache/commonstores/preemption_store"
 )
 
 type schedulerOptions struct {

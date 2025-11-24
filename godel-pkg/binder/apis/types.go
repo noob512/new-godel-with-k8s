@@ -16,7 +16,7 @@ limitations under the License.
 
 package apis
 
-import framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
+import framework "k8s.io/kubernetes/godel-pkg/framework/api"
 
 type BinderPluginCollection struct {
 	// CheckTopology is a set of plugins that should be invoked when Binder try to check whether the pod can run on the topology

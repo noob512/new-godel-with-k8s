@@ -27,7 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
+	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
 )
 
 const (

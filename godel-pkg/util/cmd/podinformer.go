@@ -26,7 +26,7 @@ import (
 	corelisters "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
-	podAnnotations "github.com/kubewharf/godel-scheduler/pkg/util/pod"
+	podAnnotations "k8s.io/kubernetes/godel-pkg/util/pod"
 )
 
 type podInformer struct {

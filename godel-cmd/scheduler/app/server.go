@@ -27,15 +27,15 @@ import (
 
 	"github.com/spf13/cobra"
 
-	schedulerserverconfig "github.com/kubewharf/godel-scheduler/cmd/scheduler/app/config"
-	"github.com/kubewharf/godel-scheduler/cmd/scheduler/app/options"
-	"github.com/kubewharf/godel-scheduler/cmd/scheduler/app/util/configz"
-	godelscheduler "github.com/kubewharf/godel-scheduler/pkg/scheduler"
-	godelschedulerconfig "github.com/kubewharf/godel-scheduler/pkg/scheduler/apis/config"
-	cmdutil "github.com/kubewharf/godel-scheduler/pkg/util/cmd"
-	routeutil "github.com/kubewharf/godel-scheduler/pkg/util/route"
-	"github.com/kubewharf/godel-scheduler/pkg/util/tracing"
-	"github.com/kubewharf/godel-scheduler/pkg/version/verflag"
+	godelscheduler "k8s.io/kubernetes/godel-pkg/scheduler"
+	godelschedulerconfig "k8s.io/kubernetes/godel-pkg/scheduler/apis/config"
+	cmdutil "k8s.io/kubernetes/godel-pkg/util/cmd"
+	routeutil "k8s.io/kubernetes/godel-pkg/util/route"
+	"k8s.io/kubernetes/godel-pkg/util/tracing"
+	"k8s.io/kubernetes/godel-pkg/version/verflag"
+	schedulerserverconfig "k8s.io/kubernetes/godel-cmd/scheduler/app/config"
+	"k8s.io/kubernetes/godel-cmd/scheduler/app/options"
+	"k8s.io/kubernetes/godel-cmd/scheduler/app/util/configz"
 
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
@@ -112,7 +112,7 @@ streaming workloads by collocating the batch workloads.`,
 	// usageFmt := "Usage:\n  %s\n"
 	// // 获取终端大小以格式化帮助输出。
 	// cols, _, _ := term.TerminalSize(godelSchedulerCmd.OutOrStdout())
-	
+
 	// // 设置自定义用法函数，以便在请求用法时格式化输出。
 	// godelSchedulerCmd.SetUsageFunc(func(cmd *cobra.Command) error {
 	// 	// 打印用法行。
@@ -121,7 +121,7 @@ streaming workloads by collocating the batch workloads.`,
 	// 	cliflag.PrintSections(cmd.OutOrStderr(), namedFlagSets, cols)
 	// 	return nil
 	// })
-	
+
 	// // 设置自定义帮助函数，以便在请求帮助时格式化输出。
 	// godelSchedulerCmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
 	// 	// 打印长描述，后跟用法行。
@@ -129,7 +129,7 @@ streaming workloads by collocating the batch workloads.`,
 	// 	// 使用基于终端宽度的格式打印可用标志部分。
 	// 	cliflag.PrintSections(cmd.OutOrStdout(), namedFlagSets, cols)
 	// })
-	
+
 	// 标记 "config" 标志期望具有特定扩展名的文件名。
 	godelSchedulerCmd.MarkFlagFilename("config", "yaml", "yml", "json")
 
@@ -211,20 +211,20 @@ func Run(ctx context.Context, cc schedulerserverconfig.CompletedConfig) error {
 
 	// 创建 Godel 调度器实例，传入调度器名称、客户端、Informer 工厂、上下文取消信号、事件记录器等关键依赖。
 	sched, err := godelscheduler.New(
-		cc.ComponentConfig.GodelSchedulerName,               // Godel 调度器实例名称（用于区分多调度器）
-		cc.ComponentConfig.SchedulerName,                    // Kubernetes 中调度器的标识名（对应 Pod.spec.schedulerName）
-		cc.Client,                                           // 核心 Kubernetes 资源客户端
-		cc.GodelCrdClient,                                   // Godel 自定义资源客户端
-		cc.InformerFactory,                                  // 核心资源 Informer 工厂
-		cc.GodelCrdInformerFactory,                          // Godel CRD Informer 工厂
-		cc.KatalystCrdInformerFactory,                       // Katalyst CRD Informer 工厂
-		ctx.Done(),                                          // 用于感知上下文取消的 channel
-		eventRecorder,                                       // 事件记录器
-		time.Duration(cc.ComponentConfig.ReservationTimeOutSeconds)*time.Second, // 预占资源超时时间
-		godelscheduler.WithDefaultProfile(cc.ComponentConfig.DefaultProfile),    // 默认调度配置文件
-		godelscheduler.WithSubClusterProfiles(cc.ComponentConfig.SubClusterProfiles), // 子集群调度配置
+		cc.ComponentConfig.GodelSchedulerName, // Godel 调度器实例名称（用于区分多调度器）
+		cc.ComponentConfig.SchedulerName,      // Kubernetes 中调度器的标识名（对应 Pod.spec.schedulerName）
+		cc.Client,                             // 核心 Kubernetes 资源客户端
+		cc.GodelCrdClient,                     // Godel 自定义资源客户端
+		cc.InformerFactory,                    // 核心资源 Informer 工厂
+		cc.GodelCrdInformerFactory,            // Godel CRD Informer 工厂
+		cc.KatalystCrdInformerFactory,         // Katalyst CRD Informer 工厂
+		ctx.Done(),                            // 用于感知上下文取消的 channel
+		eventRecorder,                         // 事件记录器
+		time.Duration(cc.ComponentConfig.ReservationTimeOutSeconds)*time.Second,            // 预占资源超时时间
+		godelscheduler.WithDefaultProfile(cc.ComponentConfig.DefaultProfile),               // 默认调度配置文件
+		godelscheduler.WithSubClusterProfiles(cc.ComponentConfig.SubClusterProfiles),       // 子集群调度配置
 		godelscheduler.WithRenewInterval(cc.ComponentConfig.SchedulerRenewIntervalSeconds), // 调度器租约续期间隔
-		godelscheduler.WithSubClusterKey(*cc.ComponentConfig.SubClusterKey),     // 用于识别子集群的标签键
+		godelscheduler.WithSubClusterKey(*cc.ComponentConfig.SubClusterKey),                // 用于识别子集群的标签键
 	)
 	if err != nil {
 		return err

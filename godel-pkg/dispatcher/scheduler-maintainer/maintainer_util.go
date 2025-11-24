@@ -23,8 +23,8 @@ import (
 	schedulerapi "github.com/kubewharf/godel-scheduler-api/pkg/apis/scheduling/v1alpha1"
 	"k8s.io/klog/v2"
 
-	sche "github.com/kubewharf/godel-scheduler/pkg/dispatcher/internal/scheduler"
-	"github.com/kubewharf/godel-scheduler/pkg/dispatcher/metrics"
+	sche "k8s.io/kubernetes/godel-pkg/dispatcher/internal/scheduler"
+	"k8s.io/kubernetes/godel-pkg/dispatcher/metrics"
 )
 
 // ActivateScheduler moves schedulers from inactive queue to active queue

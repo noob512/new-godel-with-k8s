@@ -20,14 +20,14 @@ import (
 	v1 "k8s.io/api/core/v1"
 
 	schedulingv1a1 "github.com/kubewharf/godel-scheduler-api/pkg/apis/scheduling/v1alpha1"
-	"github.com/kubewharf/godel-scheduler/pkg/binder/cache/commonstores"
-	commoncache "github.com/kubewharf/godel-scheduler/pkg/common/cache"
-	commonstore "github.com/kubewharf/godel-scheduler/pkg/common/store"
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	"github.com/kubewharf/godel-scheduler/pkg/framework/utils"
-	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
-	unitutil "github.com/kubewharf/godel-scheduler/pkg/util/unit"
-	unitstatus "github.com/kubewharf/godel-scheduler/pkg/util/unitstatus"
+	"k8s.io/kubernetes/godel-pkg/binder/cache/commonstores"
+	commoncache "k8s.io/kubernetes/godel-pkg/common/cache"
+	commonstore "k8s.io/kubernetes/godel-pkg/common/store"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	"k8s.io/kubernetes/godel-pkg/framework/utils"
+	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
+	unitutil "k8s.io/kubernetes/godel-pkg/util/unit"
+	unitstatus "k8s.io/kubernetes/godel-pkg/util/unitstatus"
 )
 
 const Name commonstore.StoreName = "UnitStatusStore"

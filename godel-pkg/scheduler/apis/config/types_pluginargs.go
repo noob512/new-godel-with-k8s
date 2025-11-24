@@ -20,7 +20,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
+	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

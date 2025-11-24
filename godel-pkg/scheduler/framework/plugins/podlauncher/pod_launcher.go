@@ -22,9 +22,9 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	utils "github.com/kubewharf/godel-scheduler/pkg/plugins/podlauncher"
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/framework/handle"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	utils "k8s.io/kubernetes/godel-pkg/plugins/podlauncher"
+	"k8s.io/kubernetes/godel-pkg/scheduler/framework/handle"
 )
 
 // PodLauncher is a plugin that checks if a pod can run on a certain node according to pod launcher

@@ -21,9 +21,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kubewharf/godel-scheduler/pkg/features"
-	testing_helper "github.com/kubewharf/godel-scheduler/pkg/testing-helper"
-	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
+	"k8s.io/kubernetes/godel-pkg/features"
+	testing_helper "k8s.io/kubernetes/godel-pkg/testing-helper"
+	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
 
 	schedulingv1a1 "github.com/kubewharf/godel-scheduler-api/pkg/apis/scheduling/v1alpha1"
 	godelclientfake "github.com/kubewharf/godel-scheduler-api/pkg/client/clientset/versioned/fake"

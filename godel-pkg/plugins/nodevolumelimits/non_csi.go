@@ -33,9 +33,9 @@ import (
 	csilibplugins "k8s.io/csi-translation-lib/plugins"
 	"k8s.io/klog/v2"
 
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	"github.com/kubewharf/godel-scheduler/pkg/util/features"
-	volumeutil "github.com/kubewharf/godel-scheduler/pkg/util/volume/util"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	"k8s.io/kubernetes/godel-pkg/util/features"
+	volumeutil "k8s.io/kubernetes/godel-pkg/util/volume/util"
 )
 
 const (
