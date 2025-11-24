@@ -40,8 +40,8 @@ import (
 	clientset "k8s.io/client-go/kubernetes"
 	clientretry "k8s.io/client-go/util/retry"
 
-	e2elog "github.com/kubewharf/godel-scheduler/test/e2e/framework/log"
-	"github.com/kubewharf/godel-scheduler/test/e2e/system"
+	e2elog "k8s.io/kubernetes/godel-test/e2e/framework/log"
+	"k8s.io/kubernetes/godel-test/e2e/system"
 )
 
 const (

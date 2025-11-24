@@ -31,11 +31,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientset "k8s.io/client-go/kubernetes"
 
-	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
-	"github.com/kubewharf/godel-scheduler/test/e2e/framework"
-	e2enode "github.com/kubewharf/godel-scheduler/test/e2e/framework/node"
-	e2epod "github.com/kubewharf/godel-scheduler/test/e2e/framework/pod"
-	e2eskipper "github.com/kubewharf/godel-scheduler/test/e2e/framework/skipper"
+	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
+	"k8s.io/kubernetes/godel-test/e2e/framework"
+	e2enode "k8s.io/kubernetes/godel-test/e2e/framework/node"
+	e2epod "k8s.io/kubernetes/godel-test/e2e/framework/pod"
+	e2eskipper "k8s.io/kubernetes/godel-test/e2e/framework/skipper"
 )
 
 var _ = SIGDescribe("Scheduling-Unit", func() {

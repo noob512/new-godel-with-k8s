@@ -27,7 +27,7 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/utils/pointer"
 
-	"github.com/kubewharf/godel-scheduler/test/e2e/framework"
+	"k8s.io/kubernetes/godel-test/e2e/framework"
 )
 
 // CleanCrdFn declares the clean up function needed to remove the CRD

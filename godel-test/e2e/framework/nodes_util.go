@@ -28,8 +28,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	clientset "k8s.io/client-go/kubernetes"
 
-	e2enode "github.com/kubewharf/godel-scheduler/test/e2e/framework/node"
-	e2essh "github.com/kubewharf/godel-scheduler/test/e2e/framework/ssh"
+	e2enode "k8s.io/kubernetes/godel-test/e2e/framework/node"
+	e2essh "k8s.io/kubernetes/godel-test/e2e/framework/ssh"
 )
 
 const etcdImage = "3.4.13-0"

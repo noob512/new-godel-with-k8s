@@ -26,7 +26,7 @@ import (
 	"strings"
 	"time"
 
-	e2elog "github.com/kubewharf/godel-scheduler/test/e2e/framework/log"
+	e2elog "k8s.io/kubernetes/godel-test/e2e/framework/log"
 
 	"k8s.io/apimachinery/pkg/util/sets"
 	clientset "k8s.io/client-go/kubernetes"

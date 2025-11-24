@@ -30,12 +30,12 @@ import (
 	"k8s.io/apimachinery/pkg/util/uuid"
 	clientset "k8s.io/client-go/kubernetes"
 
-	"github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	"github.com/kubewharf/godel-scheduler/pkg/framework/config"
-	"github.com/kubewharf/godel-scheduler/pkg/util"
-	"github.com/kubewharf/godel-scheduler/pkg/util/constraints"
-	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
-	"github.com/kubewharf/godel-scheduler/test/e2e/framework"
+	"k8s.io/kubernetes/godel-pkg/framework/api"
+	"k8s.io/kubernetes/godel-pkg/framework/config"
+	"k8s.io/kubernetes/godel-pkg/util"
+	"k8s.io/kubernetes/godel-pkg/util/constraints"
+	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
+	"k8s.io/kubernetes/godel-test/e2e/framework"
 )
 
 var (

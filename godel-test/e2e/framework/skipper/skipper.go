@@ -37,9 +37,9 @@ import (
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/component-base/featuregate"
 
-	"github.com/kubewharf/godel-scheduler/test/e2e/framework"
-	e2enode "github.com/kubewharf/godel-scheduler/test/e2e/framework/node"
-	e2essh "github.com/kubewharf/godel-scheduler/test/e2e/framework/ssh"
+	"k8s.io/kubernetes/godel-test/e2e/framework"
+	e2enode "k8s.io/kubernetes/godel-test/e2e/framework/node"
+	e2essh "k8s.io/kubernetes/godel-test/e2e/framework/ssh"
 )
 
 // New local storage types to support local storage capacity isolation

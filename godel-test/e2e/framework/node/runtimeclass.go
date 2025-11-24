@@ -23,7 +23,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilpointer "k8s.io/utils/pointer"
 
-	imageutils "github.com/kubewharf/godel-scheduler/test/utils/image"
+	imageutils "k8s.io/kubernetes/godel-test/utils/image"
 )
 
 // PreconfiguredRuntimeClassHandler returns configured runtime handler.

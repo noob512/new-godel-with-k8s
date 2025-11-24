@@ -30,7 +30,7 @@ import (
 	v1authorization "k8s.io/client-go/kubernetes/typed/authorization/v1"
 	v1rbac "k8s.io/client-go/kubernetes/typed/rbac/v1"
 
-	e2elog "github.com/kubewharf/godel-scheduler/test/e2e/framework/log"
+	e2elog "k8s.io/kubernetes/godel-test/e2e/framework/log"
 )
 
 const (

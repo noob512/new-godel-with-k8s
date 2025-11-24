@@ -33,9 +33,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	clientset "k8s.io/client-go/kubernetes"
 
-	podutils "github.com/kubewharf/godel-scheduler/pkg/util/pod"
-	e2elog "github.com/kubewharf/godel-scheduler/test/e2e/framework/log"
-	testutils "github.com/kubewharf/godel-scheduler/test/utils"
+	podutils "k8s.io/kubernetes/godel-pkg/util/pod"
+	e2elog "k8s.io/kubernetes/godel-test/e2e/framework/log"
+	testutils "k8s.io/kubernetes/godel-test/utils"
 )
 
 const (

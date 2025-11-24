@@ -28,7 +28,7 @@ import (
 	"github.com/onsi/ginkgo/reporters"
 	"github.com/onsi/gomega"
 
-	"github.com/kubewharf/godel-scheduler/test/e2e/framework"
+	"k8s.io/kubernetes/godel-test/e2e/framework"
 )
 
 func runTests(t *testing.T, reporter ginkgo.Reporter) {

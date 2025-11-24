@@ -42,7 +42,7 @@ import (
 	testinghelper "k8s.io/kubernetes/godel-pkg/testing-helper"
 	"k8s.io/kubernetes/godel-pkg/util"
 	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
-	"github.com/kubewharf/godel-scheduler/test/utils"
+	"k8s.io/kubernetes/godel-test/utils"
 )
 
 var (

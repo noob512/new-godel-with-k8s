@@ -27,13 +27,13 @@ import (
 	"gopkg.in/yaml.v2"
 	"k8s.io/component-base/version"
 
-	"github.com/kubewharf/godel-scheduler/test/e2e/framework"
-	"github.com/kubewharf/godel-scheduler/test/e2e/framework/config"
-	"github.com/kubewharf/godel-scheduler/test/e2e/framework/testfiles"
-	"github.com/kubewharf/godel-scheduler/test/utils/image"
+	"k8s.io/kubernetes/godel-test/e2e/framework"
+	"k8s.io/kubernetes/godel-test/e2e/framework/config"
+	"k8s.io/kubernetes/godel-test/e2e/framework/testfiles"
+	"k8s.io/kubernetes/godel-test/utils/image"
 
 	// test sources
-	_ "github.com/kubewharf/godel-scheduler/test/e2e/scheduling"
+	_ "k8s.io/kubernetes/godel-test/e2e/scheduling"
 )
 
 var viperConfig = flag.String("viper-config", "", "The name of a viper config file (https://github.com/spf13/viper#what-is-viper). All e2e command line parameters can also be configured in such a file. May contain a path and may or may not contain the file suffix. The default is to look for an optional file with `e2e` as base name. If a file is specified explicitly, it must be present.")

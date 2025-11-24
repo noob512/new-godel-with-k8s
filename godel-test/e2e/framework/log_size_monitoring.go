@@ -27,7 +27,7 @@ import (
 
 	clientset "k8s.io/client-go/kubernetes"
 
-	e2essh "github.com/kubewharf/godel-scheduler/test/e2e/framework/ssh"
+	e2essh "k8s.io/kubernetes/godel-test/e2e/framework/ssh"
 )
 
 const (

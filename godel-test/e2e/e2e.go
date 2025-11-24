@@ -47,13 +47,13 @@ import (
 	// ensure auth plugins are loaded
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	// commontest "github.com/kubewharf/scheduler/test/e2e/common"
-	"github.com/kubewharf/godel-scheduler/test/e2e/framework"
-	e2ekubectl "github.com/kubewharf/godel-scheduler/test/e2e/framework/kubectl"
-	e2emanifest "github.com/kubewharf/godel-scheduler/test/e2e/framework/manifest"
-	e2enode "github.com/kubewharf/godel-scheduler/test/e2e/framework/node"
-	e2epod "github.com/kubewharf/godel-scheduler/test/e2e/framework/pod"
-	e2ereporters "github.com/kubewharf/godel-scheduler/test/e2e/reporters"
-	testutils "github.com/kubewharf/godel-scheduler/test/utils"
+	"k8s.io/kubernetes/godel-test/e2e/framework"
+	e2ekubectl "k8s.io/kubernetes/godel-test/e2e/framework/kubectl"
+	e2emanifest "k8s.io/kubernetes/godel-test/e2e/framework/manifest"
+	e2enode "k8s.io/kubernetes/godel-test/e2e/framework/node"
+	e2epod "k8s.io/kubernetes/godel-test/e2e/framework/pod"
+	e2ereporters "k8s.io/kubernetes/godel-test/e2e/reporters"
+	testutils "k8s.io/kubernetes/godel-test/utils"
 )
 
 const (

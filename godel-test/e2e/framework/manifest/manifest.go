@@ -22,8 +22,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/kubewharf/godel-scheduler/test/e2e/framework"
-	e2etestfiles "github.com/kubewharf/godel-scheduler/test/e2e/framework/testfiles"
+	"k8s.io/kubernetes/godel-test/e2e/framework"
+	e2etestfiles "k8s.io/kubernetes/godel-test/e2e/framework/testfiles"
 
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"

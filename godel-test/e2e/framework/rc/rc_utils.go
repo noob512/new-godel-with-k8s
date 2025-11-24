@@ -26,10 +26,10 @@ import (
 	clientset "k8s.io/client-go/kubernetes"
 	scaleclient "k8s.io/client-go/scale"
 
-	"github.com/kubewharf/godel-scheduler/test/e2e/framework"
-	e2ekubectl "github.com/kubewharf/godel-scheduler/test/e2e/framework/kubectl"
-	e2eresource "github.com/kubewharf/godel-scheduler/test/e2e/framework/resource"
-	testutils "github.com/kubewharf/godel-scheduler/test/utils"
+	"k8s.io/kubernetes/godel-test/e2e/framework"
+	e2ekubectl "k8s.io/kubernetes/godel-test/e2e/framework/kubectl"
+	e2eresource "k8s.io/kubernetes/godel-test/e2e/framework/resource"
+	testutils "k8s.io/kubernetes/godel-test/utils"
 )
 
 // ByNameContainer returns a ReplicationController with specified name and container

@@ -26,10 +26,10 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	clientset "k8s.io/client-go/kubernetes"
 
-	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
-	"github.com/kubewharf/godel-scheduler/test/e2e/framework"
-	e2enode "github.com/kubewharf/godel-scheduler/test/e2e/framework/node"
-	e2epod "github.com/kubewharf/godel-scheduler/test/e2e/framework/pod"
+	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
+	"k8s.io/kubernetes/godel-test/e2e/framework"
+	e2enode "k8s.io/kubernetes/godel-test/e2e/framework/node"
+	e2epod "k8s.io/kubernetes/godel-test/e2e/framework/pod"
 )
 
 var _ = SIGDescribe("Coscheduling", func() {

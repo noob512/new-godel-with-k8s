@@ -33,7 +33,7 @@ import (
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
-	"github.com/kubewharf/godel-scheduler/test/e2e/framework"
+	"k8s.io/kubernetes/godel-test/e2e/framework"
 )
 
 func scheduleSuccessEvent(ns, podName, nodeName string) func(*v1.Event) bool {

@@ -34,17 +34,17 @@ import (
 	clientset "k8s.io/client-go/kubernetes"
 	k8utilnet "k8s.io/utils/net"
 
-	"github.com/kubewharf/godel-scheduler/pkg/framework/config"
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/framework/plugins/nodeaffinity"
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/framework/plugins/tainttoleration"
-	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
-	"github.com/kubewharf/godel-scheduler/test/e2e/framework"
-	e2enode "github.com/kubewharf/godel-scheduler/test/e2e/framework/node"
-	e2epod "github.com/kubewharf/godel-scheduler/test/e2e/framework/pod"
-	e2erc "github.com/kubewharf/godel-scheduler/test/e2e/framework/rc"
-	e2eskipper "github.com/kubewharf/godel-scheduler/test/e2e/framework/skipper"
-	testutils "github.com/kubewharf/godel-scheduler/test/utils"
-	imageutils "github.com/kubewharf/godel-scheduler/test/utils/image"
+	"k8s.io/kubernetes/godel-pkg/framework/config"
+	"k8s.io/kubernetes/godel-pkg/scheduler/framework/plugins/nodeaffinity"
+	"k8s.io/kubernetes/godel-pkg/scheduler/framework/plugins/tainttoleration"
+	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
+	"k8s.io/kubernetes/godel-test/e2e/framework"
+	e2enode "k8s.io/kubernetes/godel-test/e2e/framework/node"
+	e2epod "k8s.io/kubernetes/godel-test/e2e/framework/pod"
+	e2erc "k8s.io/kubernetes/godel-test/e2e/framework/rc"
+	e2eskipper "k8s.io/kubernetes/godel-test/e2e/framework/skipper"
+	testutils "k8s.io/kubernetes/godel-test/utils"
+	imageutils "k8s.io/kubernetes/godel-test/utils/image"
 )
 
 const (

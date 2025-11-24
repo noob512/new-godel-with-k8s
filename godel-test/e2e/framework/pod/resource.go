@@ -33,10 +33,10 @@ import (
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 
-	podutils "github.com/kubewharf/godel-scheduler/pkg/util/pod"
-	e2elog "github.com/kubewharf/godel-scheduler/test/e2e/framework/log"
-	testutils "github.com/kubewharf/godel-scheduler/test/utils"
-	imageutils "github.com/kubewharf/godel-scheduler/test/utils/image"
+	podutils "k8s.io/kubernetes/godel-pkg/util/pod"
+	e2elog "k8s.io/kubernetes/godel-test/e2e/framework/log"
+	testutils "k8s.io/kubernetes/godel-test/utils"
+	imageutils "k8s.io/kubernetes/godel-test/utils/image"
 )
 
 // errPodCompleted is returned by PodRunning or PodContainerRunning to indicate that

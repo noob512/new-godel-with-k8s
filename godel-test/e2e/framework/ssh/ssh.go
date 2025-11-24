@@ -29,8 +29,8 @@ import (
 	"github.com/onsi/gomega"
 	"golang.org/x/crypto/ssh"
 
-	e2elog "github.com/kubewharf/godel-scheduler/test/e2e/framework/log"
-	testutils "github.com/kubewharf/godel-scheduler/test/utils"
+	e2elog "k8s.io/kubernetes/godel-test/e2e/framework/log"
+	testutils "k8s.io/kubernetes/godel-test/utils"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

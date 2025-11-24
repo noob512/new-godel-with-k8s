@@ -20,8 +20,8 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	clientset "k8s.io/client-go/kubernetes"
 
-	"github.com/kubewharf/godel-scheduler/test/e2e/framework"
-	testutils "github.com/kubewharf/godel-scheduler/test/utils"
+	"k8s.io/kubernetes/godel-test/e2e/framework"
+	testutils "k8s.io/kubernetes/godel-test/utils"
 )
 
 // UpdateReplicaSetWithRetries updates replicaset template with retries.

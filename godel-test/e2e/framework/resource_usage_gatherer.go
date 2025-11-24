@@ -37,8 +37,8 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientset "k8s.io/client-go/kubernetes"
 
-	kubeletstatsv1alpha1 "github.com/kubewharf/godel-scheduler/test/e2e/framework/kubelet/stats/v1alpha1"
-	e2essh "github.com/kubewharf/godel-scheduler/test/e2e/framework/ssh"
+	kubeletstatsv1alpha1 "k8s.io/kubernetes/godel-test/e2e/framework/kubelet/stats/v1alpha1"
+	e2essh "k8s.io/kubernetes/godel-test/e2e/framework/ssh"
 )
 
 // ResourceConstraint is a struct to hold constraints.

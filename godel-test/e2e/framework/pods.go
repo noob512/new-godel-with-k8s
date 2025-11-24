@@ -34,8 +34,8 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	v1core "k8s.io/client-go/kubernetes/typed/core/v1"
 
-	podutils "github.com/kubewharf/godel-scheduler/pkg/util/pod"
-	e2epod "github.com/kubewharf/godel-scheduler/test/e2e/framework/pod"
+	podutils "k8s.io/kubernetes/godel-pkg/util/pod"
+	e2epod "k8s.io/kubernetes/godel-test/e2e/framework/pod"
 )
 
 const (

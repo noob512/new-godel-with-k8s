@@ -22,8 +22,8 @@ import (
 	"path"
 	"time"
 
-	"github.com/kubewharf/godel-scheduler/test/e2e/framework"
-	e2emetrics "github.com/kubewharf/godel-scheduler/test/e2e/framework/metrics"
+	"k8s.io/kubernetes/godel-test/e2e/framework"
+	e2emetrics "k8s.io/kubernetes/godel-test/e2e/framework/metrics"
 )
 
 // CleanupSuite is the boilerplate that can be used after tests on ginkgo were run, on the SynchronizedAfterSuite step.

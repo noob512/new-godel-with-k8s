@@ -39,12 +39,12 @@ import (
 	"github.com/onsi/gomega"
 	gomegatypes "github.com/onsi/gomega/types"
 
-	e2ekubectl "github.com/kubewharf/godel-scheduler/test/e2e/framework/kubectl"
-	e2emetrics "github.com/kubewharf/godel-scheduler/test/e2e/framework/metrics"
-	e2enode "github.com/kubewharf/godel-scheduler/test/e2e/framework/node"
-	e2epod "github.com/kubewharf/godel-scheduler/test/e2e/framework/pod"
-	testutils "github.com/kubewharf/godel-scheduler/test/utils"
-	imageutils "github.com/kubewharf/godel-scheduler/test/utils/image"
+	e2ekubectl "k8s.io/kubernetes/godel-test/e2e/framework/kubectl"
+	e2emetrics "k8s.io/kubernetes/godel-test/e2e/framework/metrics"
+	e2enode "k8s.io/kubernetes/godel-test/e2e/framework/node"
+	e2epod "k8s.io/kubernetes/godel-test/e2e/framework/pod"
+	testutils "k8s.io/kubernetes/godel-test/utils"
+	imageutils "k8s.io/kubernetes/godel-test/utils/image"
 
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"

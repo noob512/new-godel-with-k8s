@@ -19,7 +19,7 @@ package metrics
 import (
 	"fmt"
 
-	e2eperftype "github.com/kubewharf/godel-scheduler/test/e2e/perftype"
+	e2eperftype "k8s.io/kubernetes/godel-test/e2e/perftype"
 )
 
 // APICall is a struct for managing API call.

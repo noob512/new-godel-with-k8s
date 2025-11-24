@@ -35,7 +35,7 @@ import (
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
 
-	e2emetrics "github.com/kubewharf/godel-scheduler/test/e2e/framework/metrics"
+	e2emetrics "k8s.io/kubernetes/godel-test/e2e/framework/metrics"
 
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"

@@ -29,9 +29,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	clientset "k8s.io/client-go/kubernetes"
 
-	deploymentutil "github.com/kubewharf/godel-scheduler/pkg/util/deployment"
-	labelsutil "github.com/kubewharf/godel-scheduler/pkg/util/labels"
-	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
+	deploymentutil "k8s.io/kubernetes/godel-pkg/util/deployment"
+	labelsutil "k8s.io/kubernetes/godel-pkg/util/labels"
+	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
 )
 
 type LogfFn func(format string, args ...interface{})

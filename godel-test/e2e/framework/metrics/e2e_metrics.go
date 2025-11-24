@@ -23,7 +23,7 @@ import (
 
 	"k8s.io/component-base/metrics/testutil"
 
-	e2elog "github.com/kubewharf/godel-scheduler/test/e2e/framework/log"
+	e2elog "k8s.io/kubernetes/godel-test/e2e/framework/log"
 )
 
 const (

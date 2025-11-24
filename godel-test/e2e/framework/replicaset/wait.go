@@ -26,7 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	clientset "k8s.io/client-go/kubernetes"
 
-	"github.com/kubewharf/godel-scheduler/test/e2e/framework"
+	"k8s.io/kubernetes/godel-test/e2e/framework"
 )
 
 // WaitForReadyReplicaSet waits until the replicaset has all of its replicas ready.

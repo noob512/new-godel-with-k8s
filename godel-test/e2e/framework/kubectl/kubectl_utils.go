@@ -31,9 +31,9 @@ import (
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 
-	e2elog "github.com/kubewharf/godel-scheduler/test/e2e/framework/log"
-	e2epod "github.com/kubewharf/godel-scheduler/test/e2e/framework/pod"
-	testutils "github.com/kubewharf/godel-scheduler/test/utils"
+	e2elog "k8s.io/kubernetes/godel-test/e2e/framework/log"
+	e2epod "k8s.io/kubernetes/godel-test/e2e/framework/pod"
+	testutils "k8s.io/kubernetes/godel-test/utils"
 )
 
 const (

@@ -17,14 +17,14 @@ limitations under the License.
 package utils
 
 import (
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/apis/config"
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/framework/handle"
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/framework/preemption-plugins/searching/newlystartedprotectionchecker"
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/framework/preemption-plugins/searching/pdbchecker"
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/framework/preemption-plugins/searching/podlauncherchecker"
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/framework/preemption-plugins/searching/preemptibilitychecker"
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/framework/preemption-plugins/searching/priorityvaluechecker"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	"k8s.io/kubernetes/godel-pkg/scheduler/apis/config"
+	"k8s.io/kubernetes/godel-pkg/scheduler/framework/handle"
+	"k8s.io/kubernetes/godel-pkg/scheduler/framework/preemption-plugins/searching/newlystartedprotectionchecker"
+	"k8s.io/kubernetes/godel-pkg/scheduler/framework/preemption-plugins/searching/pdbchecker"
+	"k8s.io/kubernetes/godel-pkg/scheduler/framework/preemption-plugins/searching/podlauncherchecker"
+	"k8s.io/kubernetes/godel-pkg/scheduler/framework/preemption-plugins/searching/preemptibilitychecker"
+	"k8s.io/kubernetes/godel-pkg/scheduler/framework/preemption-plugins/searching/priorityvaluechecker"
 )
 
 func GetPreemptionRelatedPlugins(fh handle.PodFrameworkHandle) (*framework.PluginCollection, framework.PluginMap, error) {

@@ -22,7 +22,7 @@ import (
 
 	"github.com/onsi/ginkgo"
 
-	e2eginkgowrapper "github.com/kubewharf/godel-scheduler/test/e2e/framework/ginkgowrapper"
+	e2eginkgowrapper "k8s.io/kubernetes/godel-test/e2e/framework/ginkgowrapper"
 )
 
 func nowStamp() string {

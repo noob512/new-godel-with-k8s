@@ -40,12 +40,12 @@ import (
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/framework/plugins/nodeaffinity"
-	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
-	"github.com/kubewharf/godel-scheduler/test/e2e/framework"
-	e2enode "github.com/kubewharf/godel-scheduler/test/e2e/framework/node"
-	e2epod "github.com/kubewharf/godel-scheduler/test/e2e/framework/pod"
-	e2ereplicaset "github.com/kubewharf/godel-scheduler/test/e2e/framework/replicaset"
+	"k8s.io/kubernetes/godel-pkg/scheduler/framework/plugins/nodeaffinity"
+	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
+	"k8s.io/kubernetes/godel-test/e2e/framework"
+	e2enode "k8s.io/kubernetes/godel-test/e2e/framework/node"
+	e2epod "k8s.io/kubernetes/godel-test/e2e/framework/pod"
+	e2ereplicaset "k8s.io/kubernetes/godel-test/e2e/framework/replicaset"
 )
 
 const (

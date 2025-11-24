@@ -29,7 +29,7 @@ import (
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 
-	e2epod "github.com/kubewharf/godel-scheduler/test/e2e/framework/pod"
+	e2epod "k8s.io/kubernetes/godel-test/e2e/framework/pod"
 )
 
 const (

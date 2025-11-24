@@ -27,7 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientset "k8s.io/client-go/kubernetes"
 
-	e2elog "github.com/kubewharf/godel-scheduler/test/e2e/framework/log"
+	e2elog "k8s.io/kubernetes/godel-test/e2e/framework/log"
 )
 
 const (

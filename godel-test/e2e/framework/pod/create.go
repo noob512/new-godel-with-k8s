@@ -27,7 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/uuid"
 	clientset "k8s.io/client-go/kubernetes"
 
-	imageutils "github.com/kubewharf/godel-scheduler/test/utils/image"
+	imageutils "k8s.io/kubernetes/godel-test/utils/image"
 )
 
 // BusyBoxImage is the image URI of BusyBox.

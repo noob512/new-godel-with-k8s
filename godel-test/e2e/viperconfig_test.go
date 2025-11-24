@@ -25,7 +25,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/kubewharf/godel-scheduler/test/e2e/framework/config"
+	"k8s.io/kubernetes/godel-test/e2e/framework/config"
 )
 
 func TestViperConfig(t *testing.T) {

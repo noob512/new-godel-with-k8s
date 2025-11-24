@@ -62,7 +62,7 @@ import (
 	"k8s.io/kubernetes/godel-pkg/util/constraints"
 	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
 	"k8s.io/kubernetes/godel-pkg/util/tracing"
-	"github.com/kubewharf/godel-scheduler/test/utils"
+	"k8s.io/kubernetes/godel-test/utils"
 )
 
 var (
