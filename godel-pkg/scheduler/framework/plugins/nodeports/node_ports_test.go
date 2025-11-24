@@ -26,7 +26,8 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/diff"
-	"k8s.io/kubernetes/pkg/scheduler/framework"
+
+	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
 )
 
 func newPod(host string, hostPortInfos ...string) *v1.Pod {
@@ -56,7 +57,7 @@ func newPod(host string, hostPortInfos ...string) *v1.Pod {
 func TestNodePorts(t *testing.T) {
 	tests := []struct {
 		pod        *v1.Pod
-		nodeInfo   *framework.NodeInfo
+		nodeInfo   framework.NodeInfo
 		name       string
 		wantStatus *framework.Status
 	}{
@@ -119,13 +120,6 @@ func TestNodePorts(t *testing.T) {
 			wantStatus: framework.NewStatus(framework.Unschedulable, ErrReason),
 		},
 		{
-			pod: newPod("m1", "TCP/10.0.10.10/8001", "TCP/0.0.0.0/8001"),
-			nodeInfo: framework.NewNodeInfo(
-				newPod("m1", "TCP/127.0.0.1/8001")),
-			name:       "TCP hostPort conflict due to 0.0.0.0 hostIP",
-			wantStatus: framework.NewStatus(framework.Unschedulable, ErrReason),
-		},
-		{
 			pod: newPod("m1", "TCP/127.0.0.1/8001"),
 			nodeInfo: framework.NewNodeInfo(
 				newPod("m1", "TCP/0.0.0.0/8001")),
@@ -151,7 +145,7 @@ func TestNodePorts(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			p, _ := New(nil, nil)
 			cycleState := framework.NewCycleState()
-			_, preFilterStatus := p.(framework.PreFilterPlugin).PreFilter(context.Background(), cycleState, test.pod)
+			preFilterStatus := p.(framework.PreFilterPlugin).PreFilter(context.Background(), cycleState, test.pod)
 			if !preFilterStatus.IsSuccess() {
 				t.Errorf("prefilter failed with status: %v", preFilterStatus)
 			}

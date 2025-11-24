@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Kubernetes Authors.
+Copyright 2023 The Godel Scheduler Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,192 +17,57 @@ limitations under the License.
 package config
 
 import (
+	"bytes"
+	"fmt"
 	"math"
+	"net"
+	"strconv"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/sets"
-	componentbaseconfig "k8s.io/component-base/config"
+	componentbaseconfig "k8s.io/component-base/config/v1alpha1"
+
+	"github.com/kubewharf/godel-scheduler/pkg/util/tracing"
+
+	"sigs.k8s.io/yaml"
 )
 
 const (
+	// SchedulerDefaultLockObjectNamespace defines default scheduler lock object namespace ("kube-system")
+	SchedulerDefaultLockObjectNamespace = metav1.NamespaceSystem
+
+	// SchedulerDefaultLockObjectName defines default scheduler lock object name ("kube-scheduler")
+	SchedulerDefaultLockObjectName = "scheduler"
+
 	// SchedulerPolicyConfigMapKey defines the key of the element in the
 	// scheduler's policy ConfigMap that contains scheduler's policy config.
 	SchedulerPolicyConfigMapKey = "policy.cfg"
 
-	// DefaultKubeSchedulerPort is the default port for the scheduler status server.
+	// FIXME
+	// SchedulerDefaultProviderName defines the default provider names
+	SchedulerDefaultProviderName = "DefaultProvider"
+
+	// DefaultInsecureSchedulerPort is the default port for the scheduler status server.
 	// May be overridden by a flag at startup.
-	DefaultKubeSchedulerPort = 10259
+	// Deprecated: use the secure GodelSchedulerPort instead.
+	DefaultInsecureSchedulerPort = 10251
+
+	// DefaultGodelSchedulerPort is the default port for the scheduler status server.
+	// May be overridden by a flag at startup.
+	DefaultGodelSchedulerPort = 10259
+
+	// DefaultGodelSchedulerAddress is the default address for the scheduler status server.
+	// May be overridden by a flag at startup.
+	DefaultGodelSchedulerAddress = "0.0.0.0"
 )
 
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-// KubeSchedulerConfiguration configures a scheduler
-type KubeSchedulerConfiguration struct {
-	// TypeMeta contains the API version and kind. In kube-scheduler, after
-	// conversion from the versioned KubeSchedulerConfiguration type to this
-	// internal type, we set the APIVersion field to the scheme group/version of
-	// the type we converted from. This is done in cmd/kube-scheduler in two
-	// places: (1) when loading config from a file, (2) generating the default
-	// config. Based on the versioned type set in this field, we make decisions;
-	// for example (1) during validation to check for usage of removed plugins,
-	// (2) writing config to a file, (3) initialising the scheduler.
-	metav1.TypeMeta
-
-	// Parallelism defines the amount of parallelism in algorithms for scheduling a Pods. Must be greater than 0. Defaults to 16
-	Parallelism int32
-
-	// LeaderElection defines the configuration of leader election client.
-	LeaderElection componentbaseconfig.LeaderElectionConfiguration
-
-	// ClientConnection specifies the kubeconfig file and client connection
-	// settings for the proxy server to use when communicating with the apiserver.
-	ClientConnection componentbaseconfig.ClientConnectionConfiguration
-	// HealthzBindAddress is the IP address and port for the health check server to serve on.
-	HealthzBindAddress string
-	// MetricsBindAddress is the IP address and port for the metrics server to serve on.
-	MetricsBindAddress string
-
-	// DebuggingConfiguration holds configuration for Debugging related features
-	// TODO: We might wanna make this a substruct like Debugging componentbaseconfig.DebuggingConfiguration
-	componentbaseconfig.DebuggingConfiguration
-
-	// PercentageOfNodesToScore is the percentage of all nodes that once found feasible
-	// for running a pod, the scheduler stops its search for more feasible nodes in
-	// the cluster. This helps improve scheduler's performance. Scheduler always tries to find
-	// at least "minFeasibleNodesToFind" feasible nodes no matter what the value of this flag is.
-	// Example: if the cluster size is 500 nodes and the value of this flag is 30,
-	// then scheduler stops finding further feasible nodes once it finds 150 feasible ones.
-	// When the value is 0, default percentage (5%--50% based on the size of the cluster) of the
-	// nodes will be scored.
-	PercentageOfNodesToScore int32
-
-	// PodInitialBackoffSeconds is the initial backoff for unschedulable pods.
-	// If specified, it must be greater than 0. If this value is null, the default value (1s)
-	// will be used.
-	PodInitialBackoffSeconds int64
-
-	// PodMaxBackoffSeconds is the max backoff for unschedulable pods.
-	// If specified, it must be greater than or equal to podInitialBackoffSeconds. If this value is null,
-	// the default value (10s) will be used.
-	PodMaxBackoffSeconds int64
-
-	// Profiles are scheduling profiles that kube-scheduler supports. Pods can
-	// choose to be scheduled under a particular profile by setting its associated
-	// scheduler name. Pods that don't specify any scheduler name are scheduled
-	// with the "default-scheduler" profile, if present here.
-	Profiles []KubeSchedulerProfile
-
-	// Extenders are the list of scheduler extenders, each holding the values of how to communicate
-	// with the extender. These extenders are shared by all scheduler profiles.
-	Extenders []Extender
-}
-
-// KubeSchedulerProfile is a scheduling profile.
-type KubeSchedulerProfile struct {
-	// SchedulerName is the name of the scheduler associated to this profile.
-	// If SchedulerName matches with the pod's "spec.schedulerName", then the pod
-	// is scheduled with this profile.
-	SchedulerName string
-
-	// Plugins specify the set of plugins that should be enabled or disabled.
-	// Enabled plugins are the ones that should be enabled in addition to the
-	// default plugins. Disabled plugins are any of the default plugins that
-	// should be disabled.
-	// When no enabled or disabled plugin is specified for an extension point,
-	// default plugins for that extension point will be used if there is any.
-	// If a QueueSort plugin is specified, the same QueueSort Plugin and
-	// PluginConfig must be specified for all profiles.
-	Plugins *Plugins
-
-	// PluginConfig is an optional set of custom plugin arguments for each plugin.
-	// Omitting config args for a plugin is equivalent to using the default config
-	// for that plugin.
-	PluginConfig []PluginConfig
-}
-
-// Plugins include multiple extension points. When specified, the list of plugins for
-// a particular extension point are the only ones enabled. If an extension point is
-// omitted from the config, then the default set of plugins is used for that extension point.
-// Enabled plugins are called in the order specified here, after default plugins. If they need to
-// be invoked before default plugins, default plugins must be disabled and re-enabled here in desired order.
-type Plugins struct {
-	// QueueSort is a list of plugins that should be invoked when sorting pods in the scheduling queue.
-	QueueSort PluginSet
-
-	// PreFilter is a list of plugins that should be invoked at "PreFilter" extension point of the scheduling framework.
-	PreFilter PluginSet
-
-	// Filter is a list of plugins that should be invoked when filtering out nodes that cannot run the Pod.
-	Filter PluginSet
-
-	// PostFilter is a list of plugins that are invoked after filtering phase, but only when no feasible nodes were found for the pod.
-	PostFilter PluginSet
-
-	// PreScore is a list of plugins that are invoked before scoring.
-	PreScore PluginSet
-
-	// Score is a list of plugins that should be invoked when ranking nodes that have passed the filtering phase.
-	Score PluginSet
-
-	// Reserve is a list of plugins invoked when reserving/unreserving resources
-	// after a node is assigned to run the pod.
-	Reserve PluginSet
-
-	// Permit is a list of plugins that control binding of a Pod. These plugins can prevent or delay binding of a Pod.
-	Permit PluginSet
-
-	// PreBind is a list of plugins that should be invoked before a pod is bound.
-	PreBind PluginSet
-
-	// Bind is a list of plugins that should be invoked at "Bind" extension point of the scheduling framework.
-	// The scheduler call these plugins in order. Scheduler skips the rest of these plugins as soon as one returns success.
-	Bind PluginSet
-
-	// PostBind is a list of plugins that should be invoked after a pod is successfully bound.
-	PostBind PluginSet
-
-	// MultiPoint is a simplified config field for enabling plugins for all valid extension points
-	MultiPoint PluginSet
-}
-
-// PluginSet specifies enabled and disabled plugins for an extension point.
-// If an array is empty, missing, or nil, default plugins at that extension point will be used.
-type PluginSet struct {
-	// Enabled specifies plugins that should be enabled in addition to default plugins.
-	// These are called after default plugins and in the same order specified here.
-	Enabled []Plugin
-	// Disabled specifies default plugins that should be disabled.
-	// When all default plugins need to be disabled, an array containing only one "*" should be provided.
-	Disabled []Plugin
-}
-
-// Plugin specifies a plugin name and its weight when applicable. Weight is used only for Score plugins.
-type Plugin struct {
-	// Name defines the name of plugin
-	Name string
-	// Weight defines the weight of plugin, only used for Score plugins.
-	Weight int32
-}
-
-// PluginConfig specifies arguments that should be passed to a plugin at the time of initialization.
-// A plugin that is invoked at multiple extension points is initialized once. Args can have arbitrary structure.
-// It is up to the plugin to process these Args.
-type PluginConfig struct {
-	// Name defines the name of plugin being configured
-	Name string
-	// Args defines the arguments passed to the plugins at the time of initialization. Args can have arbitrary structure.
-	Args runtime.Object
-}
-
-/*
- * NOTE: The following variables and methods are intentionally left out of the staging mirror.
- */
 const (
 	// DefaultPercentageOfNodesToScore defines the percentage of nodes of all nodes
 	// that once found feasible, the scheduler stops looking for more nodes.
 	// A value of 0 means adaptive, meaning the scheduler figures out a proper default.
 	DefaultPercentageOfNodesToScore = 0
+
+	DefaultIncreasedPercentageOfNodesToScore = 0
 
 	// MaxCustomPriorityScore is the max score UtilizationShapePoint expects.
 	MaxCustomPriorityScore int64 = 10
@@ -214,110 +79,269 @@ const (
 	MaxWeight = MaxTotalScore / MaxCustomPriorityScore
 )
 
-// Names returns the list of enabled plugin names.
-func (p *Plugins) Names() []string {
-	if p == nil {
+const (
+	// DefaultUnitInitialBackoffInSeconds is the default value for the initial backoff duration
+	// for unschedulable units. To change the default podInitialBackoffDurationSeconds used by the
+	// scheduler, update the ComponentConfig value in defaults.go
+	DefaultUnitInitialBackoffInSeconds = 10
+	// DefaultUnitMaxBackoffInSeconds is the default value for the max backoff duration
+	// for unschedulable units. To change the default unitMaxBackoffDurationSeconds used by the
+	// scheduler, update the ComponentConfig value in defaults.go
+	DefaultUnitMaxBackoffInSeconds = 300
+	// DefaultDisablePreemption is the default value for the option to disable preemption ability
+	// for unschedulable pods.
+	DefaultDisablePreemption        = true
+	CandidateSelectPolicyBest       = "Best"
+	CandidateSelectPolicyBetter     = "Better"
+	CandidateSelectPolicyRandom     = "Random"
+	BetterPreemptionPolicyAscending = "Ascending"
+	BetterPreemptionPolicyDichotomy = "Dichotomy"
+	// DefaultBlockQueue is the default value for the option to use block queue for SchedulingQueue.
+	DefaultBlockQueue = false
+	// DefaultPodUpgradePriorityInMinutes is the default upgrade priority duration for godel sort.
+	DefaultPodUpgradePriorityInMinutes = 5
+	// DefaultGodelSchedulerName defines the name of default scheduler.
+	DefaultGodelSchedulerName = "my-cus-godel-scheduler"
+	// DefaultRenewIntervalInSeconds is the default value for the renew interval duration for scheduler.
+	DefaultRenewIntervalInSeconds = 30
+
+	// DefaultSchedulerName is default high level scheduler name
+	DefaultSchedulerName = "godel-scheduler"
+
+	// DefaultClientConnectionQPS is default scheduler qps
+	DefaultClientConnectionQPS = 10000.0
+	// DefaultClientConnectionBurst is default scheduler burst
+	DefaultClientConnectionBurst = 10000
+
+	// DefaultIDC is default idc name for godel scheduler
+	DefaultIDC = "lq"
+	// DefaultCluster is default cluster name for godel scheduler
+	DefaultCluster = "default"
+	// DefaultTracer is default tracer name for godel scheduler
+	DefaultTracer = string(tracing.NoopConfig)
+
+	DefaultSubClusterKey = ""
+
+	// DefaultAttemptImpactFactorOnPriority is the default attempt factors used by godel sort
+	DefaultAttemptImpactFactorOnPriority = 10.0
+
+	DefaultMaxWaitingDeletionDuration = 120
+
+	DefaultReservationTimeOutSeconds = 60
+)
+
+var DefaultBindAddress = net.JoinHostPort(DefaultGodelSchedulerAddress, strconv.Itoa(DefaultInsecureSchedulerPort))
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// GodelSchedulerConfiguration configures a scheduler
+type GodelSchedulerConfiguration struct {
+	metav1.TypeMeta
+
+	// LeaderElection defines the configuration of leader election client.
+	LeaderElection componentbaseconfig.LeaderElectionConfiguration
+	// SchedulerRenewIntervalSeconds is the duration for updating scheduler.
+	// If this value is null, the default value (30s) will be used.
+	SchedulerRenewIntervalSeconds int64
+
+	// ClientConnection specifies the kubeconfig file and client connection
+	// settings for the proxy server to use when communicating with the apiserver.
+	ClientConnection componentbaseconfig.ClientConnectionConfiguration
+	// HealthzBindAddress is the IP address and port for the health check server to serve on,
+	// defaulting to 0.0.0.0:10251
+	HealthzBindAddress string
+	// MetricsBindAddress is the IP address and port for the metrics server to
+	// serve on, defaulting to 0.0.0.0:10251.
+	MetricsBindAddress string
+
+	// DebuggingConfiguration holds configuration for Debugging related features
+	// TODO: We might wanna make this a substruct like Debugging componentbaseconfig.DebuggingConfiguration
+	componentbaseconfig.DebuggingConfiguration
+
+	// GodelSchedulerName is the name of the scheduler, scheduler will register scheduler crd with
+	// this name, then dispatcher will choose one scheduler and use this scheduler's name to set the
+	// selected-scheduler annotation on pod.
+	GodelSchedulerName string
+	// SchedulerName specifies a scheduling system, scheduling components(dispatcher,
+	// scheduler, binder) will not accept a pod, unless pod.Spec.SchedulerName == SchedulerName
+	SchedulerName *string
+
+	// Tracer defines the configuration of tracer
+	Tracer *tracing.TracerConfiguration
+
+	SubClusterKey *string
+	// reserved resources will be released after a period of time.
+	ReservationTimeOutSeconds int64
+
+	// TODO: update the comment
+	// Profiles are scheduling profiles that kube-scheduler supports. Pods can
+	// choose to be scheduled under a particular profile by setting its associated
+	// scheduler name. Pods that don't specify any scheduler name are scheduled
+	// with the "default-scheduler" profile, if present here.
+	DefaultProfile     *GodelSchedulerProfile
+	SubClusterProfiles []GodelSchedulerProfile
+}
+
+// GodelSchedulerProfile is a scheduling profile.
+type GodelSchedulerProfile struct {
+	// ProfileKey associates the profile to a subcluster if it is not nil.
+	SubClusterName string
+
+	// BasePluginsForKubelet specify the set of default plugins.
+	BasePluginsForKubelet *Plugins
+
+	// BasePluginsForNM specify the set of default plugins.
+	BasePluginsForNM *Plugins
+
+	// PluginConfigs is an optional set of custom plugin arguments for each plugin.
+	// Omitting config args for a plugin is equivalent to using the default config
+	// for that plugin.
+	PluginConfigs []PluginConfig
+
+	// PreemptionPluginConfigs is an optional set of custom plugin arguments for each preemption plugin.
+	// Omitting config args for a preemption plugin is equivalent to using the default config
+	// for that preemption plugin.
+	PreemptionPluginConfigs []PluginConfig
+
+	// TODO: reserve temporarily(godel).
+	// PercentageOfNodesToScore is the percentage of all nodes that once found feasible
+	// for running a pod, the scheduler stops its search for more feasible nodes in
+	// the cluster. This helps improve scheduler's performance. Scheduler always tries to find
+	// at least "minFeasibleNodesToFind" feasible nodes no matter what the value of this flag is.
+	// Example: if the cluster size is 500 nodes and the value of this flag is 30,
+	// then scheduler stops finding further feasible nodes once it finds 150 feasible ones.
+	// When the value is 0, default percentage (5%--50% based on the size of the cluster) of the
+	// nodes will be scored.
+	PercentageOfNodesToScore *int32
+
+	// IncreasedPercentageOfNodesToScore is used to improve the scheduling quality for particular
+	// pods for which the scheduler will find more feasible nodes. It is usually greater than PercenrageOfNodesToScore.
+	IncreasedPercentageOfNodesToScore *int32
+
+	// DisablePreemption disables the pod preemption feature.
+	DisablePreemption *bool
+
+	// CandidatesSelectPolicies
+	CandidatesSelectPolicy *string
+
+	// BetterSelectPolicies
+	BetterSelectPolicies *StringSlice
+
+	// max attempts waiting for deletion completed
+	MaxWaitingDeletionDuration int64
+
+	// BlockQueue indicates whether a BlockQueue is required.
+	BlockQueue *bool
+
+	// UnitQueueSortPlugin specifies the sort plugin used in scheduling queue, defining the priority of pods in scheduling queue.
+	UnitQueueSortPlugin           *Plugin
+	AttemptImpactFactorOnPriority *float64
+	// UnitInitialBackoffSeconds is the initial backoff for unschedulable pods.
+	// If specified, it must be greater than 0. If this value is null, the default value (10s)
+	// will be used.
+	UnitInitialBackoffSeconds *int64
+	// UnitMaxBackoffSeconds is the max backoff for unschedulable pods.
+	// If specified, it must be greater than or equal to unitInitialBackoffSeconds. If this value is null,
+	// the default value (10s) will be used.
+	UnitMaxBackoffSeconds *int64
+}
+
+// Plugins include multiple extension points. When specified, the list of plugins for
+// a particular extension point are the only ones enabled. If an extension point is
+// omitted from the config, then the default set of plugins is used for that extension point.
+// Plugins plugins are called in the order specified here, after default plugins. If they need to
+// be invoked before default plugins, default plugins must be disabled and re-enabled here in desired order.
+type Plugins struct {
+	// Filter is a list of plugins that should be invoked when filtering out nodes that cannot run the Pod.
+	Filter *PluginSet `json:"filter,omitempty"`
+
+	// Score is a list of plugins that should be invoked when ranking nodes that have passed the filtering phase.
+	Score *PluginSet `json:"score,omitempty"`
+
+	// Preemption is a list of plugins that should be invoked in preemption phase
+	VictimSearching *VictimSearchingPluginSet `json:"victimSearching,omitempty"`
+
+	Sorting *PluginSet `json:"sorting,omitempty"`
+}
+
+// PreemptionPluginSet specifies enabled and disabled plugins for an extension point.
+// If an array is empty, missing, or nil, default plugins at that extension point will be used.
+type VictimSearchingPluginSet struct {
+	// PreemptionPlugins specifies preemption plugin collections that should be used.
+	PluginCollections []VictimSearchingPluginCollection `json:"pluginCollections,omitempty"`
+}
+
+type VictimSearchingPluginCollection struct {
+	// if ForceQuickPass is true and result is PreemptionSucceed, return canBePreempted=true directly, no need to execute the rest of the preemption plugins
+	ForceQuickPass bool `json:"forceQuickPass,omitempty"`
+	// if EnableQuickPass is true and result is PreemptionSucceed, return canBePreempted=true directly, no need to execute the rest of the preemption plugins
+	EnableQuickPass bool `json:"enableQuickPass,omitempty"`
+	// if RejectNotSure is true and result is PreemptionNotSure, return PreemptFail
+	RejectNotSure bool `json:"rejectNotSure,omitempty"`
+	// PreemptionPlugins specifies preemption plugins in this collection
+	Plugins []Plugin `json:"plugins,omitempty"`
+}
+
+// PluginSet specifies enabled and disabled plugins for an extension point.
+// If an array is empty, missing, or nil, default plugins at that extension point will be used.
+type PluginSet struct {
+	// Plugins specifies plugins that should be used.
+	// These are called after default plugins and in the same order specified here.
+	Plugins []Plugin `json:"plugins,omitempty"`
+}
+
+// Plugin specifies a plugin name and its weight when applicable. Weight is used only for Score plugins.
+type Plugin struct {
+	// Name defines the name of plugin
+	Name string `json:"name"`
+	// Weight defines the weight of plugin, only used for Score plugins.
+	Weight int64 `json:"weight,omitempty"`
+}
+
+// PluginConfig specifies arguments that should be passed to a plugin at the time of initialization.
+// A plugin that is invoked at multiple extension points is initialized once. Args can have arbitrary structure.
+// It is up to the plugin to process these Args.
+type PluginConfig struct {
+	// Name defines the name of plugin being configured
+	Name string `json:"name"`
+	// Args defines the arguments passed to the plugins at the time of initialization. Args can have arbitrary structure.
+	Args runtime.RawExtension `json:"args,omitempty"`
+}
+
+func (c *PluginConfig) DecodeNestedObjects(d runtime.Decoder) error {
+	gvk := SchemeGroupVersion.WithKind(c.Name + "Args")
+	// dry-run to detect and skip out-of-tree plugin args.
+	if _, _, err := d.Decode(nil, &gvk, nil); runtime.IsNotRegisteredError(err) {
 		return nil
 	}
-	extensions := []PluginSet{
-		p.PreFilter,
-		p.Filter,
-		p.PostFilter,
-		p.Reserve,
-		p.PreScore,
-		p.Score,
-		p.PreBind,
-		p.Bind,
-		p.PostBind,
-		p.Permit,
-		p.QueueSort,
+
+	obj, parsedGvk, err := d.Decode(c.Args.Raw, &gvk, nil)
+	if err != nil {
+		return fmt.Errorf("decoding args for plugin %s: %w", c.Name, err)
 	}
-	n := sets.NewString()
-	for _, e := range extensions {
-		for _, pg := range e.Enabled {
-			n.Insert(pg.Name)
-		}
+	if parsedGvk.GroupKind() != gvk.GroupKind() {
+		return fmt.Errorf("args for plugin %s were not of type %s, got %s", c.Name, gvk.GroupKind(), parsedGvk.GroupKind())
 	}
-	return n.List()
+	c.Args.Object = obj
+	return nil
 }
 
-// Extender holds the parameters used to communicate with the extender. If a verb is unspecified/empty,
-// it is assumed that the extender chose not to provide that extension.
-type Extender struct {
-	// URLPrefix at which the extender is available
-	URLPrefix string
-	// Verb for the filter call, empty if not supported. This verb is appended to the URLPrefix when issuing the filter call to extender.
-	FilterVerb string
-	// Verb for the preempt call, empty if not supported. This verb is appended to the URLPrefix when issuing the preempt call to extender.
-	PreemptVerb string
-	// Verb for the prioritize call, empty if not supported. This verb is appended to the URLPrefix when issuing the prioritize call to extender.
-	PrioritizeVerb string
-	// The numeric multiplier for the node scores that the prioritize call generates.
-	// The weight should be a positive integer
-	Weight int64
-	// Verb for the bind call, empty if not supported. This verb is appended to the URLPrefix when issuing the bind call to extender.
-	// If this method is implemented by the extender, it is the extender's responsibility to bind the pod to apiserver. Only one extender
-	// can implement this function.
-	BindVerb string
-	// EnableHTTPS specifies whether https should be used to communicate with the extender
-	EnableHTTPS bool
-	// TLSConfig specifies the transport layer security config
-	TLSConfig *ExtenderTLSConfig
-	// HTTPTimeout specifies the timeout duration for a call to the extender. Filter timeout fails the scheduling of the pod. Prioritize
-	// timeout is ignored, k8s/other extenders priorities are used to select the node.
-	HTTPTimeout metav1.Duration
-	// NodeCacheCapable specifies that the extender is capable of caching node information,
-	// so the scheduler should only send minimal information about the eligible nodes
-	// assuming that the extender already cached full details of all nodes in the cluster
-	NodeCacheCapable bool
-	// ManagedResources is a list of extended resources that are managed by
-	// this extender.
-	// - A pod will be sent to the extender on the Filter, Prioritize and Bind
-	//   (if the extender is the binder) phases iff the pod requests at least
-	//   one of the extended resources in this list. If empty or unspecified,
-	//   all pods will be sent to this extender.
-	// - If IgnoredByScheduler is set to true for a resource, kube-scheduler
-	//   will skip checking the resource in predicates.
-	// +optional
-	ManagedResources []ExtenderManagedResource
-	// Ignorable specifies if the extender is ignorable, i.e. scheduling should not
-	// fail when the extender returns an error or is not reachable.
-	Ignorable bool
-}
-
-// ExtenderManagedResource describes the arguments of extended resources
-// managed by an extender.
-type ExtenderManagedResource struct {
-	// Name is the extended resource name.
-	Name string
-	// IgnoredByScheduler indicates whether kube-scheduler should ignore this
-	// resource when applying predicates.
-	IgnoredByScheduler bool
-}
-
-// ExtenderTLSConfig contains settings to enable TLS with extender
-type ExtenderTLSConfig struct {
-	// Server should be accessed without verifying the TLS certificate. For testing only.
-	Insecure bool
-	// ServerName is passed to the server for SNI and is used in the client to check server
-	// certificates against. If ServerName is empty, the hostname used to contact the
-	// server is used.
-	ServerName string
-
-	// Server requires TLS client certificate authentication
-	CertFile string
-	// Server requires TLS client certificate authentication
-	KeyFile string
-	// Trusted root certificates for server
-	CAFile string
-
-	// CertData holds PEM-encoded bytes (typically read from a client certificate file).
-	// CertData takes precedence over CertFile
-	CertData []byte
-	// KeyData holds PEM-encoded bytes (typically read from a client certificate key file).
-	// KeyData takes precedence over KeyFile
-	KeyData []byte `datapolicy:"security-key"`
-	// CAData holds PEM-encoded bytes (typically read from a root certificates bundle).
-	// CAData takes precedence over CAFile
-	CAData []byte
+func (c *PluginConfig) EncodeNestedObjects(e runtime.Encoder) error {
+	if c.Args.Object == nil {
+		return nil
+	}
+	var buf bytes.Buffer
+	err := e.Encode(c.Args.Object, &buf)
+	if err != nil {
+		return err
+	}
+	// The <e> encoder might be a YAML encoder, but the parent encoder expects
+	// JSON output, so we convert YAML back to JSON.
+	// This is a no-op if <e> produces JSON.
+	json, err := yaml.YAMLToJSON(buf.Bytes())
+	if err != nil {
+		return err
+	}
+	c.Args.Raw = json
+	return nil
 }

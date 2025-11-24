@@ -19,22 +19,24 @@ package runtime
 import (
 	"time"
 
-	k8smetrics "k8s.io/component-base/metrics"
-	"k8s.io/kubernetes/pkg/scheduler/framework"
-	"k8s.io/kubernetes/pkg/scheduler/metrics"
+	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
+	"github.com/kubewharf/godel-scheduler/pkg/scheduler/metrics"
 )
 
 // frameworkMetric is the data structure passed in the buffer channel between the main framework thread
-// and the metricsRecorder goroutine.
+// and the MetricsRecorder goroutine.
 type frameworkMetric struct {
-	metric      *k8smetrics.HistogramVec
-	labelValues []string
-	value       float64
+	podProperty *framework.PodProperty
+	operation   string
+	plugin      string
+	status      string
+	nodegroup   string
+	duration    float64
 }
 
 // metricRecorder records framework metrics in a separate goroutine to avoid overhead in the critical path.
-type metricsRecorder struct {
-	// bufferCh is a channel that serves as a metrics buffer before the metricsRecorder goroutine reports it.
+type MetricsRecorder struct {
+	// bufferCh is a channel that serves as a metrics buffer before the MetricsRecorder goroutine reports it.
 	bufferCh chan *frameworkMetric
 	// if bufferSize is reached, incoming metrics will be discarded.
 	bufferSize int
@@ -49,8 +51,8 @@ type metricsRecorder struct {
 	isStoppedCh chan struct{}
 }
 
-func newMetricsRecorder(bufferSize int, interval time.Duration) *metricsRecorder {
-	recorder := &metricsRecorder{
+func NewMetricsRecorder(bufferSize int, interval time.Duration, switchType framework.SwitchType, subCluster, schedulerName string) *MetricsRecorder {
+	recorder := &MetricsRecorder{
 		bufferCh:    make(chan *frameworkMetric, bufferSize),
 		bufferSize:  bufferSize,
 		interval:    interval,
@@ -63,11 +65,18 @@ func newMetricsRecorder(bufferSize int, interval time.Duration) *metricsRecorder
 
 // observePluginDurationAsync observes the plugin_execution_duration_seconds metric.
 // The metric will be flushed to Prometheus asynchronously.
-func (r *metricsRecorder) observePluginDurationAsync(extensionPoint, pluginName string, status *framework.Status, value float64) {
+func (r *MetricsRecorder) observePluginDurationAsync(podProperty *framework.PodProperty, extensionPoint, pluginName string, status *framework.Status, nodeGroupKey string, value float64) {
+	if podProperty == nil {
+		return
+	}
+
 	newMetric := &frameworkMetric{
-		metric:      metrics.PluginExecutionDuration,
-		labelValues: []string{pluginName, extensionPoint, status.Code().String()},
-		value:       value,
+		podProperty: podProperty,
+		operation:   extensionPoint,
+		plugin:      pluginName,
+		status:      status.Code().String(),
+		nodegroup:   nodeGroupKey,
+		duration:    value,
 	}
 	select {
 	case r.bufferCh <- newMetric:
@@ -76,7 +85,7 @@ func (r *metricsRecorder) observePluginDurationAsync(extensionPoint, pluginName 
 }
 
 // run flushes buffered metrics into Prometheus every second.
-func (r *metricsRecorder) run() {
+func (r *MetricsRecorder) run() {
 	for {
 		select {
 		case <-r.stopCh:
@@ -90,13 +99,17 @@ func (r *metricsRecorder) run() {
 }
 
 // flushMetrics tries to clean up the bufferCh by reading at most bufferSize metrics.
-func (r *metricsRecorder) flushMetrics() {
+func (r *MetricsRecorder) flushMetrics() {
 	for i := 0; i < r.bufferSize; i++ {
 		select {
 		case m := <-r.bufferCh:
-			m.metric.WithLabelValues(m.labelValues...).Observe(m.value)
+			metrics.PodSchedulingStageDurationObserve(m.podProperty, m.operation, m.plugin, m.status, m.nodegroup, m.duration)
 		default:
 			return
 		}
 	}
+}
+
+func (r *MetricsRecorder) Close() {
+	close(r.stopCh)
 }

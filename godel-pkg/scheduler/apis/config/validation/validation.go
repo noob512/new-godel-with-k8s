@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Kubernetes Authors.
+Copyright 2023 The Godel Scheduler Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,304 +17,149 @@ limitations under the License.
 package validation
 
 import (
-	"fmt"
-	"net"
-	"reflect"
-	"strconv"
-	"strings"
-
-	"github.com/google/go-cmp/cmp"
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/validation/field"
-	componentbasevalidation "k8s.io/component-base/config/validation"
-	v1helper "k8s.io/kubernetes/pkg/apis/core/v1/helper"
-	"k8s.io/kubernetes/pkg/scheduler/apis/config"
-	"k8s.io/kubernetes/pkg/scheduler/apis/config/v1beta2"
-	"k8s.io/kubernetes/pkg/scheduler/apis/config/v1beta3"
+
+	"github.com/kubewharf/godel-scheduler/pkg/scheduler/apis/config"
+	godelvalidation "github.com/kubewharf/godel-scheduler/pkg/util/validation"
 )
 
-// ValidateKubeSchedulerConfiguration ensures validation of the KubeSchedulerConfiguration struct
-func ValidateKubeSchedulerConfiguration(cc *config.KubeSchedulerConfiguration) utilerrors.Aggregate {
-	var errs []error
-	errs = append(errs, componentbasevalidation.ValidateClientConnectionConfiguration(&cc.ClientConnection, field.NewPath("clientConnection")).ToAggregate())
-	errs = append(errs, componentbasevalidation.ValidateLeaderElectionConfiguration(&cc.LeaderElection, field.NewPath("leaderElection")).ToAggregate())
-	profilesPath := field.NewPath("profiles")
-	if cc.Parallelism <= 0 {
-		errs = append(errs, field.Invalid(field.NewPath("parallelism"), cc.Parallelism, "should be an integer value greater than zero"))
+func ValidateGodelSchedulerConfiguration(cc *config.GodelSchedulerConfiguration) field.ErrorList {
+	errs := field.ErrorList{}
+	// 1. LeaderElection & SchedulerRenewIntervalSeconds
+	{
+		errs = append(errs, godelvalidation.ValidateLeaderElectionConfiguration(&cc.LeaderElection, field.NewPath("leaderElection"))...)
+		if cc.SchedulerRenewIntervalSeconds <= 0 {
+			errs = append(errs, field.Invalid(field.NewPath("schedulerRenewInterval"),
+				cc.SchedulerRenewIntervalSeconds, "must be greater than 0"))
+		}
 	}
 
-	if len(cc.Profiles) == 0 {
-		errs = append(errs, field.Required(profilesPath, ""))
-	} else {
-		existingProfiles := make(map[string]int, len(cc.Profiles))
-		for i := range cc.Profiles {
-			profile := &cc.Profiles[i]
-			path := profilesPath.Index(i)
-			errs = append(errs, validateKubeSchedulerProfile(path, cc.APIVersion, profile)...)
-			if idx, ok := existingProfiles[profile.SchedulerName]; ok {
-				errs = append(errs, field.Duplicate(path.Child("schedulerName"), profilesPath.Index(idx).Child("schedulerName")))
-			}
-			existingProfiles[profile.SchedulerName] = i
+	// 2. ClientConnection and BindSetting
+	{
+		errs = append(errs, godelvalidation.ValidateClientConnectionConfiguration(&cc.ClientConnection, field.NewPath("clientConnection"))...)
+		for _, msg := range validation.IsValidSocketAddr(cc.HealthzBindAddress) {
+			errs = append(errs, field.Invalid(field.NewPath("healthzBindAddress"), cc.HealthzBindAddress, msg))
 		}
-		errs = append(errs, validateCommonQueueSort(profilesPath, cc.Profiles)...)
+		for _, msg := range validation.IsValidSocketAddr(cc.MetricsBindAddress) {
+			errs = append(errs, field.Invalid(field.NewPath("metricsBindAddress"), cc.MetricsBindAddress, msg))
+		}
 	}
-	if len(cc.HealthzBindAddress) > 0 {
-		host, port, err := splitHostIntPort(cc.HealthzBindAddress)
-		if err != nil {
-			errs = append(errs, field.Invalid(field.NewPath("healthzBindAddress"), cc.HealthzBindAddress, err.Error()))
+
+	// 3. DebuggingConfiguration
+	// Do nothing.
+
+	// 4. Godel Scheduler
+	{
+		if len(cc.GodelSchedulerName) == 0 {
+			errs = append(errs, field.Required(field.NewPath("GodelSchedulerName"), ""))
+		}
+		if cc.SchedulerName == nil {
+			errs = append(errs, field.Required(field.NewPath("schedulerName"), ""))
+		}
+		if cc.ReservationTimeOutSeconds <= 0 {
+			errs = append(errs, field.Invalid(field.NewPath("ReservationTimeOutSeconds"), cc.ReservationTimeOutSeconds, "ReservationTimeOutSeconds == 0"))
+		}
+		// TODO: Restore the following logic.
+		// if cc.SubClusterKey == nil || len(*cc.SubClusterKey) == 0 {
+		// 	errs = append(errs, field.Required(field.NewPath("subClusterKey"), ""))
+		// }
+	}
+
+	// 5. Godel Profiles
+	{
+		if cc.DefaultProfile == nil {
+			errs = append(errs, field.Required(field.NewPath("defaultProfile"), ""))
 		} else {
-			if errMsgs := validation.IsValidIP(host); errMsgs != nil {
-				errs = append(errs, field.Invalid(field.NewPath("healthzBindAddress"), cc.HealthzBindAddress, strings.Join(errMsgs, ",")))
-			}
-			if port != 0 {
-				errs = append(errs, field.Invalid(field.NewPath("healthzBindAddress"), cc.HealthzBindAddress, "must be empty or with an explicit 0 port"))
+			errs = append(errs, ValidateSubClusterArgs(cc.DefaultProfile, field.NewPath("defaultProfile"))...)
+		}
+		if cc.SubClusterProfiles != nil {
+			for _, profile := range cc.SubClusterProfiles {
+				if len(profile.SubClusterName) == 0 {
+					errs = append(errs, field.Required(field.NewPath("subClusterName"), ""))
+				}
+				errs = append(errs, ValidateSubClusterArgs(cc.DefaultProfile, field.NewPath("subClusterProfile"))...)
 			}
 		}
 	}
-	if len(cc.MetricsBindAddress) > 0 {
-		host, port, err := splitHostIntPort(cc.MetricsBindAddress)
-		if err != nil {
-			errs = append(errs, field.Invalid(field.NewPath("metricsBindAddress"), cc.MetricsBindAddress, err.Error()))
+
+	return errs
+}
+
+func noDuplicatePlugins(plugins *config.PluginSet, fldPath *field.Path, childPath string) field.ErrorList {
+	errs := field.ErrorList{}
+	if plugins == nil {
+		return errs
+	}
+	pluginSet := sets.NewString()
+	for _, plugin := range plugins.Plugins {
+		if pluginSet.Has(plugin.Name) {
+			errs = append(errs, field.Invalid(fldPath.Child(childPath), plugins, "plugin "+plugin.Name+" is duplicated"))
 		} else {
-			if errMsgs := validation.IsValidIP(host); errMsgs != nil {
-				errs = append(errs, field.Invalid(field.NewPath("metricsBindAddress"), cc.MetricsBindAddress, strings.Join(errMsgs, ",")))
-			}
-			if port != 0 {
-				errs = append(errs, field.Invalid(field.NewPath("metricsBindAddress"), cc.MetricsBindAddress, "must be empty or with an explicit 0 port"))
+			pluginSet.Insert(plugin.Name)
+		}
+	}
+	return errs
+}
+
+// ValidateBasePluginsConfiguration ensures validation of the base plugins struct
+func ValidateBasePluginsConfiguration(plugins *config.Plugins, fldPath *field.Path) field.ErrorList {
+	errs := field.ErrorList{}
+	if plugins == nil {
+		return errs
+	}
+	errs = append(errs, noDuplicatePlugins(plugins.Filter, fldPath, "filter")...)
+	errs = append(errs, noDuplicatePlugins(plugins.Score, fldPath, "score")...)
+	return errs
+}
+
+// ValidatePluginArgsConfiguration ensures validation of the ClientConnectionConfiguration struct
+func ValidatePluginArgsConfiguration(pluginArgs []config.PluginConfig, fldPath *field.Path) field.ErrorList {
+	errs := field.ErrorList{}
+	if len(pluginArgs) == 0 {
+		return errs
+	}
+	argsSet := sets.NewString()
+	for _, pluginArg := range pluginArgs {
+		if argsSet.Has(pluginArg.Name) {
+			errs = append(errs, field.Invalid(fldPath, pluginArg, "plugin "+pluginArg.Name+" is duplicated"))
+		} else {
+			argsSet.Insert(pluginArg.Name)
+			if pluginArg.Args.Size() == 0 {
+				errs = append(errs, field.Invalid(fldPath, pluginArg, "plugin "+pluginArg.Name+" args is empty"))
 			}
 		}
 	}
-	if cc.PercentageOfNodesToScore < 0 || cc.PercentageOfNodesToScore > 100 {
+	return errs
+}
+
+func ValidateSubClusterArgs(cc *config.GodelSchedulerProfile, fldPath *field.Path) field.ErrorList {
+	errs := field.ErrorList{}
+
+	errs = append(errs, ValidateBasePluginsConfiguration(cc.BasePluginsForKubelet, field.NewPath("baseKubeletPlugins"))...)
+	errs = append(errs, ValidateBasePluginsConfiguration(cc.BasePluginsForNM, field.NewPath("baseNMPlugins"))...)
+	errs = append(errs, ValidatePluginArgsConfiguration(cc.PluginConfigs, field.NewPath("pluginConfig"))...)
+
+	if cc.PercentageOfNodesToScore != nil && (*cc.PercentageOfNodesToScore < 0 || *cc.PercentageOfNodesToScore > 100) {
 		errs = append(errs, field.Invalid(field.NewPath("percentageOfNodesToScore"),
 			cc.PercentageOfNodesToScore, "not in valid range [0-100]"))
 	}
-	if cc.PodInitialBackoffSeconds <= 0 {
-		errs = append(errs, field.Invalid(field.NewPath("podInitialBackoffSeconds"),
-			cc.PodInitialBackoffSeconds, "must be greater than 0"))
+	if cc.IncreasedPercentageOfNodesToScore != nil && (*cc.IncreasedPercentageOfNodesToScore < 0 || *cc.IncreasedPercentageOfNodesToScore > 100) {
+		errs = append(errs, field.Invalid(field.NewPath("increasedPercentageOfNodesToScore"),
+			cc.IncreasedPercentageOfNodesToScore, "not in valid range [0-100]"))
 	}
-	if cc.PodMaxBackoffSeconds < cc.PodInitialBackoffSeconds {
-		errs = append(errs, field.Invalid(field.NewPath("podMaxBackoffSeconds"),
-			cc.PodMaxBackoffSeconds, "must be greater than or equal to PodInitialBackoffSeconds"))
+	if cc.UnitInitialBackoffSeconds != nil && *cc.UnitInitialBackoffSeconds <= 0 {
+		errs = append(errs, field.Invalid(field.NewPath("unitInitialBackoffSeconds"),
+			cc.UnitInitialBackoffSeconds, "must be greater than 0"))
 	}
-
-	errs = append(errs, validateExtenders(field.NewPath("extenders"), cc.Extenders)...)
-	return utilerrors.Flatten(utilerrors.NewAggregate(errs))
-}
-
-func splitHostIntPort(s string) (string, int, error) {
-	host, port, err := net.SplitHostPort(s)
-	if err != nil {
-		return "", 0, err
+	if cc.UnitInitialBackoffSeconds != nil && *cc.UnitMaxBackoffSeconds < *cc.UnitInitialBackoffSeconds {
+		errs = append(errs, field.Invalid(field.NewPath("unitMaxBackoffSeconds"),
+			cc.UnitMaxBackoffSeconds, "must be greater than or equal to UnitInitialBackoffSeconds"))
 	}
-	portInt, err := strconv.Atoi(port)
-	if err != nil {
-		return "", 0, err
-	}
-	return host, portInt, err
-}
-
-type removedPlugins struct {
-	schemeGroupVersion string
-	plugins            []string
-}
-
-// removedPluginsByVersion maintains a list of removed plugins in each version.
-// Remember to add an entry to that list when creating a new component config
-// version (even if the list of removed plugins is empty).
-var removedPluginsByVersion = []removedPlugins{
-	{
-		schemeGroupVersion: v1beta2.SchemeGroupVersion.String(),
-		plugins:            []string{},
-	},
-	{
-		schemeGroupVersion: v1beta3.SchemeGroupVersion.String(),
-		plugins:            []string{},
-	},
-}
-
-// isPluginRemoved checks if a given plugin was removed in the given component
-// config version or earlier.
-func isPluginRemoved(apiVersion string, name string) (bool, string) {
-	for _, dp := range removedPluginsByVersion {
-		for _, plugin := range dp.plugins {
-			if name == plugin {
-				return true, dp.schemeGroupVersion
-			}
-		}
-		if apiVersion == dp.schemeGroupVersion {
-			break
-		}
-	}
-	return false, ""
-}
-
-func validatePluginSetForRemovedPlugins(path *field.Path, apiVersion string, ps config.PluginSet) []error {
-	var errs []error
-	for i, plugin := range ps.Enabled {
-		if removed, removedVersion := isPluginRemoved(apiVersion, plugin.Name); removed {
-			errs = append(errs, field.Invalid(path.Child("enabled").Index(i), plugin.Name, fmt.Sprintf("was removed in version %q (KubeSchedulerConfiguration is version %q)", removedVersion, apiVersion)))
-		}
+	if cc.AttemptImpactFactorOnPriority != nil && *cc.AttemptImpactFactorOnPriority <= 0 {
+		errs = append(errs, field.Invalid(field.NewPath("attemptImpactFactorOnPriority"),
+			cc.AttemptImpactFactorOnPriority, "must be greater than 0"))
 	}
 	return errs
-}
-
-func validateKubeSchedulerProfile(path *field.Path, apiVersion string, profile *config.KubeSchedulerProfile) []error {
-	var errs []error
-	if len(profile.SchedulerName) == 0 {
-		errs = append(errs, field.Required(path.Child("schedulerName"), ""))
-	}
-	errs = append(errs, validatePluginConfig(path, apiVersion, profile)...)
-	return errs
-}
-
-func validatePluginConfig(path *field.Path, apiVersion string, profile *config.KubeSchedulerProfile) []error {
-	var errs []error
-	m := map[string]interface{}{
-		"DefaultPreemption":               ValidateDefaultPreemptionArgs,
-		"InterPodAffinity":                ValidateInterPodAffinityArgs,
-		"NodeAffinity":                    ValidateNodeAffinityArgs,
-		"NodeResourcesBalancedAllocation": ValidateNodeResourcesBalancedAllocationArgs,
-		"NodeResourcesFitArgs":            ValidateNodeResourcesFitArgs,
-		"PodTopologySpread":               ValidatePodTopologySpreadArgs,
-		"VolumeBinding":                   ValidateVolumeBindingArgs,
-	}
-
-	if profile.Plugins != nil {
-		stagesToPluginSet := map[string]config.PluginSet{
-			"queueSort":  profile.Plugins.QueueSort,
-			"preFilter":  profile.Plugins.PreFilter,
-			"filter":     profile.Plugins.Filter,
-			"postFilter": profile.Plugins.PostFilter,
-			"preScore":   profile.Plugins.PreScore,
-			"score":      profile.Plugins.Score,
-			"reserve":    profile.Plugins.Reserve,
-			"permit":     profile.Plugins.Permit,
-			"preBind":    profile.Plugins.PreBind,
-			"bind":       profile.Plugins.Bind,
-			"postBind":   profile.Plugins.PostBind,
-		}
-
-		pluginsPath := path.Child("plugins")
-		for s, p := range stagesToPluginSet {
-			errs = append(errs, validatePluginSetForRemovedPlugins(
-				pluginsPath.Child(s), apiVersion, p)...)
-		}
-	}
-
-	seenPluginConfig := make(sets.String)
-
-	for i := range profile.PluginConfig {
-		pluginConfigPath := path.Child("pluginConfig").Index(i)
-		name := profile.PluginConfig[i].Name
-		args := profile.PluginConfig[i].Args
-		if seenPluginConfig.Has(name) {
-			errs = append(errs, field.Duplicate(pluginConfigPath, name))
-		} else {
-			seenPluginConfig.Insert(name)
-		}
-		if removed, removedVersion := isPluginRemoved(apiVersion, name); removed {
-			errs = append(errs, field.Invalid(pluginConfigPath, name, fmt.Sprintf("was removed in version %q (KubeSchedulerConfiguration is version %q)", removedVersion, apiVersion)))
-		} else if validateFunc, ok := m[name]; ok {
-			// type mismatch, no need to validate the `args`.
-			if reflect.TypeOf(args) != reflect.ValueOf(validateFunc).Type().In(1) {
-				errs = append(errs, field.Invalid(pluginConfigPath.Child("args"), args, "has to match plugin args"))
-			} else {
-				in := []reflect.Value{reflect.ValueOf(pluginConfigPath.Child("args")), reflect.ValueOf(args)}
-				res := reflect.ValueOf(validateFunc).Call(in)
-				// It's possible that validation function return a Aggregate, just append here and it will be flattened at the end of CC validation.
-				if res[0].Interface() != nil {
-					errs = append(errs, res[0].Interface().(error))
-				}
-			}
-		}
-	}
-	return errs
-}
-
-func validateCommonQueueSort(path *field.Path, profiles []config.KubeSchedulerProfile) []error {
-	var errs []error
-	var canon config.PluginSet
-	var queueSortName string
-	var queueSortArgs runtime.Object
-	if profiles[0].Plugins != nil {
-		canon = profiles[0].Plugins.QueueSort
-		if len(profiles[0].Plugins.QueueSort.Enabled) != 0 {
-			queueSortName = profiles[0].Plugins.QueueSort.Enabled[0].Name
-		}
-		length := len(profiles[0].Plugins.QueueSort.Enabled)
-		if length > 1 {
-			errs = append(errs, field.Invalid(path.Index(0).Child("plugins", "queueSort", "Enabled"), length, "only one queue sort plugin can be enabled"))
-		}
-	}
-	for _, cfg := range profiles[0].PluginConfig {
-		if len(queueSortName) > 0 && cfg.Name == queueSortName {
-			queueSortArgs = cfg.Args
-		}
-	}
-	for i := 1; i < len(profiles); i++ {
-		var curr config.PluginSet
-		if profiles[i].Plugins != nil {
-			curr = profiles[i].Plugins.QueueSort
-		}
-		if !cmp.Equal(canon, curr) {
-			errs = append(errs, field.Invalid(path.Index(i).Child("plugins", "queueSort"), curr, "has to match for all profiles"))
-		}
-		for _, cfg := range profiles[i].PluginConfig {
-			if cfg.Name == queueSortName && !cmp.Equal(queueSortArgs, cfg.Args) {
-				errs = append(errs, field.Invalid(path.Index(i).Child("pluginConfig", "args"), cfg.Args, "has to match for all profiles"))
-			}
-		}
-	}
-	return errs
-}
-
-// validateExtenders validates the configured extenders for the Scheduler
-func validateExtenders(fldPath *field.Path, extenders []config.Extender) []error {
-	var errs []error
-	binders := 0
-	extenderManagedResources := sets.NewString()
-	for i, extender := range extenders {
-		path := fldPath.Index(i)
-		if len(extender.PrioritizeVerb) > 0 && extender.Weight <= 0 {
-			errs = append(errs, field.Invalid(path.Child("weight"),
-				extender.Weight, "must have a positive weight applied to it"))
-		}
-		if extender.BindVerb != "" {
-			binders++
-		}
-		for j, resource := range extender.ManagedResources {
-			managedResourcesPath := path.Child("managedResources").Index(j)
-			validationErrors := validateExtendedResourceName(managedResourcesPath.Child("name"), v1.ResourceName(resource.Name))
-			errs = append(errs, validationErrors...)
-			if extenderManagedResources.Has(resource.Name) {
-				errs = append(errs, field.Invalid(managedResourcesPath.Child("name"),
-					resource.Name, "duplicate extender managed resource name"))
-			}
-			extenderManagedResources.Insert(resource.Name)
-		}
-	}
-	if binders > 1 {
-		errs = append(errs, field.Invalid(fldPath, fmt.Sprintf("found %d extenders implementing bind", binders), "only one extender can implement bind"))
-	}
-	return errs
-}
-
-// validateExtendedResourceName checks whether the specified name is a valid
-// extended resource name.
-func validateExtendedResourceName(path *field.Path, name v1.ResourceName) []error {
-	var validationErrors []error
-	for _, msg := range validation.IsQualifiedName(string(name)) {
-		validationErrors = append(validationErrors, field.Invalid(path, name, msg))
-	}
-	if len(validationErrors) != 0 {
-		return validationErrors
-	}
-	if !v1helper.IsExtendedResourceName(name) {
-		validationErrors = append(validationErrors, field.Invalid(path, string(name), "is an invalid extended resource name"))
-	}
-	return validationErrors
 }

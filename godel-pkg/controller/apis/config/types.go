@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Kubernetes Authors.
+Copyright 2024 The Godel Scheduler Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,129 +18,82 @@ package config
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	cpconfig "k8s.io/cloud-provider/config"
-	serviceconfig "k8s.io/cloud-provider/controllers/service/config"
-	cmconfig "k8s.io/controller-manager/config"
-	csrsigningconfig "k8s.io/kubernetes/pkg/controller/certificates/signer/config"
-	cronjobconfig "k8s.io/kubernetes/pkg/controller/cronjob/config"
-	daemonconfig "k8s.io/kubernetes/pkg/controller/daemon/config"
-	deploymentconfig "k8s.io/kubernetes/pkg/controller/deployment/config"
-	endpointconfig "k8s.io/kubernetes/pkg/controller/endpoint/config"
-	endpointsliceconfig "k8s.io/kubernetes/pkg/controller/endpointslice/config"
-	endpointslicemirroringconfig "k8s.io/kubernetes/pkg/controller/endpointslicemirroring/config"
-	garbagecollectorconfig "k8s.io/kubernetes/pkg/controller/garbagecollector/config"
-	jobconfig "k8s.io/kubernetes/pkg/controller/job/config"
-	namespaceconfig "k8s.io/kubernetes/pkg/controller/namespace/config"
-	nodeipamconfig "k8s.io/kubernetes/pkg/controller/nodeipam/config"
-	nodelifecycleconfig "k8s.io/kubernetes/pkg/controller/nodelifecycle/config"
-	poautosclerconfig "k8s.io/kubernetes/pkg/controller/podautoscaler/config"
-	podgcconfig "k8s.io/kubernetes/pkg/controller/podgc/config"
-	replicasetconfig "k8s.io/kubernetes/pkg/controller/replicaset/config"
-	replicationconfig "k8s.io/kubernetes/pkg/controller/replication/config"
-	resourcequotaconfig "k8s.io/kubernetes/pkg/controller/resourcequota/config"
-	serviceaccountconfig "k8s.io/kubernetes/pkg/controller/serviceaccount/config"
-	statefulsetconfig "k8s.io/kubernetes/pkg/controller/statefulset/config"
-	ttlafterfinishedconfig "k8s.io/kubernetes/pkg/controller/ttlafterfinished/config"
-	attachdetachconfig "k8s.io/kubernetes/pkg/controller/volume/attachdetach/config"
-	ephemeralvolumeconfig "k8s.io/kubernetes/pkg/controller/volume/ephemeral/config"
-	persistentvolumeconfig "k8s.io/kubernetes/pkg/controller/volume/persistentvolume/config"
+	componentbaseconfig "k8s.io/component-base/config"
+
+	reservationconfig "github.com/kubewharf/godel-scheduler/pkg/controller/reservation/config"
+	"github.com/kubewharf/godel-scheduler/pkg/util/tracing"
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-// KubeControllerManagerConfiguration contains elements describing kube-controller manager.
-type KubeControllerManagerConfiguration struct {
+type GodelControllerManagerConfiguration struct {
 	metav1.TypeMeta
 
-	// Generic holds configuration for a generic controller-manager
-	Generic cmconfig.GenericControllerManagerConfiguration
-	// KubeCloudSharedConfiguration holds configuration for shared related features
-	// both in cloud controller manager and kube-controller manager.
-	KubeCloudShared cpconfig.KubeCloudSharedConfiguration
-
-	// AttachDetachControllerConfiguration holds configuration for
-	// AttachDetachController related features.
-	AttachDetachController attachdetachconfig.AttachDetachControllerConfiguration
-	// CSRSigningControllerConfiguration holds configuration for
-	// CSRSigningController related features.
-	CSRSigningController csrsigningconfig.CSRSigningControllerConfiguration
-	// DaemonSetControllerConfiguration holds configuration for DaemonSetController
-	// related features.
-	DaemonSetController daemonconfig.DaemonSetControllerConfiguration
-	// DeploymentControllerConfiguration holds configuration for
-	// DeploymentController related features.
-	DeploymentController deploymentconfig.DeploymentControllerConfiguration
-	// StatefulSetControllerConfiguration holds configuration for
-	// StatefulSetController related features.
-	StatefulSetController statefulsetconfig.StatefulSetControllerConfiguration
-	// DeprecatedControllerConfiguration holds configuration for some deprecated
-	// features.
-	DeprecatedController DeprecatedControllerConfiguration
-	// EndpointControllerConfiguration holds configuration for EndpointController
-	// related features.
-	EndpointController endpointconfig.EndpointControllerConfiguration
-	// EndpointSliceControllerConfiguration holds configuration for
-	// EndpointSliceController related features.
-	EndpointSliceController endpointsliceconfig.EndpointSliceControllerConfiguration
-	// EndpointSliceMirroringControllerConfiguration holds configuration for
-	// EndpointSliceMirroringController related features.
-	EndpointSliceMirroringController endpointslicemirroringconfig.EndpointSliceMirroringControllerConfiguration
-	// EphemeralVolumeControllerConfiguration holds configuration for EphemeralVolumeController
-	// related features.
-	EphemeralVolumeController ephemeralvolumeconfig.EphemeralVolumeControllerConfiguration
-	// GarbageCollectorControllerConfiguration holds configuration for
-	// GarbageCollectorController related features.
-	GarbageCollectorController garbagecollectorconfig.GarbageCollectorControllerConfiguration
-	// HPAControllerConfiguration holds configuration for HPAController related features.
-	HPAController poautosclerconfig.HPAControllerConfiguration
-	// JobControllerConfiguration holds configuration for JobController related features.
-	JobController jobconfig.JobControllerConfiguration
-	// CronJobControllerConfiguration holds configuration for CronJobController
-	// related features.
-	CronJobController cronjobconfig.CronJobControllerConfiguration
-	// NamespaceControllerConfiguration holds configuration for NamespaceController
-	// related features.
-	NamespaceController namespaceconfig.NamespaceControllerConfiguration
-	// NodeIPAMControllerConfiguration holds configuration for NodeIPAMController
-	// related features.
-	NodeIPAMController nodeipamconfig.NodeIPAMControllerConfiguration
-	// NodeLifecycleControllerConfiguration holds configuration for
-	// NodeLifecycleController related features.
-	NodeLifecycleController nodelifecycleconfig.NodeLifecycleControllerConfiguration
-	// PersistentVolumeBinderControllerConfiguration holds configuration for
-	// PersistentVolumeBinderController related features.
-	PersistentVolumeBinderController persistentvolumeconfig.PersistentVolumeBinderControllerConfiguration
-	// PodGCControllerConfiguration holds configuration for PodGCController
-	// related features.
-	PodGCController podgcconfig.PodGCControllerConfiguration
-	// ReplicaSetControllerConfiguration holds configuration for ReplicaSet related features.
-	ReplicaSetController replicasetconfig.ReplicaSetControllerConfiguration
-	// ReplicationControllerConfiguration holds configuration for
-	// ReplicationController related features.
-	ReplicationController replicationconfig.ReplicationControllerConfiguration
-	// ResourceQuotaControllerConfiguration holds configuration for
-	// ResourceQuotaController related features.
-	ResourceQuotaController resourcequotaconfig.ResourceQuotaControllerConfiguration
-	// SAControllerConfiguration holds configuration for ServiceAccountController
-	// related features.
-	SAController serviceaccountconfig.SAControllerConfiguration
-	// ServiceControllerConfiguration holds configuration for ServiceController
-	// related features.
-	ServiceController serviceconfig.ServiceControllerConfiguration
-	// TTLAfterFinishedControllerConfiguration holds configuration for
-	// TTLAfterFinishedController related features.
-	TTLAfterFinishedController ttlafterfinishedconfig.TTLAfterFinishedControllerConfiguration
+	Generic               *GenericControllerManagerConfiguration
+	ReservationController *reservationconfig.ReservationControllerConfiguration
+	// HealthzBindAddress is the IP address and port for the health check server to serve on,
+	// defaulting to 0.0.0.0:10251
+	HealthzBindAddress string
+	// MetricsBindAddress is the IP address and port for the metrics server to
+	// serve on, defaulting to 0.0.0.0:10251.
+	MetricsBindAddress string
+	// Tracer defines the configuration of tracer
+	Tracer *tracing.TracerConfiguration
 }
 
-// DeprecatedControllerConfiguration contains elements be deprecated.
-type DeprecatedControllerConfiguration struct {
-	// DEPRECATED: deletingPodsQps is the number of nodes per second on which pods are deleted in
-	// case of node failure.
-	DeletingPodsQPS float32
-	// DEPRECATED: deletingPodsBurst is the number of nodes on which pods are bursty deleted in
-	// case of node failure. For more details look into RateLimiter.
-	DeletingPodsBurst int32
-	// registerRetryCount is the number of retries for initial node registration.
-	// Retry interval equals node-sync-period.
-	RegisterRetryCount int32
+type GenericControllerManagerConfiguration struct {
+	// port is the port that the controller-manager's http service runs on.
+	Port int32
+	// address is the IP address to serve on (set to 0.0.0.0 for all interfaces).
+	Address string
+	// minResyncPeriod is the resync period in reflectors; will be random between
+	// minResyncPeriod and 2*minResyncPeriod.
+	MinResyncPeriod metav1.Duration
+	// ClientConnection specifies the kubeconfig file and client connection
+	// settings for the proxy server to use when communicating with the apiserver.
+	ClientConnection componentbaseconfig.ClientConnectionConfiguration
+	// How long to wait between starting controller managers
+	ControllerStartInterval metav1.Duration
+	// leaderElection defines the configuration of leader election client.
+	LeaderElection componentbaseconfig.LeaderElectionConfiguration
+	// Controllers is the list of controllers to enable or disable
+	// '*' means "all enabled by default controllers"
+	// 'foo' means "enable 'foo'"
+	// '-foo' means "disable 'foo'"
+	// first item for a particular name wins
+	Controllers []string
+	// DebuggingConfiguration holds configuration for Debugging related features.
+	Debugging componentbaseconfig.DebuggingConfiguration
+	// LeaderMigrationEnabled indicates whether Leader Migration should be enabled for the controller manager.
+	LeaderMigrationEnabled bool
+	// LeaderMigration holds the configuration for Leader Migration.
+	LeaderMigration LeaderMigrationConfiguration
+}
+
+// LeaderMigrationConfiguration provides versioned configuration for all migrating leader locks.
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+type LeaderMigrationConfiguration struct {
+	metav1.TypeMeta
+
+	// LeaderName is the name of the leader election resource that protects the migration
+	// E.g. 1-20-KCM-to-1-21-CCM
+	LeaderName string
+
+	// ResourceLock indicates the resource object type that will be used to lock
+	// Should be "leases" or "endpoints"
+	ResourceLock string
+
+	// ControllerLeaders contains a list of migrating leader lock configurations
+	ControllerLeaders []ControllerLeaderConfiguration
+}
+
+// ControllerLeaderConfiguration provides the configuration for a migrating leader lock.
+type ControllerLeaderConfiguration struct {
+	// Name is the name of the controller being migrated
+	// E.g. service-controller, route-controller, cloud-node-controller, etc
+	Name string
+
+	// Component is the name of the component in which the controller should be running.
+	// E.g. kube-controller-manager, cloud-controller-manager, etc
+	// Or '*' meaning the controller can be run under any component that participates in the migration
+	Component string
 }

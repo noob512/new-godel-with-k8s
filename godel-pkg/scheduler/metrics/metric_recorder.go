@@ -1,5 +1,5 @@
 /*
-Copyright 2019 The Kubernetes Authors.
+Copyright 2023 The Godel Scheduler Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,56 +17,118 @@ limitations under the License.
 package metrics
 
 import (
-	"k8s.io/component-base/metrics"
+	pkgmetrics "github.com/kubewharf/godel-scheduler/pkg/common/metrics"
+	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
 )
 
-// MetricRecorder represents a metric recorder which takes action when the
-// metric Inc(), Dec() and Clear()
-type MetricRecorder interface {
-	Inc()
-	Dec()
-	Clear()
+var _ pkgmetrics.MetricRecorder = &PendingUnitsRecorder{}
+
+// PendingUnitsRecorder is an implementation of MetricRecorder
+type PendingUnitsRecorder struct {
+	queue string
 }
 
-var _ MetricRecorder = &PendingPodsRecorder{}
-
-// PendingPodsRecorder is an implementation of MetricRecorder
-type PendingPodsRecorder struct {
-	recorder metrics.GaugeMetric
-}
-
-// NewActivePodsRecorder returns ActivePods in a Prometheus metric fashion
-func NewActivePodsRecorder() *PendingPodsRecorder {
-	return &PendingPodsRecorder{
-		recorder: ActivePods(),
+func newPendingUnitsRecorder(queue string) *PendingUnitsRecorder {
+	return &PendingUnitsRecorder{
+		queue: queue,
 	}
 }
 
-// NewUnschedulablePodsRecorder returns UnschedulablePods in a Prometheus metric fashion
-func NewUnschedulablePodsRecorder() *PendingPodsRecorder {
-	return &PendingPodsRecorder{
-		recorder: UnschedulablePods(),
+// NewPendingUnitsRecorder return PendingUnitsRecorder about given queue
+func NewPendingUnitsRecorder(queue string) *PendingUnitsRecorder {
+	return newPendingUnitsRecorder(queue)
+}
+
+// Inc increases the pod and unit metrics, in an atomic way
+func (r *PendingUnitsRecorder) Inc(obj interface{}) {
+	if obj != nil {
+		if storedUnit, ok := obj.(framework.StoredUnit); ok && storedUnit != nil {
+			if storedUnit.NumPods() <= 0 {
+				return
+			}
+
+			observableUnit, ok := storedUnit.(framework.ObservableUnit)
+			if !ok {
+				return
+			}
+
+			unitProperty := observableUnit.GetUnitProperty()
+			if unitProperty == nil {
+				return
+			}
+
+			podProperty := unitProperty.GetPodProperty()
+			if podProperty == nil {
+				return
+			}
+
+			PendingPodsAdd(podProperty, r.queue, float64(storedUnit.NumPods()))
+			PendingUnitsInc(unitProperty, r.queue)
+
+			for _, info := range storedUnit.GetPods() {
+				info.UpdateQueueStage(r.queue)
+			}
+		}
 	}
 }
 
-// NewBackoffPodsRecorder returns BackoffPods in a Prometheus metric fashion
-func NewBackoffPodsRecorder() *PendingPodsRecorder {
-	return &PendingPodsRecorder{
-		recorder: BackoffPods(),
+// Dec decreases the pod and unit metrics, in an atomic way
+func (r *PendingUnitsRecorder) Dec(obj interface{}) {
+	if obj != nil {
+		if storedUnit, ok := obj.(framework.StoredUnit); ok && storedUnit != nil {
+			if storedUnit.NumPods() <= 0 {
+				return
+			}
+
+			observableUnit, ok := storedUnit.(framework.ObservableUnit)
+			if !ok {
+				return
+			}
+
+			unitProperty := observableUnit.GetUnitProperty()
+			if unitProperty == nil {
+				return
+			}
+
+			podProperty := unitProperty.GetPodProperty()
+			if podProperty == nil {
+				return
+			}
+
+			PendingPodsAdd(podProperty, r.queue, -float64(storedUnit.NumPods()))
+			PendingUnitsDec(unitProperty, r.queue)
+		}
 	}
-}
-
-// Inc increases a metric counter by 1, in an atomic way
-func (r *PendingPodsRecorder) Inc() {
-	r.recorder.Inc()
-}
-
-// Dec decreases a metric counter by 1, in an atomic way
-func (r *PendingPodsRecorder) Dec() {
-	r.recorder.Dec()
 }
 
 // Clear set a metric counter to 0, in an atomic way
-func (r *PendingPodsRecorder) Clear() {
-	r.recorder.Set(float64(0))
+func (r *PendingUnitsRecorder) Clear() {
+	// no-op
+}
+
+func (r *PendingUnitsRecorder) AddingLatencyInSeconds(obj interface{}, duration float64) {
+	if obj != nil {
+		if storedUnit, ok := obj.(framework.StoredUnit); ok && storedUnit != nil {
+			if storedUnit.NumPods() <= 0 {
+				return
+			}
+
+			observableUnit, ok := storedUnit.(framework.ObservableUnit)
+			if !ok {
+				return
+			}
+
+			unitProperty := observableUnit.GetUnitProperty()
+			if unitProperty == nil {
+				return
+			}
+
+			podProperty := unitProperty.GetPodProperty()
+			if podProperty == nil {
+				return
+			}
+
+			QueueSortingLatencyObserve(podProperty, r.queue, duration)
+		}
+	}
 }

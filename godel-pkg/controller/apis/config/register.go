@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Kubernetes Authors.
+Copyright 2024 The Godel Scheduler Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@ import (
 )
 
 // GroupName is the group name used in this package
-const GroupName = "kubecontrollermanager.config.k8s.io"
+const GroupName = "godelcontrollermanager.config.byted.org"
 
 // SchemeGroupVersion is group version used to register these objects
 var SchemeGroupVersion = schema.GroupVersion{Group: GroupName, Version: runtime.APIVersionInternal}
@@ -37,7 +37,8 @@ var (
 // addKnownTypes registers known types to the given scheme
 func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(SchemeGroupVersion,
-		&KubeControllerManagerConfiguration{},
+		&GodelControllerManagerConfiguration{},
+		&LeaderMigrationConfiguration{},
 	)
 	return nil
 }

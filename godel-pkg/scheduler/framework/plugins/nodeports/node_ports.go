@@ -22,20 +22,22 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/kubernetes/pkg/scheduler/framework"
-	"k8s.io/kubernetes/pkg/scheduler/framework/plugins/names"
+
+	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
+	utils "github.com/kubewharf/godel-scheduler/pkg/plugins/nodeports"
+	"github.com/kubewharf/godel-scheduler/pkg/scheduler/framework/handle"
 )
 
 // NodePorts is a plugin that checks if a node has free ports for the requested pod ports.
 type NodePorts struct{}
 
-var _ framework.PreFilterPlugin = &NodePorts{}
-var _ framework.FilterPlugin = &NodePorts{}
-var _ framework.EnqueueExtensions = &NodePorts{}
+var (
+	_ framework.PreFilterPlugin = &NodePorts{}
+	_ framework.FilterPlugin    = &NodePorts{}
+)
 
 const (
-	// Name is the name of the plugin used in the plugin registry and configurations.
-	Name = names.NodePorts
+	Name = utils.Name
 
 	// preFilterStateKey is the key in CycleState to NodePorts pre-computed data.
 	// Using the name of the plugin will likely help us avoid collisions with other plugins.
@@ -61,7 +63,7 @@ func (pl *NodePorts) Name() string {
 // getContainerPorts returns the used host ports of Pods: if 'port' was used, a 'port:true' pair
 // will be in the result; but it does not resolve port conflict.
 func getContainerPorts(pods ...*v1.Pod) []*v1.ContainerPort {
-	ports := []*v1.ContainerPort{}
+	var ports []*v1.ContainerPort
 	for _, pod := range pods {
 		for j := range pod.Spec.Containers {
 			container := &pod.Spec.Containers[j]
@@ -74,10 +76,10 @@ func getContainerPorts(pods ...*v1.Pod) []*v1.ContainerPort {
 }
 
 // PreFilter invoked at the prefilter extension point.
-func (pl *NodePorts) PreFilter(ctx context.Context, cycleState *framework.CycleState, pod *v1.Pod) (*framework.PreFilterResult, *framework.Status) {
+func (pl *NodePorts) PreFilter(ctx context.Context, cycleState *framework.CycleState, pod *v1.Pod) *framework.Status {
 	s := getContainerPorts(pod)
 	cycleState.Write(preFilterStateKey, preFilterState(s))
-	return nil, nil
+	return nil
 }
 
 // PreFilterExtensions do not exist for this plugin.
@@ -99,24 +101,14 @@ func getPreFilterState(cycleState *framework.CycleState) (preFilterState, error)
 	return s, nil
 }
 
-// EventsToRegister returns the possible events that may make a Pod
-// failed by this plugin schedulable.
-func (pl *NodePorts) EventsToRegister() []framework.ClusterEvent {
-	return []framework.ClusterEvent{
-		// Due to immutable fields `spec.containers[*].ports`, pod update events are ignored.
-		{Resource: framework.Pod, ActionType: framework.Delete},
-		{Resource: framework.Node, ActionType: framework.Add | framework.Update},
-	}
-}
-
 // Filter invoked at the filter extension point.
-func (pl *NodePorts) Filter(ctx context.Context, cycleState *framework.CycleState, pod *v1.Pod, nodeInfo *framework.NodeInfo) *framework.Status {
+func (pl *NodePorts) Filter(ctx context.Context, cycleState *framework.CycleState, pod *v1.Pod, nodeInfo framework.NodeInfo) *framework.Status {
 	wantPorts, err := getPreFilterState(cycleState)
 	if err != nil {
 		return framework.AsStatus(err)
 	}
 
-	fits := fitsPorts(wantPorts, nodeInfo)
+	fits := utils.FitsPorts(wantPorts, nodeInfo)
 	if !fits {
 		return framework.NewStatus(framework.Unschedulable, ErrReason)
 	}
@@ -124,23 +116,7 @@ func (pl *NodePorts) Filter(ctx context.Context, cycleState *framework.CycleStat
 	return nil
 }
 
-// Fits checks if the pod fits the node.
-func Fits(pod *v1.Pod, nodeInfo *framework.NodeInfo) bool {
-	return fitsPorts(getContainerPorts(pod), nodeInfo)
-}
-
-func fitsPorts(wantPorts []*v1.ContainerPort, nodeInfo *framework.NodeInfo) bool {
-	// try to see whether existingPorts and wantPorts will conflict or not
-	existingPorts := nodeInfo.UsedPorts
-	for _, cp := range wantPorts {
-		if existingPorts.CheckConflict(cp.HostIP, string(cp.Protocol), cp.HostPort) {
-			return false
-		}
-	}
-	return true
-}
-
 // New initializes a new plugin and returns it.
-func New(_ runtime.Object, _ framework.Handle) (framework.Plugin, error) {
+func New(_ runtime.Object, _ handle.PodFrameworkHandle) (framework.Plugin, error) {
 	return &NodePorts{}, nil
 }

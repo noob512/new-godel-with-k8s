@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The Kubernetes Authors.
+Copyright 2018 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -32,13 +32,16 @@ type FunctionShapePoint struct {
 // Shape[i].Score represents function values at meeting points.
 //
 // function f(p) is defined as:
-//   shape[0].Score for p < shape[0].Utilization
-//   shape[n-1].Score for p > shape[n-1].Utilization
+//
+//	shape[0].Score for p < f[0].Utilization
+//	shape[i].Score for p == shape[i].Utilization
+//	shape[n-1].Score for p > shape[n-1].Utilization
+//
 // and linear between points (p < shape[i].Utilization)
 func BuildBrokenLinearFunction(shape FunctionShape) func(int64) int64 {
 	return func(p int64) int64 {
 		for i := 0; i < len(shape); i++ {
-			if p <= int64(shape[i].Utilization) {
+			if p <= shape[i].Utilization {
 				if i == 0 {
 					return shape[0].Score
 				}

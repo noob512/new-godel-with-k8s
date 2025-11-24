@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Kubernetes Authors.
+Copyright 2024 The Godel Scheduler Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -16,4 +16,6 @@ limitations under the License.
 
 // +k8s:deepcopy-gen=package
 
-package config // import "k8s.io/kubernetes/pkg/controller/apis/config"
+// This folder contains configurations for constraints and other config params to run the godel controller manager
+
+package config // import "github.com/kubewharf/godel-scheduler/pkg/controller/apis/config"

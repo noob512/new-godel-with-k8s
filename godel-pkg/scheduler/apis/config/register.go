@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Kubernetes Authors.
+Copyright 2023 The Godel Scheduler Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -22,14 +22,14 @@ import (
 )
 
 // GroupName is the group name used in this package
-const GroupName = "kubescheduler.config.k8s.io"
+const GroupName = "godelscheduler.config.kubewharf.io"
 
 // SchemeGroupVersion is group version used to register these objects
 var SchemeGroupVersion = schema.GroupVersion{Group: GroupName, Version: runtime.APIVersionInternal}
 
 var (
 	// SchemeBuilder is the scheme builder with scheme init functions to run for this API package
-	SchemeBuilder = runtime.NewSchemeBuilder(addKnownTypes)
+	SchemeBuilder = runtime.NewSchemeBuilder(addKnownTypes, addDefaultingFuncs)
 	// AddToScheme is a global function that registers this API group & version to a scheme
 	AddToScheme = SchemeBuilder.AddToScheme
 )
@@ -37,14 +37,20 @@ var (
 // addKnownTypes registers known types to the given scheme
 func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(SchemeGroupVersion,
-		&KubeSchedulerConfiguration{},
-		&DefaultPreemptionArgs{},
+		&GodelSchedulerConfiguration{},
 		&InterPodAffinityArgs{},
+		&NodeLabelArgs{},
+		&NodeResourcesAffinityArgs{},
 		&NodeResourcesFitArgs{},
 		&PodTopologySpreadArgs{},
-		&VolumeBindingArgs{},
-		&NodeResourcesBalancedAllocationArgs{},
-		&NodeAffinityArgs{},
+		&RequestedToCapacityRatioArgs{},
+		&ServiceAffinityArgs{},
+		&NodeResourcesLeastAllocatedArgs{},
+		&NodeResourcesMostAllocatedArgs{},
+		&StartRecentlyArgs{},
+		&NodeResourcesBalancedAllocatedArgs{},
+		&LocalStoragePoolCheckerArgs{},
+		&LoadAwareArgs{},
 	)
 	return nil
 }

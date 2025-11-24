@@ -19,166 +19,83 @@ package scheduler
 import (
 	"context"
 	"fmt"
-	"sort"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/google/go-cmp/cmp"
 	v1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	eventsv1 "k8s.io/api/events/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
+	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	"k8s.io/client-go/informers"
-	"k8s.io/client-go/kubernetes/fake"
-	"k8s.io/client-go/tools/cache"
+	clientsetfake "k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/kubernetes/scheme"
+	clienttesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/events"
-	schedulerapi "k8s.io/kubernetes/pkg/scheduler/apis/config"
-	"k8s.io/kubernetes/pkg/scheduler/framework"
-	"k8s.io/kubernetes/pkg/scheduler/framework/plugins/defaultbinder"
-	frameworkruntime "k8s.io/kubernetes/pkg/scheduler/framework/runtime"
-	internalcache "k8s.io/kubernetes/pkg/scheduler/internal/cache"
-	internalqueue "k8s.io/kubernetes/pkg/scheduler/internal/queue"
-	"k8s.io/kubernetes/pkg/scheduler/profile"
-	testingclock "k8s.io/utils/clock/testing"
+
+	"github.com/kubewharf/godel-scheduler-api/pkg/apis/scheduling/v1alpha1"
+	godelclientfake "github.com/kubewharf/godel-scheduler-api/pkg/client/clientset/versioned/fake"
+	crdinformers "github.com/kubewharf/godel-scheduler-api/pkg/client/informers/externalversions"
+	"github.com/kubewharf/godel-scheduler/pkg/features"
+	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
+	"github.com/kubewharf/godel-scheduler/pkg/scheduler/apis/config"
+	"github.com/kubewharf/godel-scheduler/pkg/scheduler/cache"
+	movementstore "github.com/kubewharf/godel-scheduler/pkg/scheduler/cache/commonstores/movement_store"
+	preemptionstore "github.com/kubewharf/godel-scheduler/pkg/scheduler/cache/commonstores/preemption_store"
+	testing_helper "github.com/kubewharf/godel-scheduler/pkg/testing-helper"
+	"github.com/kubewharf/godel-scheduler/pkg/util"
+	cmdutil "github.com/kubewharf/godel-scheduler/pkg/util/cmd"
+	"github.com/kubewharf/godel-scheduler/pkg/util/node"
+	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
+	unitstatus "github.com/kubewharf/godel-scheduler/pkg/util/unitstatus"
+	katalystv1alpha1 "github.com/kubewharf/katalyst-api/pkg/apis/node/v1alpha1"
+	katalystclientfake "github.com/kubewharf/katalyst-api/pkg/client/clientset/versioned/fake"
+	katalystinformers "github.com/kubewharf/katalyst-api/pkg/client/informers/externalversions"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestSchedulerCreation(t *testing.T) {
-	invalidRegistry := map[string]frameworkruntime.PluginFactory{
-		defaultbinder.Name: defaultbinder.New,
-	}
-	validRegistry := map[string]frameworkruntime.PluginFactory{
-		"Foo": defaultbinder.New,
-	}
 	cases := []struct {
-		name          string
-		opts          []Option
-		wantErr       string
-		wantProfiles  []string
-		wantExtenders []string
+		name    string
+		opts    []Option
+		wantErr string
 	}{
 		{
-			name: "valid out-of-tree registry",
-			opts: []Option{
-				WithFrameworkOutOfTreeRegistry(validRegistry),
-				WithProfiles(
-					schedulerapi.KubeSchedulerProfile{
-						SchedulerName: "default-scheduler",
-						Plugins: &schedulerapi.Plugins{
-							QueueSort: schedulerapi.PluginSet{Enabled: []schedulerapi.Plugin{{Name: "PrioritySort"}}},
-							Bind:      schedulerapi.PluginSet{Enabled: []schedulerapi.Plugin{{Name: "DefaultBinder"}}},
-						},
-					},
-				)},
-			wantProfiles: []string{"default-scheduler"},
-		},
-		{
-			name: "repeated plugin name in out-of-tree plugin",
-			opts: []Option{
-				WithFrameworkOutOfTreeRegistry(invalidRegistry),
-				WithProfiles(
-					schedulerapi.KubeSchedulerProfile{
-						SchedulerName: "default-scheduler",
-						Plugins: &schedulerapi.Plugins{
-							QueueSort: schedulerapi.PluginSet{Enabled: []schedulerapi.Plugin{{Name: "PrioritySort"}}},
-							Bind:      schedulerapi.PluginSet{Enabled: []schedulerapi.Plugin{{Name: "DefaultBinder"}}},
-						},
-					},
-				)},
-			wantProfiles: []string{"default-scheduler"},
-			wantErr:      "a plugin named DefaultBinder already exists",
-		},
-		{
-			name: "multiple profiles",
-			opts: []Option{
-				WithProfiles(
-					schedulerapi.KubeSchedulerProfile{
-						SchedulerName: "foo",
-						Plugins: &schedulerapi.Plugins{
-							QueueSort: schedulerapi.PluginSet{Enabled: []schedulerapi.Plugin{{Name: "PrioritySort"}}},
-							Bind:      schedulerapi.PluginSet{Enabled: []schedulerapi.Plugin{{Name: "DefaultBinder"}}},
-						},
-					},
-					schedulerapi.KubeSchedulerProfile{
-						SchedulerName: "bar",
-						Plugins: &schedulerapi.Plugins{
-							QueueSort: schedulerapi.PluginSet{Enabled: []schedulerapi.Plugin{{Name: "PrioritySort"}}},
-							Bind:      schedulerapi.PluginSet{Enabled: []schedulerapi.Plugin{{Name: "DefaultBinder"}}},
-						},
-					},
-				)},
-			wantProfiles: []string{"bar", "foo"},
-		},
-		{
-			name: "Repeated profiles",
-			opts: []Option{
-				WithProfiles(
-					schedulerapi.KubeSchedulerProfile{
-						SchedulerName: "foo",
-						Plugins: &schedulerapi.Plugins{
-							QueueSort: schedulerapi.PluginSet{Enabled: []schedulerapi.Plugin{{Name: "PrioritySort"}}},
-							Bind:      schedulerapi.PluginSet{Enabled: []schedulerapi.Plugin{{Name: "DefaultBinder"}}},
-						},
-					},
-					schedulerapi.KubeSchedulerProfile{
-						SchedulerName: "bar",
-						Plugins: &schedulerapi.Plugins{
-							QueueSort: schedulerapi.PluginSet{Enabled: []schedulerapi.Plugin{{Name: "PrioritySort"}}},
-							Bind:      schedulerapi.PluginSet{Enabled: []schedulerapi.Plugin{{Name: "DefaultBinder"}}},
-						},
-					},
-					schedulerapi.KubeSchedulerProfile{
-						SchedulerName: "foo",
-						Plugins: &schedulerapi.Plugins{
-							QueueSort: schedulerapi.PluginSet{Enabled: []schedulerapi.Plugin{{Name: "PrioritySort"}}},
-							Bind:      schedulerapi.PluginSet{Enabled: []schedulerapi.Plugin{{Name: "DefaultBinder"}}},
-						},
-					},
-				)},
-			wantErr: "duplicate profile with scheduler name \"foo\"",
-		},
-		{
-			name: "With extenders",
-			opts: []Option{
-				WithProfiles(
-					schedulerapi.KubeSchedulerProfile{
-						SchedulerName: "default-scheduler",
-						Plugins: &schedulerapi.Plugins{
-							QueueSort: schedulerapi.PluginSet{Enabled: []schedulerapi.Plugin{{Name: "PrioritySort"}}},
-							Bind:      schedulerapi.PluginSet{Enabled: []schedulerapi.Plugin{{Name: "DefaultBinder"}}},
-						},
-					},
-				),
-				WithExtenders(
-					schedulerapi.Extender{
-						URLPrefix: "http://extender.kube-system/",
-					},
-				),
-			},
-			wantProfiles:  []string{"default-scheduler"},
-			wantExtenders: []string{"http://extender.kube-system/"},
+			name: "default scheduler",
 		},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			client := fake.NewSimpleClientset()
+			client := clientsetfake.NewSimpleClientset()
+			crdClient := godelclientfake.NewSimpleClientset()
+			katalystCrdClient := katalystclientfake.NewSimpleClientset()
 			informerFactory := informers.NewSharedInformerFactory(client, 0)
+			crdInformerFactory := crdinformers.NewSharedInformerFactory(crdClient, 0)
+			katalystInformerFactory := katalystinformers.NewSharedInformerFactory(katalystCrdClient, 0)
 
 			eventBroadcaster := events.NewBroadcaster(&events.EventSinkImpl{Interface: client.EventsV1()})
+			eventRecorder := eventBroadcaster.NewRecorder(scheme.Scheme, testSchedulerName)
 
 			stopCh := make(chan struct{})
 			defer close(stopCh)
-			s, err := New(
+			_, err := New(
+				testSchedulerName,
+				&testSchedulerSysName,
 				client,
+				crdClient,
 				informerFactory,
-				nil,
-				profile.NewRecorderFactory(eventBroadcaster),
+				crdInformerFactory,
+				katalystInformerFactory,
 				stopCh,
-				tc.opts...,
+				eventRecorder,
+				60*time.Second,
 			)
-
-			// Errors
 			if len(tc.wantErr) != 0 {
 				if err == nil || !strings.Contains(err.Error(), tc.wantErr) {
 					t.Errorf("got error %q, want %q", err, tc.wantErr)
@@ -188,239 +105,885 @@ func TestSchedulerCreation(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to create scheduler: %v", err)
 			}
-
-			// Profiles
-			profiles := make([]string, 0, len(s.Profiles))
-			for name := range s.Profiles {
-				profiles = append(profiles, name)
-			}
-			sort.Strings(profiles)
-			if diff := cmp.Diff(tc.wantProfiles, profiles); diff != "" {
-				t.Errorf("unexpected profiles (-want, +got):\n%s", diff)
-			}
-
-			// Extenders
-			if len(tc.wantExtenders) != 0 {
-				// Scheduler.Extenders
-				extenders := make([]string, 0, len(s.Extenders))
-				for _, e := range s.Extenders {
-					extenders = append(extenders, e.Name())
-				}
-				if diff := cmp.Diff(tc.wantExtenders, extenders); diff != "" {
-					t.Errorf("unexpected extenders (-want, +got):\n%s", diff)
-				}
-
-				// framework.Handle.Extenders()
-				for _, p := range s.Profiles {
-					extenders := make([]string, 0, len(p.Extenders()))
-					for _, e := range p.Extenders() {
-						extenders = append(extenders, e.Name())
-					}
-					if diff := cmp.Diff(tc.wantExtenders, extenders); diff != "" {
-						t.Errorf("unexpected extenders (-want, +got):\n%s", diff)
-					}
-				}
-			}
 		})
 	}
 }
 
-func TestDefaultErrorFunc(t *testing.T) {
-	testPod := &v1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "test-pod", Namespace: "default"}}
-	testPodUpdated := testPod.DeepCopy()
-	testPodUpdated.Labels = map[string]string{"foo": ""}
-
-	tests := []struct {
-		name                       string
-		injectErr                  error
-		podUpdatedDuringScheduling bool // pod is updated during a scheduling cycle
-		podDeletedDuringScheduling bool // pod is deleted during a scheduling cycle
-		expect                     *v1.Pod
+func TestInitSchedulerCRD(t *testing.T) {
+	cases := []struct {
+		name    string
+		opts    []Option
+		wantErr string
 	}{
 		{
-			name:                       "pod is updated during a scheduling cycle",
-			injectErr:                  nil,
-			podUpdatedDuringScheduling: true,
-			expect:                     testPodUpdated,
-		},
-		{
-			name:      "pod is not updated during a scheduling cycle",
-			injectErr: nil,
-			expect:    testPod,
-		},
-		{
-			name:                       "pod is deleted during a scheduling cycle",
-			injectErr:                  nil,
-			podDeletedDuringScheduling: true,
-			expect:                     nil,
+			name: "default scheduler",
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			client := clientsetfake.NewSimpleClientset()
+			crdClient := godelclientfake.NewSimpleClientset()
+			katalystCrdClient := katalystclientfake.NewSimpleClientset()
+			informerFactory := informers.NewSharedInformerFactory(client, 0)
+			crdInformerFactory := crdinformers.NewSharedInformerFactory(crdClient, 0)
+			katalystInformerFactory := katalystinformers.NewSharedInformerFactory(katalystCrdClient, 0)
+
+			eventBroadcaster := events.NewBroadcaster(&events.EventSinkImpl{Interface: client.EventsV1()})
+			eventRecorder := eventBroadcaster.NewRecorder(scheme.Scheme, testSchedulerName)
+
 			stopCh := make(chan struct{})
 			defer close(stopCh)
+			testingScheduler, err := New(
+				testSchedulerName,
+				&testSchedulerSysName,
+				client,
+				crdClient,
+				informerFactory,
+				crdInformerFactory,
+				katalystInformerFactory,
+				stopCh,
+				eventRecorder,
+				60*time.Second,
+			)
+			assert.Nil(t, err)
 
-			client := fake.NewSimpleClientset(&v1.PodList{Items: []v1.Pod{*testPod}})
-			informerFactory := informers.NewSharedInformerFactory(client, 0)
-			podInformer := informerFactory.Core().V1().Pods()
-			// Need to add/update/delete testPod to the store.
-			podInformer.Informer().GetStore().Add(testPod)
+			err = ensureSchedulerUpToDate(testingScheduler.crdClient, testingScheduler.clock, testingScheduler.Name)
+			assert.NoError(t, err, "unexpected error %v", err)
 
-			queue := internalqueue.NewPriorityQueue(nil, informerFactory, internalqueue.WithClock(testingclock.NewFakeClock(time.Now())))
-			schedulerCache := internalcache.New(30*time.Second, stopCh)
+			expectedScheduler, err := crdClient.SchedulingV1alpha1().Schedulers().Get(context.TODO(), testSchedulerName, metav1.GetOptions{})
+			assert.NoError(t, err, "unexpected error %v", err)
+			assert.NotNil(t, expectedScheduler)
 
-			queue.Add(testPod)
-			queue.Pop()
-
-			if tt.podUpdatedDuringScheduling {
-				podInformer.Informer().GetStore().Update(testPodUpdated)
-				queue.Update(testPod, testPodUpdated)
-			}
-			if tt.podDeletedDuringScheduling {
-				podInformer.Informer().GetStore().Delete(testPod)
-				queue.Delete(testPod)
-			}
-
-			testPodInfo := &framework.QueuedPodInfo{PodInfo: framework.NewPodInfo(testPod)}
-			errFunc := MakeDefaultErrorFunc(client, podInformer.Lister(), queue, schedulerCache)
-			errFunc(testPodInfo, tt.injectErr)
-
-			var got *v1.Pod
-			if tt.podUpdatedDuringScheduling {
-				head, e := queue.Pop()
-				if e != nil {
-					t.Fatalf("Cannot pop pod from the activeQ: %v", e)
-				}
-				got = head.Pod
-			} else {
-				got = getPodFromPriorityQueue(queue, testPod)
-			}
-
-			if diff := cmp.Diff(tt.expect, got); diff != "" {
-				t.Errorf("Unexpected pod (-want, +got): %s", diff)
-			}
+			err = ensureSchedulerUpToDate(testingScheduler.crdClient, testingScheduler.clock, testingScheduler.Name)
+			assert.NoError(t, err, "unexpected error %v", err)
 		})
 	}
 }
 
-func TestDefaultErrorFunc_NodeNotFound(t *testing.T) {
-	nodeFoo := &v1.Node{ObjectMeta: metav1.ObjectMeta{Name: "foo"}}
-	nodeBar := &v1.Node{ObjectMeta: metav1.ObjectMeta{Name: "bar"}}
-	testPod := &v1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "test-pod", Namespace: "default"}}
-	tests := []struct {
-		name             string
-		nodes            []v1.Node
-		nodeNameToDelete string
-		injectErr        error
-		expectNodeNames  sets.String
-	}{
-		{
-			name:             "node is deleted during a scheduling cycle",
-			nodes:            []v1.Node{*nodeFoo, *nodeBar},
-			nodeNameToDelete: "foo",
-			injectErr:        apierrors.NewNotFound(v1.Resource("node"), nodeFoo.Name),
-			expectNodeNames:  sets.NewString("bar"),
-		},
-		{
-			name:            "node is not deleted but NodeNotFound is received incorrectly",
-			nodes:           []v1.Node{*nodeFoo, *nodeBar},
-			injectErr:       apierrors.NewNotFound(v1.Resource("node"), nodeFoo.Name),
-			expectNodeNames: sets.NewString("foo", "bar"),
-		},
-	}
+func TestSchedulerStatusErrors(t *testing.T) {
+	client := clientsetfake.NewSimpleClientset()
+	crdClient := godelclientfake.NewSimpleClientset()
+	katalystCrdClient := katalystclientfake.NewSimpleClientset()
+	informerFactory := informers.NewSharedInformerFactory(client, 0)
+	crdInformerFactory := crdinformers.NewSharedInformerFactory(crdClient, 0)
+	katalystInformerFactory := katalystinformers.NewSharedInformerFactory(katalystCrdClient, 0)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			stopCh := make(chan struct{})
-			defer close(stopCh)
+	eventBroadcaster := events.NewBroadcaster(&events.EventSinkImpl{Interface: client.EventsV1()})
+	eventRecorder := eventBroadcaster.NewRecorder(scheme.Scheme, testSchedulerName)
 
-			client := fake.NewSimpleClientset(&v1.PodList{Items: []v1.Pod{*testPod}}, &v1.NodeList{Items: tt.nodes})
-			informerFactory := informers.NewSharedInformerFactory(client, 0)
-			podInformer := informerFactory.Core().V1().Pods()
-			// Need to add testPod to the store.
-			podInformer.Informer().GetStore().Add(testPod)
-
-			queue := internalqueue.NewPriorityQueue(nil, informerFactory, internalqueue.WithClock(testingclock.NewFakeClock(time.Now())))
-			schedulerCache := internalcache.New(30*time.Second, stopCh)
-
-			for i := range tt.nodes {
-				node := tt.nodes[i]
-				// Add node to schedulerCache no matter it's deleted in API server or not.
-				schedulerCache.AddNode(&node)
-				if node.Name == tt.nodeNameToDelete {
-					client.CoreV1().Nodes().Delete(context.TODO(), node.Name, metav1.DeleteOptions{})
-				}
-			}
-
-			testPodInfo := &framework.QueuedPodInfo{PodInfo: framework.NewPodInfo(testPod)}
-			errFunc := MakeDefaultErrorFunc(client, podInformer.Lister(), queue, schedulerCache)
-			errFunc(testPodInfo, tt.injectErr)
-
-			gotNodes := schedulerCache.Dump().Nodes
-			gotNodeNames := sets.NewString()
-			for _, nodeInfo := range gotNodes {
-				gotNodeNames.Insert(nodeInfo.Node().Name)
-			}
-			if diff := cmp.Diff(tt.expectNodeNames, gotNodeNames); diff != "" {
-				t.Errorf("Unexpected nodes (-want, +got): %s", diff)
-			}
-		})
-	}
-}
-
-func TestDefaultErrorFunc_PodAlreadyBound(t *testing.T) {
 	stopCh := make(chan struct{})
 	defer close(stopCh)
+	testingScheduler, _ := New(
+		testSchedulerName,
+		&testSchedulerSysName,
+		client,
+		crdClient,
+		informerFactory,
+		crdInformerFactory,
+		katalystInformerFactory,
+		stopCh,
+		eventRecorder,
+		60*time.Second,
+	)
 
-	nodeFoo := v1.Node{ObjectMeta: metav1.ObjectMeta{Name: "foo"}}
-	testPod := &v1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "test-pod", Namespace: "default"}, Spec: v1.PodSpec{NodeName: "foo"}}
+	expectedScheduler := &v1alpha1.Scheduler{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "testscheduler",
+		},
+	}
 
-	client := fake.NewSimpleClientset(&v1.PodList{Items: []v1.Pod{*testPod}}, &v1.NodeList{Items: []v1.Node{nodeFoo}})
-	informerFactory := informers.NewSharedInformerFactory(client, 0)
-	podInformer := informerFactory.Core().V1().Pods()
-	// Need to add testPod to the store.
-	podInformer.Informer().GetStore().Add(testPod)
+	crdClient.PrependReactor("get", "schedulers", func(action clienttesting.Action) (bool, runtime.Object, error) {
+		getAction := action.(clienttesting.GetAction)
+		if getAction.GetName() == "no-scheduler" {
+			return true, nil, fmt.Errorf("unable to fetch scheduler info %s", getAction.GetName())
+		}
 
-	queue := internalqueue.NewPriorityQueue(nil, informerFactory, internalqueue.WithClock(testingclock.NewFakeClock(time.Now())))
-	schedulerCache := internalcache.New(30*time.Second, stopCh)
+		return true, expectedScheduler, nil
+	})
 
-	// Add node to schedulerCache no matter it's deleted in API server or not.
-	schedulerCache.AddNode(&nodeFoo)
+	crdClient.PrependReactor("update", "schedulers", func(action clienttesting.Action) (bool, runtime.Object, error) {
+		updateAction := action.(clienttesting.UpdateAction)
+		obj := updateAction.GetObject().(*v1alpha1.Scheduler)
 
-	testPodInfo := &framework.QueuedPodInfo{PodInfo: framework.NewPodInfo(testPod)}
-	errFunc := MakeDefaultErrorFunc(client, podInformer.Lister(), queue, schedulerCache)
-	errFunc(testPodInfo, fmt.Errorf("binding rejected: timeout"))
+		if updateAction.GetSubresource() == "status" {
+			return true, nil, fmt.Errorf("unable to update scheduler %s", obj.GetName())
+		}
 
-	pod := getPodFromPriorityQueue(queue, testPod)
-	if pod != nil {
-		t.Fatalf("Unexpected pod: %v should not be in PriorityQueue when the NodeName of pod is not empty", pod.Name)
+		return true, obj, nil
+	})
+
+	err := ensureSchedulerUpToDate(testingScheduler.crdClient, testingScheduler.clock, "no-scheduler")
+	assert.Error(t, err)
+
+	err = ensureSchedulerUpToDate(testingScheduler.crdClient, testingScheduler.clock, testingScheduler.Name)
+	assert.Error(t, err, "unexpected error %v", err)
+}
+
+func podWithAnnotation(pod *v1.Pod, annotations map[string]string) *v1.Pod {
+	pod.Annotations = annotations
+	return pod
+}
+
+func makeAllocatableResources(milliCPU, memory, pods, storage int64) v1.ResourceList {
+	return v1.ResourceList{
+		v1.ResourceCPU:              *resource.NewMilliQuantity(milliCPU, resource.DecimalSI),
+		v1.ResourceMemory:           *resource.NewQuantity(memory, resource.BinarySI),
+		v1.ResourcePods:             *resource.NewQuantity(pods, resource.DecimalSI),
+		v1.ResourceEphemeralStorage: *resource.NewQuantity(storage, resource.BinarySI),
 	}
 }
 
-// getPodFromPriorityQueue is the function used in the TestDefaultErrorFunc test to get
-// the specific pod from the given priority queue. It returns the found pod in the priority queue.
-func getPodFromPriorityQueue(queue *internalqueue.PriorityQueue, pod *v1.Pod) *v1.Pod {
-	podList := queue.PendingPods()
-	if len(podList) == 0 {
-		return nil
+func podWithID(id, desiredHost string) *v1.Pod {
+	return &v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      id,
+			Namespace: "test",
+			UID:       types.UID(id),
+		},
+		Spec: v1.PodSpec{
+			NodeName:      desiredHost,
+			SchedulerName: testSchedulerName,
+		},
+	}
+}
+
+func TestSchedulerEvent(t *testing.T) {
+	cases := []struct {
+		name   string
+		pod    *v1.Pod
+		reason string
+		action string
+	}{
+		{
+			name:   "event test",
+			pod:    podWithAnnotation(podWithID("test", ""), map[string]string{}),
+			reason: "FailedScheduling",
+			action: "Scheduling",
+		},
 	}
 
-	queryPodKey, err := cache.MetaNamespaceKeyFunc(pod)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			client := clientsetfake.NewSimpleClientset()
+			eventBroadcaster := events.NewBroadcaster(&events.EventSinkImpl{Interface: client.EventsV1()})
+			eventRecorder := eventBroadcaster.NewRecorder(scheme.Scheme, testSchedulerName)
+
+			added := false
+			now := time.Now()
+			client.PrependReactor("create", "events", func(action clienttesting.Action) (handled bool, obj runtime.Object, err error) {
+				var event *eventsv1.Event
+				if action.GetResource() == eventsv1.SchemeGroupVersion.WithResource("events") {
+					event = action.(clienttesting.CreateAction).GetObject().(*eventsv1.Event)
+					added = true
+				}
+				t.Logf("costs %v", time.Since(now))
+				return added, event, nil
+			})
+			eventBroadcaster.StartRecordingToSink(ctx.Done())
+
+			eventRecorder.Eventf(tc.pod, nil, v1.EventTypeWarning, tc.reason, tc.action, "skip schedule deleting pod: %v/%v", tc.pod.Namespace, tc.pod.Name)
+
+			time.Sleep(1 * time.Second)
+			assert.True(t, added)
+		})
+	}
+}
+
+func makeResources(milliCPU, memory, pods, storage int64) v1.NodeResources {
+	return v1.NodeResources{
+		Capacity: v1.ResourceList{
+			v1.ResourceCPU:              *resource.NewMilliQuantity(milliCPU, resource.DecimalSI),
+			v1.ResourceMemory:           *resource.NewQuantity(memory, resource.BinarySI),
+			v1.ResourcePods:             *resource.NewQuantity(pods, resource.DecimalSI),
+			v1.ResourceEphemeralStorage: *resource.NewQuantity(storage, resource.BinarySI),
+		},
+	}
+}
+
+func TestScheduleUnitMultiScheduleSwitch(t *testing.T) {
+	testNode := &v1.Node{
+		ObjectMeta: metav1.ObjectMeta{Name: "machine1", UID: types.UID("machine1")},
+		Status:     v1.NodeStatus{Capacity: makeResources(1, 1, 10, 10).Capacity, Allocatable: makeAllocatableResources(1, 1, 10, 10)},
+	}
+	beResource := makeAllocatableResources(1, 1, 10, 10)
+	cnr := &katalystv1alpha1.CustomNodeResource{
+		ObjectMeta: metav1.ObjectMeta{Name: "machine1", UID: types.UID("machine1")},
+		Status: katalystv1alpha1.CustomNodeResourceStatus{
+			Resources: katalystv1alpha1.Resources{
+				Allocatable: &beResource,
+				Capacity:    &beResource,
+			},
+		},
+	}
+	resource := framework.Resource{MilliCPU: 1, Memory: 1}
+
+	gtPodInfo := &framework.QueuedPodInfo{
+		Pod: &v1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "pod1",
+				Namespace: "default",
+				UID:       types.UID("pod1"),
+				Annotations: map[string]string{
+					podutil.PodLauncherAnnotationKey:     string(podutil.Kubelet),
+					podutil.PodResourceTypeAnnotationKey: string(podutil.GuaranteedPod),
+					podutil.SchedulerAnnotationKey:       testSchedulerSysName,
+					podutil.PodStateAnnotationKey:        string(podutil.PodDispatched),
+				},
+			},
+			Spec: v1.PodSpec{
+				SchedulerName: testSchedulerSysName,
+				Containers: []v1.Container{{
+					Resources: v1.ResourceRequirements{Requests: resource.ResourceList()},
+				}},
+			},
+		},
+	}
+	bePodInfo := &framework.QueuedPodInfo{
+		Pod: &v1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "pod2",
+				Namespace: "default",
+				UID:       types.UID("pod2"),
+				Annotations: map[string]string{
+					podutil.PodLauncherAnnotationKey:     string(podutil.Kubelet),
+					podutil.PodResourceTypeAnnotationKey: string(podutil.BestEffortPod),
+					podutil.SchedulerAnnotationKey:       testSchedulerSysName,
+					podutil.PodStateAnnotationKey:        string(podutil.PodDispatched),
+				},
+			},
+			Spec: v1.PodSpec{
+				SchedulerName: testSchedulerSysName,
+				Containers: []v1.Container{{
+					Resources: v1.ResourceRequirements{Requests: resource.ResourceList()},
+				}},
+			},
+		},
+	}
+
+	client := clientsetfake.NewSimpleClientset(testNode)
+	broadcaster := cmdutil.NewEventBroadcasterAdapter(client)
+	eventRecorder := broadcaster.NewRecorder(testSchedulerName)
+	client.PrependReactor("patch", "pods", func(action clienttesting.Action) (bool, runtime.Object, error) {
+		return true, &v1.Pod{}, nil
+	})
+
+	stop := make(chan struct{})
+	defer close(stop)
+
+	informerFactory := informers.NewSharedInformerFactory(client, 0)
+	informerFactory.Start(stop)
+	informerFactory.WaitForCacheSync(stop)
+	crdClient := godelclientfake.NewSimpleClientset()
+	crdInformerFactory := crdinformers.NewSharedInformerFactory(crdClient, 0)
+	crdInformerFactory.Start(stop)
+	crdInformerFactory.WaitForCacheSync(stop)
+	katalystCrdClient := katalystclientfake.NewSimpleClientset()
+	katalystInformerFactory := katalystinformers.NewSharedInformerFactory(katalystCrdClient, 0)
+	katalystInformerFactory.Start(stop)
+	katalystInformerFactory.WaitForCacheSync(stop)
+
+	s, _ := New(
+		testSchedulerSysName,
+		&testSchedulerSysName,
+		client,
+		crdClient,
+		informerFactory,
+		crdInformerFactory,
+		katalystInformerFactory,
+		stop,
+		eventRecorder,
+		1*time.Second,
+	)
+	s.ScheduleSwitch.Process(
+		framework.SwitchTypeAll,
+		func(dataSet ScheduleDataSet) {
+			dataSet.SchedulingQueue().Run()
+		},
+	)
+	s.addPod(bePodInfo.Pod)
+	s.addPod(gtPodInfo.Pod)
+	s.addNodeToCache(testNode)
+	s.addCNRToCache(cnr)
+
+	{
+		dataSet := s.ScheduleSwitch.Get(framework.SwitchType(1 << framework.MaxSwitchNum))
+		pendingPods := dataSet.SchedulingQueue().PendingPods()
+		assert.Equal(t, 1, len(pendingPods))
+		assert.Equal(t, pendingPods[0], bePodInfo.Pod)
+
+		dataSet.ScheduleFunc()(context.TODO())
+
+		isAssumed, err := s.commonCache.IsAssumedPod(bePodInfo.Pod)
+		assert.Equal(t, true, isAssumed)
+		assert.NoError(t, err)
+	}
+	{
+		dataSet := s.ScheduleSwitch.Get(framework.SwitchType(1))
+		pendingPods := dataSet.SchedulingQueue().PendingPods()
+		assert.Equal(t, 1, len(pendingPods))
+		assert.Equal(t, pendingPods[0], gtPodInfo.Pod)
+
+		dataSet.ScheduleFunc()(context.TODO())
+
+		isAssumed, err := s.commonCache.IsAssumedPod(gtPodInfo.Pod)
+		assert.Equal(t, true, isAssumed)
+		assert.NoError(t, err)
+	}
+}
+
+func TestScheduleUnit_Preemption(t *testing.T) {
+	testNode := &v1.Node{
+		ObjectMeta: metav1.ObjectMeta{Name: "machine1", UID: types.UID("machine1")},
+		Status:     v1.NodeStatus{Capacity: makeResources(50, 20, 32, 20).Capacity, Allocatable: makeAllocatableResources(50, 20, 32, 20)},
+	}
+	testNodeSuccess := &v1.Node{
+		ObjectMeta: metav1.ObjectMeta{Name: "machine2", UID: types.UID("machine2"), Annotations: map[string]string{node.GodelSchedulerNodeAnnotationKey: testSchedulerSysName}},
+		Status:     v1.NodeStatus{Capacity: makeResources(50, 20, 32, 20).Capacity, Allocatable: makeAllocatableResources(50, 20, 32, 20)},
+	}
+
+	minMembers := 3
+	highPri := int32(10)
+	lowPri := int32(5)
+	namespace := "test"
+	podGroupName := "testPodGroup"
+	testPodGroup := &v1alpha1.PodGroup{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      podGroupName,
+			Namespace: namespace,
+			UID:       types.UID(podGroupName),
+		},
+		Spec: v1alpha1.PodGroupSpec{
+			MinMember: int32(minMembers),
+		},
+	}
+
+	var pods []*v1.Pod
+	for i := 0; i < minMembers; i++ {
+		podName := fmt.Sprintf("testpod-%d", i)
+		resource := framework.Resource{MilliCPU: 15, Memory: 1}
+		testPod := &v1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      podName,
+				Namespace: namespace,
+				UID:       types.UID(podName),
+				Annotations: map[string]string{
+					podutil.PodLauncherAnnotationKey:     string(podutil.Kubelet),
+					podutil.PodResourceTypeAnnotationKey: string(podutil.GuaranteedPod),
+					podutil.PodGroupNameAnnotationKey:    podGroupName,
+					podutil.SchedulerAnnotationKey:       testSchedulerSysName,
+				},
+			},
+			Spec: v1.PodSpec{
+				Priority:      &highPri,
+				SchedulerName: testSchedulerName,
+				Containers: []v1.Container{{
+					Resources: v1.ResourceRequirements{Requests: resource.ResourceList()},
+				}},
+				NodeName: "",
+			},
+		}
+
+		pods = append(pods, testPod)
+	}
+
+	// When we remove testPod1 and testPod2, the testNode is available, so we set the
+	// MilliCPU to 40 instead of any number that less than (50-15-15=20)
+	resource := framework.Resource{MilliCPU: 40, Memory: 1}
+	testPodSuccess := &v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "testPod",
+			Namespace: namespace,
+			UID:       types.UID("testPod"),
+			Annotations: map[string]string{
+				podutil.PodLauncherAnnotationKey:     string(podutil.Kubelet),
+				podutil.PodResourceTypeAnnotationKey: string(podutil.GuaranteedPod),
+				podutil.PodGroupNameAnnotationKey:    podGroupName,
+				podutil.SchedulerAnnotationKey:       testSchedulerSysName,
+				util.DebugModeAnnotationKey:          util.DebugModeOn,
+			},
+		},
+		Spec: v1.PodSpec{
+			Priority:      &highPri,
+			SchedulerName: testSchedulerName,
+			Containers: []v1.Container{{
+				Resources: v1.ResourceRequirements{Requests: resource.ResourceList()},
+			}},
+			NodeName: "",
+		},
+	}
+
+	resource = framework.Resource{MilliCPU: 20, Memory: 10}
+	testPod1 := &v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "testpod1",
+			Namespace: namespace,
+			UID:       types.UID("testpod1"),
+			Annotations: map[string]string{
+				podutil.PodLauncherAnnotationKey:     string(podutil.Kubelet),
+				podutil.PodResourceTypeAnnotationKey: string(podutil.GuaranteedPod),
+				podutil.SchedulerAnnotationKey:       testSchedulerSysName,
+				util.CanBePreemptedAnnotationKey:     util.CanBePreempted,
+			},
+			Labels: map[string]string{
+				"name": "testpod1",
+			},
+		},
+		Spec: v1.PodSpec{
+			Priority:          &lowPri,
+			PriorityClassName: "pc",
+			SchedulerName:     testSchedulerName,
+			Containers: []v1.Container{{
+				Resources: v1.ResourceRequirements{Requests: resource.ResourceList()},
+			}},
+			NodeName: testNode.Name,
+		},
+	}
+	testPod2 := &v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "testpod2",
+			Namespace: namespace,
+			UID:       types.UID("testpod2"),
+			Annotations: map[string]string{
+				podutil.PodLauncherAnnotationKey:     string(podutil.Kubelet),
+				podutil.PodResourceTypeAnnotationKey: string(podutil.GuaranteedPod),
+				podutil.SchedulerAnnotationKey:       testSchedulerSysName,
+				util.CanBePreemptedAnnotationKey:     util.CanBePreempted,
+			},
+			Labels: map[string]string{
+				"name": "testpod1",
+			},
+		},
+		Spec: v1.PodSpec{
+			Priority:          &lowPri,
+			PriorityClassName: "pc",
+			SchedulerName:     testSchedulerName,
+			Containers: []v1.Container{{
+				Resources: v1.ResourceRequirements{Requests: resource.ResourceList()},
+			}},
+			NodeName: testNode.Name,
+		},
+	}
+
+	client := clientsetfake.NewSimpleClientset(testNode, testNodeSuccess, testPodSuccess, testPod1, testPod2, pods[0], pods[1], pods[2])
+	broadcaster := cmdutil.NewEventBroadcasterAdapter(client)
+	eventRecorder := broadcaster.NewRecorder(testSchedulerName)
+
+	actualPatchRequests := 0
+	client.PrependReactor("patch", "pods", func(action clienttesting.Action) (bool, runtime.Object, error) {
+		actualPatchRequests++
+		// For this test, we don't care about the result of the patched pod, just that we got the expected
+		// patch request, so just returning &v1.Pod{} here is OK because scheduler doesn't use the response.
+		return true, &v1.Pod{}, nil
+	})
+
+	stop := make(chan struct{})
+	defer close(stop)
+
+	informerFactory := informers.NewSharedInformerFactory(client, 0)
+	informerFactory.Start(stop)
+	informerFactory.WaitForCacheSync(stop)
+	informerFactory.Core().V1().Pods().Informer().GetIndexer().Add(testPodSuccess)
+	informerFactory.Core().V1().Pods().Informer().GetIndexer().Add(testPod1)
+	informerFactory.Core().V1().Pods().Informer().GetIndexer().Add(testPod2)
+	crdClient := godelclientfake.NewSimpleClientset()
+	crdInformerFactory := crdinformers.NewSharedInformerFactory(crdClient, 0)
+	crdInformerFactory.Start(stop)
+	crdInformerFactory.WaitForCacheSync(stop)
+	crdInformerFactory.Scheduling().V1alpha1().PodGroups().Informer().GetIndexer().Add(testPodGroup)
+	katalystCrdClient := katalystclientfake.NewSimpleClientset()
+	katalystInformerFactory := katalystinformers.NewSharedInformerFactory(katalystCrdClient, 0)
+	katalystInformerFactory.Start(stop)
+	katalystInformerFactory.WaitForCacheSync(stop)
+
+	s, _ := New(
+		testSchedulerSysName,
+		&testSchedulerSysName,
+		client,
+		crdClient,
+		informerFactory,
+		crdInformerFactory,
+		katalystInformerFactory,
+		stop,
+		eventRecorder,
+		60*time.Second,
+		WithDefaultProfile(
+			&config.GodelSchedulerProfile{
+				DisablePreemption: &disablePodPreemption,
+			},
+		),
+	)
+	dataSet := s.ScheduleSwitch.Get(framework.SwitchType(1))
+	cache, queue := s.commonCache, dataSet.SchedulingQueue()
+	queue.Run()
+	s.addNodeToCache(testNode)
+	s.addPodGroupToCache(testPodGroup)
+	s.addPod(testPod1)
+	s.addPod(testPod2)
+
+	for _, pod := range pods {
+		informerFactory.Core().V1().Pods().Informer().GetIndexer().Add(pod)
+		queue.Add(pod)
+	}
+
+	dataSet.ScheduleFunc()(context.Background())
+	for _, pod := range pods {
+		isAssumed, err := cache.IsAssumedPod(pod)
+		assert.Equal(t, true, isAssumed)
+		assert.NoError(t, err)
+	}
+
+	count, _ := cache.PodCount()
+	assert.Equal(t, 5, count)
+
+	// TODO: improve this code logic, we should make sure the unit status is scheduled.
+	// For this case, we have 5 pods in cache, two of them are victims, so we can says the unit is scheduled cause
+	// the other 3 pods (which satisfy min-member) has been scheduled.
+	cache.SetUnitSchedulingStatus(fmt.Sprintf("%s/%s/%s", framework.PodGroupUnitType, namespace, podGroupName), unitstatus.ScheduledStatus)
+
+	// 2) Adding more pods of a pod group with failure
+	queue.Add(testPodSuccess)
+	dataSet.ScheduleFunc()(context.Background())
+	isAssumed, _ := cache.IsAssumedPod(testPodSuccess)
+	assert.Equal(t, false, isAssumed)
+
+	// 3) Adding more pods of a pod group with success
+	s.addNodeToCache(testNodeSuccess)
+	dataSet.ScheduleFunc()(context.Background())
+	isAssumed, _ = cache.IsAssumedPod(testPodSuccess)
+	assert.Equal(t, true, isAssumed)
+}
+
+func extractMovement(infos map[string][]*framework.MovementDetailOnNode) map[string]string {
+	ret := make(map[string]string)
+	for k, vs := range infos {
+		for _, v := range vs {
+			ret[k] = v.MovementName
+		}
+	}
+	return ret
+}
+
+func TestScheduleByRescheduling(t *testing.T) {
+	utilfeature.DefaultMutableFeatureGate.SetFromMap(map[string]bool{string(features.SupportRescheduling): true})
+
+	// test Waiting condition
+	client := clientsetfake.NewSimpleClientset()
+	crdClient := godelclientfake.NewSimpleClientset()
+	katalystClient := katalystclientfake.NewSimpleClientset()
+	informerFactory := informers.NewSharedInformerFactory(client, 0)
+	crdInformerFactory := crdinformers.NewSharedInformerFactory(crdClient, 0)
+	katalystInformerFactory := katalystinformers.NewSharedInformerFactory(katalystClient, 0)
+
+	eventBroadcaster := events.NewBroadcaster(&events.EventSinkImpl{Interface: client.EventsV1()})
+	eventRecorder := eventBroadcaster.NewRecorder(scheme.Scheme, testSchedulerName)
+
+	stopCh := make(chan struct{})
+	defer close(stopCh)
+	sched, err := New(
+		testSchedulerName,
+		&testSchedulerSysName,
+		client,
+		crdClient,
+		informerFactory,
+		crdInformerFactory,
+		katalystInformerFactory,
+		stopCh,
+		eventRecorder,
+		0,
+	)
 	if err != nil {
-		return nil
+		t.Errorf("failed to new scheduler: %v", err)
+	}
+	dataSet := sched.ScheduleSwitch.Get(framework.SwitchType(1))
+
+	movement := &v1alpha1.Movement{
+		ObjectMeta: metav1.ObjectMeta{Name: "movement", CreationTimestamp: metav1.NewTime(time.Now())},
+		Spec: v1alpha1.MovementSpec{
+			DeletedTasks: []*v1alpha1.TaskInfo{
+				{Namespace: "p1", Name: "p1", UID: "p1"},
+			},
+		},
+		Status: v1alpha1.MovementStatus{
+			Owners: []*v1alpha1.Owner{
+				{
+					Owner: &v1alpha1.OwnerInfo{Type: "ReplicaSet", Namespace: "default", Name: "rs", UID: "rs"},
+					RecommendedNodes: []*v1alpha1.RecommendedNode{
+						{
+							Node:            "n1",
+							DesiredPodCount: 1,
+						},
+					},
+				},
+			},
+		},
+	}
+	sched.commonCache.AddMovement(movement)
+
+	terminatingPod := testing_helper.MakePod().Namespace("p1").Name("p1").UID("p1").Node("n1").Terminating().Obj()
+	sched.commonCache.AddPod(terminatingPod)
+
+	n1 := testing_helper.MakeNode().Name("n1").Obj()
+	n2 := testing_helper.MakeNode().Name("n2").Obj()
+	sched.commonCache.AddNode(n1)
+	sched.commonCache.AddNode(n2)
+	sched.commonCache.UpdateSnapshot(dataSet.Snapshot())
+
+	queue := dataSet.SchedulingQueue()
+
+	{
+		pod := testing_helper.MakePod().Namespace("default").Name("foo1").UID("foo1").SetCreationTimestampAt(time.Now()).
+			ControllerRef(metav1.OwnerReference{Kind: "ReplicaSet", Name: "rs", UID: "rs"}).Obj()
+		queue.Add(pod)
+		dataSet.ScheduleFunc()(context.Background())
+
+		gotSuggestedInfo := extractMovement(dataSet.Snapshot().FindStore(movementstore.Name).(movementstore.StoreHandle).GetSuggestedMovementAndNodes("ReplicaSet/default/rs/rs"))
+		expectedSuggestedInfo := map[string]string{"n1": "movement"}
+		if !reflect.DeepEqual(expectedSuggestedInfo, gotSuggestedInfo) {
+			t.Errorf("expected suggestion info: %v, but got: %v", expectedSuggestedInfo, gotSuggestedInfo)
+		}
 	}
 
-	for _, foundPod := range podList {
-		foundPodKey, err := cache.MetaNamespaceKeyFunc(foundPod)
-		if err != nil {
-			return nil
+	// test schedule success
+	sched.commonCache.DeleteMovement(movement)
+	movement = &v1alpha1.Movement{
+		ObjectMeta: metav1.ObjectMeta{Name: "movement"},
+		Status: v1alpha1.MovementStatus{
+			Owners: []*v1alpha1.Owner{
+				{
+					Owner: &v1alpha1.OwnerInfo{Type: "ReplicaSet", Namespace: "default", Name: "rs", UID: "rs"},
+					RecommendedNodes: []*v1alpha1.RecommendedNode{
+						{
+							Node:            "n1",
+							DesiredPodCount: 1,
+						},
+					},
+				},
+			},
+		},
+	}
+	sched.commonCache.AddMovement(movement)
+
+	{
+		pod := testing_helper.MakePod().Namespace("default").Name("foo2").UID("foo2").SetCreationTimestampAt(time.Now()).
+			ControllerRef(metav1.OwnerReference{Kind: "ReplicaSet", Name: "rs", UID: "rs"}).Obj()
+		queue.Add(pod)
+		dataSet.ScheduleFunc()(context.Background())
+
+		gotSuggestedInfo := dataSet.Snapshot().FindStore(movementstore.Name).(movementstore.StoreHandle).GetSuggestedMovementAndNodes("ReplicaSet/default/rs/rs")
+		if len(gotSuggestedInfo) > 0 {
+			t.Errorf("expected nil suggestion info, but got: %v", gotSuggestedInfo)
+		}
+	}
+}
+
+func TestScheduleUnit_RemoveVictims(t *testing.T) {
+	testNode := &v1.Node{
+		ObjectMeta: metav1.ObjectMeta{Name: "machine1", UID: types.UID("machine1")},
+		Status:     v1.NodeStatus{Capacity: makeResources(50, 20, 32, 20).Capacity, Allocatable: makeAllocatableResources(50, 20, 32, 20)},
+	}
+
+	minMembers := 2
+	highPri := int32(10)
+	lowPri := int32(5)
+	namespace := "test"
+	podGroupName := "testPodGroup"
+	testPodGroup := &v1alpha1.PodGroup{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      podGroupName,
+			Namespace: namespace,
+			UID:       types.UID(podGroupName),
+		},
+		Spec: v1alpha1.PodGroupSpec{
+			MinMember: int32(minMembers),
+		},
+	}
+
+	var pods []*v1.Pod
+	for i := 0; i < minMembers; i++ {
+		podName := fmt.Sprintf("testpod-%d", i)
+		resource := framework.Resource{MilliCPU: 25, Memory: 10}
+		testPod := &v1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      podName,
+				Namespace: namespace,
+				UID:       types.UID(podName),
+				Annotations: map[string]string{
+					podutil.PodLauncherAnnotationKey:     string(podutil.Kubelet),
+					podutil.PodResourceTypeAnnotationKey: string(podutil.GuaranteedPod),
+					podutil.PodGroupNameAnnotationKey:    podGroupName,
+					podutil.SchedulerAnnotationKey:       testSchedulerSysName,
+				},
+			},
+			Spec: v1.PodSpec{
+				Priority:      &highPri,
+				SchedulerName: testSchedulerName,
+				Containers: []v1.Container{{
+					Resources: v1.ResourceRequirements{Requests: resource.ResourceList()},
+				}},
+				NodeName: "",
+			},
 		}
 
-		if foundPodKey == queryPodKey {
-			return foundPod
+		pods = append(pods, testPod)
+	}
+
+	resource := framework.Resource{MilliCPU: 25, Memory: 10}
+	testPod1 := &v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "testpod1",
+			Namespace: namespace,
+			UID:       types.UID("testpod1"),
+			Annotations: map[string]string{
+				podutil.PodLauncherAnnotationKey:     string(podutil.Kubelet),
+				podutil.PodResourceTypeAnnotationKey: string(podutil.GuaranteedPod),
+				podutil.SchedulerAnnotationKey:       testSchedulerSysName,
+				util.CanBePreemptedAnnotationKey:     util.CanBePreempted,
+			},
+			Labels: map[string]string{
+				"name": "testpod1",
+			},
+		},
+		Spec: v1.PodSpec{
+			Priority:          &lowPri,
+			PriorityClassName: "pc",
+			SchedulerName:     testSchedulerName,
+			Containers: []v1.Container{{
+				Resources: v1.ResourceRequirements{Requests: resource.ResourceList()},
+			}},
+			NodeName: testNode.Name,
+		},
+	}
+	testPod2 := &v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "testpod2",
+			Namespace: namespace,
+			UID:       types.UID("testpod2"),
+			Annotations: map[string]string{
+				podutil.PodLauncherAnnotationKey:     string(podutil.Kubelet),
+				podutil.PodResourceTypeAnnotationKey: string(podutil.GuaranteedPod),
+				podutil.SchedulerAnnotationKey:       testSchedulerSysName,
+				util.CanBePreemptedAnnotationKey:     util.CanBePreempted,
+			},
+			Labels: map[string]string{
+				"name": "testpod2",
+			},
+		},
+		Spec: v1.PodSpec{
+			Priority:          &lowPri,
+			PriorityClassName: "pc",
+			SchedulerName:     testSchedulerName,
+			Containers: []v1.Container{{
+				Resources: v1.ResourceRequirements{Requests: resource.ResourceList()},
+			}},
+			NodeName: testNode.Name,
+		},
+	}
+
+	client := clientsetfake.NewSimpleClientset(testNode, testPod1, testPod2, pods[0], pods[1])
+	broadcaster := cmdutil.NewEventBroadcasterAdapter(client)
+	eventRecorder := broadcaster.NewRecorder(testSchedulerName)
+
+	actualPatchRequests := 0
+	client.PrependReactor("patch", "pods", func(action clienttesting.Action) (bool, runtime.Object, error) {
+		actualPatchRequests++
+		// For this test, we don't care about the result of the patched pod, just that we got the expected
+		// patch request, so just returning &v1.Pod{} here is OK because scheduler doesn't use the response.
+		return true, &v1.Pod{}, nil
+	})
+
+	stop := make(chan struct{})
+	defer close(stop)
+
+	informerFactory := informers.NewSharedInformerFactory(client, 0)
+	informerFactory.Start(stop)
+	informerFactory.WaitForCacheSync(stop)
+	informerFactory.Core().V1().Pods().Informer().GetIndexer().Add(testPod1)
+	informerFactory.Core().V1().Pods().Informer().GetIndexer().Add(testPod2)
+	crdClient := godelclientfake.NewSimpleClientset()
+	crdInformerFactory := crdinformers.NewSharedInformerFactory(crdClient, 0)
+	crdInformerFactory.Start(stop)
+	crdInformerFactory.WaitForCacheSync(stop)
+	crdInformerFactory.Scheduling().V1alpha1().PodGroups().Informer().GetIndexer().Add(testPodGroup)
+	katalystCrdClient := katalystclientfake.NewSimpleClientset()
+	katalystInformerFactory := katalystinformers.NewSharedInformerFactory(katalystCrdClient, 0)
+	katalystInformerFactory.Start(stop)
+	katalystInformerFactory.WaitForCacheSync(stop)
+
+	s, _ := New(
+		testSchedulerSysName,
+		&testSchedulerSysName,
+		client,
+		crdClient,
+		informerFactory,
+		crdInformerFactory,
+		katalystInformerFactory,
+		stop,
+		eventRecorder,
+		60*time.Second,
+		WithDefaultProfile(
+			&config.GodelSchedulerProfile{
+				DisablePreemption: &disablePodPreemption,
+			},
+		),
+	)
+	dataSet := s.ScheduleSwitch.Get(framework.SwitchType(1))
+	cache, queue, snapshot := s.commonCache, dataSet.SchedulingQueue(), dataSet.Snapshot()
+	queue.Run()
+	s.addNodeToCache(testNode)
+	s.addPodGroupToCache(testPodGroup)
+	s.addPod(testPod1)
+	s.addPod(testPod2)
+
+	for _, pod := range pods {
+		informerFactory.Core().V1().Pods().Informer().GetIndexer().Add(pod)
+		queue.Add(pod)
+	}
+
+	dataSet.ScheduleFunc()(context.Background())
+	for _, pod := range pods {
+		isAssumed, err := cache.IsAssumedPod(pod)
+		assert.Equal(t, true, isAssumed)
+		assert.NoError(t, err)
+	}
+	count, _ := cache.PodCount()
+	assert.Equal(t, 4, count)
+	if checkIfVictimExistInSnapshot(snapshot, string(testPod1.UID)) && checkIfVictimExistInSnapshot(snapshot, string(testPod2.UID)) {
+		t.Errorf("failed to remove victims from snapshot")
+	}
+
+	gotVictimToPreemptors := map[string]sets.String{}
+	{
+		victims := []string{"test/testpod1/testpod1", "test/testpod2/testpod2"}
+		for _, victim := range victims {
+			preemptors := snapshot.FindStore(preemptionstore.Name).(*preemptionstore.PreemptionStore).GetPreemptorsByVictim(testNode.Name, victim)
+			gotVictimToPreemptors[victim] = sets.NewString(preemptors...)
 		}
 	}
 
-	return nil
+	expectedVictimToPreemptors1 := map[string]sets.String{
+		"test/testpod1/testpod1": sets.NewString("test/testpod-0/testpod-0"),
+		"test/testpod2/testpod2": sets.NewString("test/testpod-1/testpod-1"),
+	}
+	expectedVictimToPreemptors2 := map[string]sets.String{
+		"test/testpod1/testpod1": sets.NewString("test/testpod-1/testpod-1"),
+		"test/testpod2/testpod2": sets.NewString("test/testpod-0/testpod-0"),
+	}
+	if !reflect.DeepEqual(expectedVictimToPreemptors1, gotVictimToPreemptors) && !reflect.DeepEqual(expectedVictimToPreemptors2, gotVictimToPreemptors) {
+		t.Errorf("expected get VictimToPreemptors: %v or %v, but got: %v", expectedVictimToPreemptors1, expectedVictimToPreemptors2, gotVictimToPreemptors)
+	}
+}
+
+func checkIfVictimExistInSnapshot(snapshot *cache.Snapshot, uid string) bool {
+	nodeInfos := snapshot.List()
+	for _, nInfo := range nodeInfos {
+		for _, pInfo := range nInfo.GetPods() {
+			if string(pInfo.Pod.UID) == uid {
+				return true
+			}
+		}
+	}
+	return false
 }

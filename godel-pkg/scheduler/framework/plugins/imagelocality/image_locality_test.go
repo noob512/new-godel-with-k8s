@@ -1,5 +1,5 @@
 /*
-Copyright 2019 The Kubernetes Authors.
+Copyright 2018 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,21 +20,24 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"reflect"
 	"testing"
+	"time"
 
-	"github.com/google/go-cmp/cmp"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/kubernetes/pkg/scheduler/framework"
-	"k8s.io/kubernetes/pkg/scheduler/framework/runtime"
-	"k8s.io/kubernetes/pkg/scheduler/internal/cache"
+
+	commoncache "github.com/kubewharf/godel-scheduler/pkg/common/cache"
+	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
+	godelcache "github.com/kubewharf/godel-scheduler/pkg/scheduler/cache"
+	st "github.com/kubewharf/godel-scheduler/pkg/scheduler/testing"
+	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
 )
 
 func TestImageLocalityPriority(t *testing.T) {
 	test40250 := v1.PodSpec{
 		Containers: []v1.Container{
 			{
-
 				Image: "gcr.io/40",
 			},
 			{
@@ -60,32 +63,7 @@ func TestImageLocalityPriority(t *testing.T) {
 				Image: "gcr.io/10",
 			},
 			{
-				Image: "gcr.io/4000",
-			},
-		},
-	}
-
-	test300600900 := v1.PodSpec{
-		Containers: []v1.Container{
-			{
-				Image: "gcr.io/300",
-			},
-			{
-				Image: "gcr.io/600",
-			},
-			{
-				Image: "gcr.io/900",
-			},
-		},
-	}
-
-	test3040 := v1.PodSpec{
-		Containers: []v1.Container{
-			{
-				Image: "gcr.io/30",
-			},
-			{
-				Image: "gcr.io/40",
+				Image: "gcr.io/2000",
 			},
 		},
 	}
@@ -94,7 +72,7 @@ func TestImageLocalityPriority(t *testing.T) {
 		Images: []v1.ContainerImage{
 			{
 				Names: []string{
-					"gcr.io/40:latest",
+					"gcr.io/40:" + DefaultImageTag,
 					"gcr.io/40:v1",
 					"gcr.io/40:v1",
 				},
@@ -102,14 +80,14 @@ func TestImageLocalityPriority(t *testing.T) {
 			},
 			{
 				Names: []string{
-					"gcr.io/300:latest",
+					"gcr.io/300:" + DefaultImageTag,
 					"gcr.io/300:v1",
 				},
 				SizeBytes: int64(300 * mb),
 			},
 			{
 				Names: []string{
-					"gcr.io/2000:latest",
+					"gcr.io/2000:" + DefaultImageTag,
 				},
 				SizeBytes: int64(2000 * mb),
 			},
@@ -120,102 +98,16 @@ func TestImageLocalityPriority(t *testing.T) {
 		Images: []v1.ContainerImage{
 			{
 				Names: []string{
-					"gcr.io/250:latest",
+					"gcr.io/250:" + DefaultImageTag,
 				},
 				SizeBytes: int64(250 * mb),
 			},
 			{
 				Names: []string{
-					"gcr.io/10:latest",
+					"gcr.io/10:" + DefaultImageTag,
 					"gcr.io/10:v1",
 				},
 				SizeBytes: int64(10 * mb),
-			},
-		},
-	}
-
-	node60040900 := v1.NodeStatus{
-		Images: []v1.ContainerImage{
-			{
-				Names: []string{
-					"gcr.io/600:latest",
-				},
-				SizeBytes: int64(600 * mb),
-			},
-			{
-				Names: []string{
-					"gcr.io/40:latest",
-				},
-				SizeBytes: int64(40 * mb),
-			},
-			{
-				Names: []string{
-					"gcr.io/900:latest",
-				},
-				SizeBytes: int64(900 * mb),
-			},
-		},
-	}
-
-	node300600900 := v1.NodeStatus{
-		Images: []v1.ContainerImage{
-			{
-				Names: []string{
-					"gcr.io/300:latest",
-				},
-				SizeBytes: int64(300 * mb),
-			},
-			{
-				Names: []string{
-					"gcr.io/600:latest",
-				},
-				SizeBytes: int64(600 * mb),
-			},
-			{
-				Names: []string{
-					"gcr.io/900:latest",
-				},
-				SizeBytes: int64(900 * mb),
-			},
-		},
-	}
-
-	node400030 := v1.NodeStatus{
-		Images: []v1.ContainerImage{
-			{
-				Names: []string{
-					"gcr.io/4000:latest",
-				},
-				SizeBytes: int64(4000 * mb),
-			},
-			{
-				Names: []string{
-					"gcr.io/30:latest",
-				},
-				SizeBytes: int64(30 * mb),
-			},
-		},
-	}
-
-	node203040 := v1.NodeStatus{
-		Images: []v1.ContainerImage{
-			{
-				Names: []string{
-					"gcr.io/20:latest",
-				},
-				SizeBytes: int64(20 * mb),
-			},
-			{
-				Names: []string{
-					"gcr.io/30:latest",
-				},
-				SizeBytes: int64(30 * mb),
-			},
-			{
-				Names: []string{
-					"gcr.io/40:latest",
-				},
-				SizeBytes: int64(40 * mb),
 			},
 		},
 	}
@@ -238,10 +130,10 @@ func TestImageLocalityPriority(t *testing.T) {
 
 			// Node2
 			// Image: gcr.io/250:latest 250MB
-			// Score: 100 * (250M/2 - 23M)/(1000M * 2 - 23M) = 5
+			// Score: 100 * (250M/2 - 23M)/(1000M - 23M) = 100
 			pod:          &v1.Pod{Spec: test40250},
 			nodes:        []*v1.Node{makeImageNode("machine1", node403002000), makeImageNode("machine2", node25010)},
-			expectedList: []framework.NodeScore{{Name: "machine1", Score: 0}, {Name: "machine2", Score: 5}},
+			expectedList: []framework.NodeScore{{Name: "machine1", Score: 0}, {Name: "machine2", Score: 10}},
 			name:         "two images spread on two nodes, prefer the larger image one",
 		},
 		{
@@ -249,92 +141,72 @@ func TestImageLocalityPriority(t *testing.T) {
 
 			// Node1
 			// Image: gcr.io/40:latest 40MB, gcr.io/300:latest 300MB
-			// Score: 100 * ((40M + 300M)/2 - 23M)/(1000M * 2 - 23M) = 7
+			// Score: 100 * ((40M + 300M)/2 - 23M)/(1000M - 23M) = 15
 
 			// Node2
 			// Image: not present
 			// Score: 0
 			pod:          &v1.Pod{Spec: test40300},
 			nodes:        []*v1.Node{makeImageNode("machine1", node403002000), makeImageNode("machine2", node25010)},
-			expectedList: []framework.NodeScore{{Name: "machine1", Score: 7}, {Name: "machine2", Score: 0}},
+			expectedList: []framework.NodeScore{{Name: "machine1", Score: 15}, {Name: "machine2", Score: 0}},
 			name:         "two images on one node, prefer this node",
 		},
 		{
-			// Pod: gcr.io/4000 gcr.io/10
+			// Pod: gcr.io/2000 gcr.io/10
 
 			// Node1
-			// Image: gcr.io/4000:latest 2000MB
-			// Score: 100 (4000 * 1/2 >= 1000M * 2, max-threshold)
+			// Image: gcr.io/2000:latest 2000MB
+			// Score: 100 (2000M/2 >= 1000M, max-threshold)
 
 			// Node2
 			// Image: gcr.io/10:latest 10MB
 			// Score: 0 (10M/2 < 23M, min-threshold)
 			pod:          &v1.Pod{Spec: testMinMax},
-			nodes:        []*v1.Node{makeImageNode("machine1", node400030), makeImageNode("machine2", node25010)},
+			nodes:        []*v1.Node{makeImageNode("machine1", node403002000), makeImageNode("machine2", node25010)},
 			expectedList: []framework.NodeScore{{Name: "machine1", Score: framework.MaxNodeScore}, {Name: "machine2", Score: 0}},
 			name:         "if exceed limit, use limit",
 		},
 		{
-			// Pod: gcr.io/4000 gcr.io/10
+			// Pod: gcr.io/2000 gcr.io/10
 
 			// Node1
-			// Image: gcr.io/4000:latest 4000MB
-			// Score: 100 * (4000M/3 - 23M)/(1000M * 2 - 23M) = 66
+			// Image: gcr.io/2000:latest 2000MB
+			// Score: 100 * (2000M/3 - 23M)/(1000M - 23M) = 65
 
 			// Node2
 			// Image: gcr.io/10:latest 10MB
-			// Score: 0 (10M*1/3 < 23M, min-threshold)
+			// Score: 0 (10M/2 < 23M, min-threshold)
 
 			// Node3
 			// Image:
 			// Score: 0
 			pod:          &v1.Pod{Spec: testMinMax},
-			nodes:        []*v1.Node{makeImageNode("machine1", node400030), makeImageNode("machine2", node25010), makeImageNode("machine3", nodeWithNoImages)},
-			expectedList: []framework.NodeScore{{Name: "machine1", Score: 66}, {Name: "machine2", Score: 0}, {Name: "machine3", Score: 0}},
+			nodes:        []*v1.Node{makeImageNode("machine1", node403002000), makeImageNode("machine2", node25010), makeImageNode("machine3", nodeWithNoImages)},
+			expectedList: []framework.NodeScore{{Name: "machine1", Score: 65}, {Name: "machine2", Score: 0}, {Name: "machine3", Score: 0}},
 			name:         "if exceed limit, use limit (with node which has no images present)",
-		},
-		{
-			// Pod: gcr.io/300 gcr.io/600 gcr.io/900
-
-			// Node1
-			// Image: gcr.io/600:latest 600MB, gcr.io/900:latest 900MB
-			// Score: 100 * (600M * 2/3 + 900M * 2/3 - 23M) / (1000M * 3 - 23M) = 32
-
-			// Node2
-			// Image: gcr.io/300:latest 300MB, gcr.io/600:latest 600MB, gcr.io/900:latest 900MB
-			// Score: 100 * (300M * 1/3 + 600M * 2/3 + 900M * 2/3 - 23M) / (1000M *3 - 23M) = 36
-
-			// Node3
-			// Image:
-			// Score: 0
-			pod:          &v1.Pod{Spec: test300600900},
-			nodes:        []*v1.Node{makeImageNode("machine1", node60040900), makeImageNode("machine2", node300600900), makeImageNode("machine3", nodeWithNoImages)},
-			expectedList: []framework.NodeScore{{Name: "machine1", Score: 32}, {Name: "machine2", Score: 36}, {Name: "machine3", Score: 0}},
-			name:         "pod with multiple large images, machine2 is preferred",
-		},
-		{
-			// Pod: gcr.io/30 gcr.io/40
-
-			// Node1
-			// Image: gcr.io/20:latest 20MB, gcr.io/30:latest 30MB gcr.io/40:latest 40MB
-			// Score: 100 * (30M + 40M * 1/2 - 23M) / (1000M * 2 - 23M) = 1
-
-			// Node2
-			// Image: 100 * (30M - 23M) / (1000M * 2 - 23M) = 0
-			// Score: 0
-			pod:          &v1.Pod{Spec: test3040},
-			nodes:        []*v1.Node{makeImageNode("machine1", node203040), makeImageNode("machine2", node400030)},
-			expectedList: []framework.NodeScore{{Name: "machine1", Score: 1}, {Name: "machine2", Score: 0}},
-			name:         "pod with multiple small images",
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			snapshot := cache.NewSnapshot(nil, test.nodes)
+			cache := godelcache.New(commoncache.MakeCacheHandlerWrapper().
+				ComponentName("").SchedulerType("").SubCluster(framework.DefaultSubCluster).
+				PodAssumedTTL(time.Second).Period(10 * time.Second).StopCh(make(<-chan struct{})).
+				EnableStore("PreemptionStore").
+				Obj())
+			snapshot := godelcache.NewEmptySnapshot(commoncache.MakeCacheHandlerWrapper().
+				SubCluster(framework.DefaultSubCluster).SwitchType(framework.DefaultSubClusterSwitchType).
+				EnableStore("PreemptionStore").
+				Obj())
+
+			for _, n := range test.nodes {
+				cache.AddNode(n)
+			}
+			cache.UpdateSnapshot(snapshot)
 
 			state := framework.NewCycleState()
-			fh, _ := runtime.NewFramework(nil, nil, runtime.WithSnapshotSharedLister(snapshot))
+			framework.SetPodResourceTypeState(podutil.GuaranteedPod, state)
+			fh, _ := st.NewPodFrameworkHandle(nil, nil, nil, nil, nil, snapshot, nil, nil, nil, nil)
 
 			p, _ := New(nil, fh)
 			var gotList framework.NodeScoreList
@@ -347,8 +219,8 @@ func TestImageLocalityPriority(t *testing.T) {
 				gotList = append(gotList, framework.NodeScore{Name: nodeName, Score: score})
 			}
 
-			if diff := cmp.Diff(test.expectedList, gotList); diff != "" {
-				t.Errorf("Unexpected node score list (-want, +got):\n%s", diff)
+			if !reflect.DeepEqual(test.expectedList, gotList) {
+				t.Errorf("expected:\n\t%+v,\ngot:\n\t%+v", test.expectedList, gotList)
 			}
 		})
 	}

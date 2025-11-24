@@ -20,12 +20,15 @@ import (
 	"context"
 	"reflect"
 	"testing"
+	"time"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/kubernetes/pkg/scheduler/framework"
-	"k8s.io/kubernetes/pkg/scheduler/framework/runtime"
-	"k8s.io/kubernetes/pkg/scheduler/internal/cache"
+
+	commoncache "github.com/kubewharf/godel-scheduler/pkg/common/cache"
+	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
+	godelcache "github.com/kubewharf/godel-scheduler/pkg/scheduler/cache"
+	st "github.com/kubewharf/godel-scheduler/pkg/scheduler/testing"
 )
 
 func nodeWithTaints(nodeName string, taints []v1.Taint) *v1.Node {
@@ -48,6 +51,12 @@ func podWithTolerations(podName string, tolerations []v1.Toleration) *v1.Pod {
 			Tolerations: tolerations,
 		},
 	}
+}
+
+func withNode(node *v1.Node) framework.NodeInfo {
+	nodeInfo := framework.NewNodeInfo()
+	nodeInfo.SetNode(node)
+	return nodeInfo
 }
 
 func TestTaintTolerationScore(t *testing.T) {
@@ -207,10 +216,10 @@ func TestTaintTolerationScore(t *testing.T) {
 		},
 		{
 			name: "Default behaviour No taints and tolerations, lands on node with no taints",
-			//pod without tolerations
+			// pod without tolerations
 			pod: podWithTolerations("pod1", []v1.Toleration{}),
 			nodes: []*v1.Node{
-				//Node without taints
+				// Node without taints
 				nodeWithTaints("nodeA", []v1.Taint{}),
 				nodeWithTaints("nodeB", []v1.Taint{
 					{
@@ -229,11 +238,28 @@ func TestTaintTolerationScore(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			state := framework.NewCycleState()
-			snapshot := cache.NewSnapshot(nil, test.nodes)
-			fh, _ := runtime.NewFramework(nil, nil, runtime.WithSnapshotSharedLister(snapshot))
+			cache := godelcache.New(commoncache.MakeCacheHandlerWrapper().
+				ComponentName("").SchedulerType("").SubCluster(framework.DefaultSubCluster).
+				PodAssumedTTL(time.Second).Period(10 * time.Second).StopCh(make(<-chan struct{})).
+				EnableStore("PreemptionStore").
+				Obj())
+			snapshot := godelcache.NewEmptySnapshot(commoncache.MakeCacheHandlerWrapper().
+				SubCluster(framework.DefaultSubCluster).SwitchType(framework.DefaultSubClusterSwitchType).
+				EnableStore("PreemptionStore").
+				Obj())
+
+			for _, n := range test.nodes {
+				cache.AddNode(n)
+			}
+			cache.UpdateSnapshot(snapshot)
+			fh, _ := st.NewPodFrameworkHandle(nil, nil, nil, nil, nil, snapshot, nil, nil, nil, nil)
 
 			p, _ := New(nil, fh)
-			status := p.(framework.PreScorePlugin).PreScore(context.Background(), state, test.pod, test.nodes)
+			nodeInfos := make([]framework.NodeInfo, len(test.nodes))
+			for index, node := range test.nodes {
+				nodeInfos[index] = withNode(node)
+			}
+			status := p.(framework.PreScorePlugin).PreScore(context.Background(), state, test.pod, nodeInfos)
 			if !status.IsSuccess() {
 				t.Errorf("unexpected error: %v", status)
 			}
@@ -271,7 +297,7 @@ func TestTaintTolerationFilter(t *testing.T) {
 			pod:  podWithTolerations("pod1", []v1.Toleration{}),
 			node: nodeWithTaints("nodeA", []v1.Taint{{Key: "dedicated", Value: "user1", Effect: "NoSchedule"}}),
 			wantStatus: framework.NewStatus(framework.UnschedulableAndUnresolvable,
-				"node(s) had untolerated taint {dedicated: user1}"),
+				"node(s) had taint {dedicated: user1}, that the pod didn't tolerate"),
 		},
 		{
 			name: "A pod which can be scheduled on a dedicated node assigned to user1 with effect NoSchedule",
@@ -283,7 +309,7 @@ func TestTaintTolerationFilter(t *testing.T) {
 			pod:  podWithTolerations("pod1", []v1.Toleration{{Key: "dedicated", Operator: "Equal", Value: "user2", Effect: "NoSchedule"}}),
 			node: nodeWithTaints("nodeA", []v1.Taint{{Key: "dedicated", Value: "user1", Effect: "NoSchedule"}}),
 			wantStatus: framework.NewStatus(framework.UnschedulableAndUnresolvable,
-				"node(s) had untolerated taint {dedicated: user1}"),
+				"node(s) had taint {dedicated: user1}, that the pod didn't tolerate"),
 		},
 		{
 			name: "A pod can be scheduled onto the node, with a toleration uses operator Exists that tolerates the taints on the node",
@@ -307,7 +333,7 @@ func TestTaintTolerationFilter(t *testing.T) {
 			pod:  podWithTolerations("pod1", []v1.Toleration{{Key: "foo", Operator: "Equal", Value: "bar", Effect: "PreferNoSchedule"}}),
 			node: nodeWithTaints("nodeA", []v1.Taint{{Key: "foo", Value: "bar", Effect: "NoSchedule"}}),
 			wantStatus: framework.NewStatus(framework.UnschedulableAndUnresolvable,
-				"node(s) had untolerated taint {foo: bar}"),
+				"node(s) had taint {foo: bar}, that the pod didn't tolerate"),
 		},
 		{
 			name: "The pod has a toleration that keys and values match the taint on the node, the effect of toleration is empty, " +
@@ -333,7 +359,8 @@ func TestTaintTolerationFilter(t *testing.T) {
 			nodeInfo := framework.NewNodeInfo()
 			nodeInfo.SetNode(test.node)
 			p, _ := New(nil, nil)
-			gotStatus := p.(framework.FilterPlugin).Filter(context.Background(), nil, test.pod, nodeInfo)
+			state := framework.NewCycleState()
+			gotStatus := p.(framework.FilterPlugin).Filter(context.Background(), state, test.pod, nodeInfo)
 			if !reflect.DeepEqual(gotStatus, test.wantStatus) {
 				t.Errorf("status does not match: %v, want: %v", gotStatus, test.wantStatus)
 			}

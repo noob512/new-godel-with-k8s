@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Kubernetes Authors.
+Copyright 2023 The Godel Scheduler Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -15,6 +15,9 @@ limitations under the License.
 */
 
 // +k8s:deepcopy-gen=package
-// +groupName=kubescheduler.config.k8s.io
+// +k8s:defaulter-gen=TypeMeta
+// +groupName=godelscheduler.config.kubewharf.io
 
-package config // import "k8s.io/kubernetes/pkg/scheduler/apis/config"
+// This folder contains configurations for constraints and other config params to run the godel scheduler
+
+package config

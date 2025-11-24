@@ -1,5 +1,5 @@
 /*
-Copyright 2019 The Kubernetes Authors.
+Copyright 2018 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -23,27 +23,32 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/kubernetes/pkg/scheduler/framework"
-	"k8s.io/kubernetes/pkg/scheduler/framework/plugins/names"
+
+	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
+	"github.com/kubewharf/godel-scheduler/pkg/scheduler/framework/handle"
 )
 
 // The two thresholds are used as bounds for the image score range. They correspond to a reasonable size range for
 // container images compressed and stored in registries; 90%ile of images on dockerhub drops into this range.
 const (
-	mb                    int64 = 1024 * 1024
-	minThreshold          int64 = 23 * mb
-	maxContainerThreshold int64 = 1000 * mb
+	mb           int64 = 1024 * 1024
+	minThreshold       = 23 * mb
+	maxThreshold       = 1000 * mb
+
+	// DefaultImageTag is the default tag for docker image.
+	DefaultImageTag = "latest"
+
+	// Name is the name of the plugin used in the plugin registry and configurations.
+	Name = "ImageLocality"
 )
 
 // ImageLocality is a score plugin that favors nodes that already have requested pod container's images.
+// This plugin now supports nodes having Node. If CNR will support this feature, we can do it later.
 type ImageLocality struct {
-	handle framework.Handle
+	handle handle.PodFrameworkHandle
 }
 
 var _ framework.ScorePlugin = &ImageLocality{}
-
-// Name is the name of the plugin used in the plugin registry and configurations.
-const Name = names.ImageLocality
 
 // Name returns name of the plugin. It is used in logs, etc.
 func (pl *ImageLocality) Name() string {
@@ -54,16 +59,15 @@ func (pl *ImageLocality) Name() string {
 func (pl *ImageLocality) Score(ctx context.Context, state *framework.CycleState, pod *v1.Pod, nodeName string) (int64, *framework.Status) {
 	nodeInfo, err := pl.handle.SnapshotSharedLister().NodeInfos().Get(nodeName)
 	if err != nil {
-		return 0, framework.AsStatus(fmt.Errorf("getting node %q from Snapshot: %w", nodeName, err))
+		return 0, framework.NewStatus(framework.Error, fmt.Sprintf("getting node %q from Snapshot: %v", nodeName, err))
 	}
 
-	nodeInfos, err := pl.handle.SnapshotSharedLister().NodeInfos().List()
-	if err != nil {
-		return 0, framework.AsStatus(err)
-	}
+	nodeInfos := pl.handle.SnapshotSharedLister().NodeInfos().List()
+	// get count of all nodes, used as a factor to calculate priority
+	// TODO we can count node according to type if we really need it later, such as CNR image locality
 	totalNumNodes := len(nodeInfos)
 
-	score := calculatePriority(sumImageScores(nodeInfo, pod.Spec.Containers, totalNumNodes), len(pod.Spec.Containers))
+	score := calculatePriority(sumImageScores(nodeInfo, pod.Spec.Containers, totalNumNodes))
 
 	return score, nil
 }
@@ -74,33 +78,34 @@ func (pl *ImageLocality) ScoreExtensions() framework.ScoreExtensions {
 }
 
 // New initializes a new plugin and returns it.
-func New(_ runtime.Object, h framework.Handle) (framework.Plugin, error) {
+func New(_ runtime.Object, h handle.PodFrameworkHandle) (framework.Plugin, error) {
 	return &ImageLocality{handle: h}, nil
 }
 
 // calculatePriority returns the priority of a node. Given the sumScores of requested images on the node, the node's
 // priority is obtained by scaling the maximum priority value with a ratio proportional to the sumScores.
-func calculatePriority(sumScores int64, numContainers int) int64 {
-	maxThreshold := maxContainerThreshold * int64(numContainers)
+func calculatePriority(sumScores int64) int64 {
 	if sumScores < minThreshold {
 		sumScores = minThreshold
 	} else if sumScores > maxThreshold {
 		sumScores = maxThreshold
 	}
 
-	return int64(framework.MaxNodeScore) * (sumScores - minThreshold) / (maxThreshold - minThreshold)
+	return framework.MaxNodeScore * (sumScores - minThreshold) / (maxThreshold - minThreshold)
 }
 
 // sumImageScores returns the sum of image scores of all the containers that are already on the node.
 // Each image receives a raw score of its size, scaled by scaledImageScore. The raw scores are later used to calculate
 // the final score. Note that the init containers are not considered for it's rare for users to deploy huge init containers.
-func sumImageScores(nodeInfo *framework.NodeInfo, containers []v1.Container, totalNumNodes int) int64 {
+func sumImageScores(nodeInfo framework.NodeInfo, containers []v1.Container, totalNumNodes int) int64 {
 	var sum int64
+	imageStates := nodeInfo.GetImageStates()
 	for _, container := range containers {
-		if state, ok := nodeInfo.ImageStates[normalizedImageName(container.Image)]; ok {
+		if state, ok := imageStates[normalizedImageName(container.Image)]; ok {
 			sum += scaledImageScore(state, totalNumNodes)
 		}
 	}
+
 	return sum
 }
 
@@ -120,7 +125,7 @@ func scaledImageScore(imageState *framework.ImageStateSummary, totalNumNodes int
 // in node status; note that if users consistently use one registry format, this should not happen.
 func normalizedImageName(name string) string {
 	if strings.LastIndex(name, ":") <= strings.LastIndex(name, "/") {
-		name = name + ":latest"
+		name = name + ":" + DefaultImageTag
 	}
 	return name
 }

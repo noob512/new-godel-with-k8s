@@ -1,5 +1,5 @@
 /*
-Copyright 2019 The Kubernetes Authors.
+Copyright 2023 The Godel Scheduler Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,33 +17,116 @@ limitations under the License.
 package noderesources
 
 import (
+	"context"
+	"fmt"
 	"math"
 
-	"k8s.io/kubernetes/pkg/scheduler/apis/config"
-	"k8s.io/kubernetes/pkg/scheduler/framework"
-	"k8s.io/kubernetes/pkg/scheduler/framework/plugins/helper"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+
+	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
+	"github.com/kubewharf/godel-scheduler/pkg/scheduler/apis/config"
+	"github.com/kubewharf/godel-scheduler/pkg/scheduler/apis/validation"
+	"github.com/kubewharf/godel-scheduler/pkg/scheduler/framework/handle"
+	"github.com/kubewharf/godel-scheduler/pkg/scheduler/framework/plugins/helper"
 )
 
 const (
-	maxUtilization = 100
+	// RequestedToCapacityRatioName is the name of this plugin.
+	RequestedToCapacityRatioName = "RequestedToCapacityRatio"
+	maxUtilization               = 100
 )
 
-// buildRequestedToCapacityRatioScorerFunction allows users to apply bin packing
+// NewRequestedToCapacityRatio initializes a new plugin and returns it.
+func NewRequestedToCapacityRatio(plArgs runtime.Object, handle handle.PodFrameworkHandle) (framework.Plugin, error) {
+	args, err := getRequestedToCapacityRatioArgs(plArgs)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := validation.ValidateRequestedToCapacityRatioArgs(args); err != nil {
+		return nil, err
+	}
+
+	shape := make([]helper.FunctionShapePoint, 0, len(args.Shape))
+	for _, point := range args.Shape {
+		shape = append(shape, helper.FunctionShapePoint{
+			Utilization: int64(point.Utilization),
+			// MaxCustomPriorityScore may diverge from the max score used in the scheduler and defined by MaxNodeScore,
+			// therefore we need to scale the score returned by requested to capacity ratio to the score range
+			// used by the scheduler.
+			Score: int64(point.Score) * (framework.MaxNodeScore / config.MaxCustomPriorityScore),
+		})
+	}
+
+	resourceToWeightMap := make(resourceToWeightMap)
+	for _, resource := range args.Resources {
+		resourceToWeightMap[v1.ResourceName(resource.Name)] = resource.Weight
+		if resource.Weight == 0 {
+			// Apply the default weight.
+			resourceToWeightMap[v1.ResourceName(resource.Name)] = 1
+		}
+	}
+
+	return &RequestedToCapacityRatio{
+		handle: handle,
+		resourceAllocationScorer: resourceAllocationScorer{
+			RequestedToCapacityRatioName,
+			buildRequestedToCapacityRatioScorerFunction(shape, resourceToWeightMap),
+			resourceToWeightMap,
+		},
+	}, nil
+}
+
+func getRequestedToCapacityRatioArgs(obj runtime.Object) (config.RequestedToCapacityRatioArgs, error) {
+	ptr, ok := obj.(*config.RequestedToCapacityRatioArgs)
+	if !ok {
+		return config.RequestedToCapacityRatioArgs{}, fmt.Errorf("want args to be of type RequestedToCapacityRatioArgs, got %T", obj)
+	}
+	return *ptr, nil
+}
+
+// RequestedToCapacityRatio is a score plugin that allow users to apply bin packing
 // on core resources like CPU, Memory as well as extended resources like accelerators.
-func buildRequestedToCapacityRatioScorerFunction(scoringFunctionShape helper.FunctionShape, resourceToWeightMap resourceToWeightMap) func(resourceToValueMap, resourceToValueMap) int64 {
+type RequestedToCapacityRatio struct {
+	handle handle.PodFrameworkHandle
+	resourceAllocationScorer
+}
+
+var _ framework.ScorePlugin = &RequestedToCapacityRatio{}
+
+// Name returns name of the plugin. It is used in logs, etc.
+func (pl *RequestedToCapacityRatio) Name() string {
+	return RequestedToCapacityRatioName
+}
+
+// Score invoked at the score extension point.
+func (pl *RequestedToCapacityRatio) Score(ctx context.Context, state *framework.CycleState, pod *v1.Pod, nodeName string) (int64, *framework.Status) {
+	nodeInfo, err := pl.handle.SnapshotSharedLister().NodeInfos().Get(nodeName)
+	if err != nil {
+		return 0, framework.AsStatus(fmt.Errorf("getting node %q from Snapshot: %w", nodeName, err))
+	}
+	return pl.score(state, pod, nodeInfo)
+}
+
+// ScoreExtensions of the Score plugin.
+func (pl *RequestedToCapacityRatio) ScoreExtensions() framework.ScoreExtensions {
+	return nil
+}
+
+func buildRequestedToCapacityRatioScorerFunction(scoringFunctionShape helper.FunctionShape, resourceToWeightMap resourceToWeightMap) scoreFunc {
 	rawScoringFunction := helper.BuildBrokenLinearFunction(scoringFunctionShape)
 	resourceScoringFunction := func(requested, capacity int64) int64 {
 		if capacity == 0 || requested > capacity {
 			return rawScoringFunction(maxUtilization)
 		}
 
-		return rawScoringFunction(requested * maxUtilization / capacity)
+		return rawScoringFunction(maxUtilization - (capacity-requested)*maxUtilization/capacity)
 	}
-	return func(requested, allocable resourceToValueMap) int64 {
+	return func(state *framework.CycleState, requested, allocatable resourceToValueMap, includeVolumes bool, requestedVolumes int, allocatableVolumes int) int64 {
 		var nodeScore, weightSum int64
-		for resource := range requested {
-			weight := resourceToWeightMap[resource]
-			resourceScore := resourceScoringFunction(requested[resource], allocable[resource])
+		for resource, weight := range resourceToWeightMap {
+			resourceScore := resourceScoringFunction(requested[resource], allocatable[resource])
 			if resourceScore > 0 {
 				nodeScore += resourceScore * weight
 				weightSum += weight
@@ -54,19 +137,4 @@ func buildRequestedToCapacityRatioScorerFunction(scoringFunctionShape helper.Fun
 		}
 		return int64(math.Round(float64(nodeScore) / float64(weightSum)))
 	}
-}
-
-func requestedToCapacityRatioScorer(weightMap resourceToWeightMap, shape []config.UtilizationShapePoint) func(resourceToValueMap, resourceToValueMap) int64 {
-	shapes := make([]helper.FunctionShapePoint, 0, len(shape))
-	for _, point := range shape {
-		shapes = append(shapes, helper.FunctionShapePoint{
-			Utilization: int64(point.Utilization),
-			// MaxCustomPriorityScore may diverge from the max score used in the scheduler and defined by MaxNodeScore,
-			// therefore we need to scale the score returned by requested to capacity ratio to the score range
-			// used by the scheduler.
-			Score: int64(point.Score) * (framework.MaxNodeScore / config.MaxCustomPriorityScore),
-		})
-	}
-
-	return buildRequestedToCapacityRatioScorerFunction(shapes, weightMap)
 }

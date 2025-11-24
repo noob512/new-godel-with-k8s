@@ -1,5 +1,5 @@
 /*
-Copyright 2019 The Kubernetes Authors.
+Copyright 2018 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -22,7 +22,8 @@ import (
 	"testing"
 
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/kubernetes/pkg/scheduler/framework"
+
+	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
 )
 
 func TestNodeUnschedulable(t *testing.T) {
@@ -76,7 +77,8 @@ func TestNodeUnschedulable(t *testing.T) {
 		nodeInfo.SetNode(test.node)
 
 		p, _ := New(nil, nil)
-		gotStatus := p.(framework.FilterPlugin).Filter(context.Background(), nil, test.pod, nodeInfo)
+		state := framework.NewCycleState()
+		gotStatus := p.(framework.FilterPlugin).Filter(context.Background(), state, test.pod, nodeInfo)
 		if !reflect.DeepEqual(gotStatus, test.wantStatus) {
 			t.Errorf("status does not match: %v, want: %v", gotStatus, test.wantStatus)
 		}
