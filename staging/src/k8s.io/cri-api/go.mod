@@ -11,10 +11,10 @@ require (
 	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
-	github.com/stretchr/testify v1.8.1
-	golang.org/x/net v0.28.0 // indirect
-	golang.org/x/sys v0.23.0 // indirect
-	golang.org/x/text v0.17.0 // indirect
+	github.com/stretchr/testify v1.11.1
+	golang.org/x/net v0.17.0 // indirect
+	golang.org/x/sys v0.29.0 // indirect
+	golang.org/x/text v0.28.0 // indirect
 	google.golang.org/genproto v0.0.0-20220502173005-c8bf987b8c21 // indirect
 	google.golang.org/grpc v1.51.0
 	google.golang.org/protobuf v1.31.0 // indirect
@@ -25,8 +25,8 @@ require (
 replace (
 	github.com/golang/protobuf => github.com/golang/protobuf v1.5.2
 	github.com/google/go-cmp => github.com/google/go-cmp v0.5.5
+	github.com/kr/pretty => github.com/kr/pretty v0.2.1
 	github.com/stretchr/testify => github.com/stretchr/testify v1.7.0
-	golang.org/x/crypto => golang.org/x/crypto v0.0.0-20220214200702-86341886e292
 	golang.org/x/net => golang.org/x/net v0.0.0-20220127200216-cd36cc0744dd
 	golang.org/x/oauth2 => golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8
 	golang.org/x/sys => golang.org/x/sys v0.0.0-20220209214540-3681064d5158

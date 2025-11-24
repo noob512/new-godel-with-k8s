@@ -21,7 +21,7 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 
-	podutil "/util/pod"
+	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
 )
 
 type ContainerFailures struct {
