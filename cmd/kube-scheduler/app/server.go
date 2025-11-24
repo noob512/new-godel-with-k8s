@@ -324,7 +324,12 @@ func Setup(ctx context.Context, opts *options.Options, outOfTreeRegistryOptions 
 	recorderFactory := getRecorderFactory(&cc)
 	completedProfiles := make([]kubeschedulerconfig.KubeSchedulerProfile, 0)
 	// Create the scheduler.
-	sched, err := scheduler.New(cc.Client,
+	sched, err := scheduler.New(
+		cc.GodelComponentConfig.GodelSchedulerName,
+		cc.GodelComponentConfig.SchedulerName,
+		cc.GodelCrdClient,
+		cc.GodelCrdInformerFactory,
+		cc.Client,
 		cc.InformerFactory,
 		cc.DynInformerFactory,
 		recorderFactory,

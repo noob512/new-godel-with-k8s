@@ -18,6 +18,12 @@ package config
 
 import (
 	"time"
+	//-------------------------------------------------
+	//-------------------------------------------------------------------------------
+	godelclient "github.com/kubewharf/godel-scheduler-api/pkg/client/clientset/versioned"
+	crdinformers "github.com/kubewharf/godel-scheduler-api/pkg/client/informers/externalversions"
+	"k8s.io/kubernetes/godel-pkg/scheduler/apis/config"
+	//-------------------------------------------------------------------------------
 
 	apiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/dynamic/dynamicinformer"
@@ -31,6 +37,13 @@ import (
 
 // Config has all the context to run a Scheduler
 type Config struct {
+	//----------------------------------------------------------------
+	// GodelCrdClient 是 Godel 自定义资源（如 Scheduler, PodGroup 等）的客户端接口。
+	GodelCrdClient godelclient.Interface
+	// GodelCrdInformerFactory 是 Godel 自定义资源的 SharedInformer 工厂，用于监听和缓存 Godel CRD 资源的变化。
+	GodelCrdInformerFactory crdinformers.SharedInformerFactory
+	GodelComponentConfig    config.GodelSchedulerConfiguration
+	//------------------------------------------------------------------
 	// ComponentConfig is the scheduler server's configuration object.
 	ComponentConfig kubeschedulerconfig.KubeSchedulerConfiguration
 

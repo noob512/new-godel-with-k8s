@@ -21,6 +21,11 @@ import (
 	"errors"
 	"fmt"
 	"time"
+	//------------------------------------------
+	godelclient "github.com/kubewharf/godel-scheduler-api/pkg/client/clientset/versioned"
+	crdinformers "github.com/kubewharf/godel-scheduler-api/pkg/client/informers/externalversions"
+	commoncache "k8s.io/kubernetes/godel-pkg/common/cache"
+	//-------------------------------------------
 
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -231,7 +236,12 @@ var defaultSchedulerOptions = schedulerOptions{
 }
 
 // New returns a Scheduler
-func New(client clientset.Interface,
+func New(
+	godelSchedulerName string, // Godel 调度器的名称（可能用于区分不同的调度器实例）
+	schedulerName *string,     // 调度器的名称指针
+	crdClient godelclient.Interface, // Godel 自定义资源定义的客户端
+	crdInformerFactory crdinformers.SharedInformerFactory, // Godel CRD 的 Informer 工厂
+	client clientset.Interface,
 	informerFactory informers.SharedInformerFactory,
 	dynInformerFactory dynamicinformer.DynamicSharedInformerFactory,
 	recorderFactory profile.RecorderFactory,
@@ -247,6 +257,25 @@ func New(client clientset.Interface,
 	for _, opt := range opts {
 		opt(&options)
 	}
+	//--------------------------------------------------
+	Godeloptions:=defaultGodelSchedulerOptions
+	globalClock := clock.RealClock{}
+	podLister := informerFactory.Core().V1().Pods().Lister()
+	podInformer := informerFactory.Core().V1().Pods()
+	//-------------------------------------------------
+	podLister = informerFactory.Core().V1().Pods().Lister()
+	nodeLister := informerFactory.Core().V1().Nodes().Lister()
+
+	//-----------------------------------------------
+	handlerWrapper := commoncache.MakeCacheHandlerWrapper().
+	ComponentName(godelSchedulerName).
+	SchedulerType(*schedulerName).
+	PodAssumedTTL(15 * time.Minute). // Pod 假定（assumed）状态的 TTL
+	Period(10 * time.Second).        // 缓存定期同步周期
+	StopCh(stopEverything).
+	PodLister(podLister).
+	PodInformer(podInformer)
+	//-----------------------------------------------
 
 	if options.applyDefaultProfile {
 		var versionedCfg v1beta3.KubeSchedulerConfiguration
@@ -270,8 +299,6 @@ func New(client clientset.Interface,
 		return nil, fmt.Errorf("couldn't build extenders: %w", err)
 	}
 
-	podLister := informerFactory.Core().V1().Pods().Lister()
-	nodeLister := informerFactory.Core().V1().Nodes().Lister()
 
 	// The nominator will be passed all the way to framework instantiation.
 	nominator := internalqueue.NewPodNominator(podLister)
@@ -326,6 +353,19 @@ func New(client clientset.Interface,
 		snapshot,
 		options.percentageOfNodesToScore,
 	)
+		//---------------------------------------
+	sched.Name=godelSchedulerName
+	sched.SchedulerName=schedulerName
+	sched.commonCache=godelcache.New(handlerWrapper.Obj())
+	sched.mayHasPreemption=false
+	sched.schedulerMaintainer=NewSchedulerStatusMaintainer(globalClock, crdClient, godelSchedulerName, Godeloptions.renewInterval)
+	sched.podLister=podLister
+	sched.informerFactory=informerFactory
+	sched.crdInformerFactory=crdInformerFactory
+	// 对配置器创建的调度器实例进行额外的调整。
+	sched.StopEverything = stopEverything // 设置停止信号通道。
+	sched.client = client                 // 设置 API 客户端。
+	//---------------------------------------
 
 	addAllEventHandlers(sched, informerFactory, dynInformerFactory, unionedGVKs(clusterEventMap))
 
