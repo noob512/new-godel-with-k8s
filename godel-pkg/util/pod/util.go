@@ -30,7 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/sets"
-	utilfeature "k8s.io/apiserver/pkg/util/feature"
+	//utilfeature "k8s.io/apiserver/pkg/util/feature"
 	clientset "k8s.io/client-go/kubernetes"
 	corelisters "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
@@ -38,8 +38,8 @@ import (
 
 	schedulingv1alpha1 "github.com/kubewharf/godel-scheduler-api/pkg/apis/scheduling/v1alpha1"
 	"k8s.io/kubernetes/godel-pkg/util"
-	"k8s.io/kubernetes/godel-pkg/util/features"
-	volumeutil "k8s.io/kubernetes/godel-pkg/volume/persistentvolume/util"
+	//"k8s.io/kubernetes/godel-pkg/util/features"
+	//volumeutil "k8s.io/kubernetes/godel-pkg/volume/persistentvolume/util"
 )
 
 var applicationKind = "Application"
@@ -86,13 +86,16 @@ const (
 // AllContainers specifies that all containers be visited
 const AllContainers = InitContainers | Containers | EphemeralContainers
 
-// AllFeatureEnabledContainers returns a ContainerType mask which includes all container
-// types except for the ones guarded by feature gate.
+// AllFeatureEnabledContainers 返回一个 ContainerType 位掩码，
+// 该掩码包含所有**未被特性门禁用**的容器类型。
+// 例如，如果 EphemeralContainers 特性门被禁用，则返回的掩码中将不包含 EphemeralContainers 类型。
 func AllFeatureEnabledContainers() ContainerType {
 	containerType := AllContainers
-	if !utilfeature.DefaultFeatureGate.Enabled(features.EphemeralContainers) {
-		containerType &= ^EphemeralContainers
-	}
+	containerType &= ^EphemeralContainers
+	// if !utilfeature.DefaultFeatureGate.Enabled(features.EphemeralContainers) {
+	// 	// 从掩码中移除 EphemeralContainers 类型
+	// 	containerType &= ^EphemeralContainers
+	// }
 	return containerType
 }
 
@@ -1001,7 +1004,7 @@ func IsPvcVolumeLocalPV(pvcLister corelisters.PersistentVolumeClaimLister, pvc s
 		return false, ""
 	}
 
-	if anno, ok := claim.Annotations[volumeutil.AnnSelectedNode]; !ok {
+	if anno, ok := claim.Annotations["volume.kubernetes.io/selected-node"]; !ok {
 		klog.InfoS("WARN: No selected-node annotation found on pvc", "pvcName", pvc)
 		return false, ""
 	} else if pod.Spec.NodeName != "" && anno != pod.Spec.NodeName {

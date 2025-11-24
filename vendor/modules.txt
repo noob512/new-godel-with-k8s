@@ -490,6 +490,8 @@ github.com/kubewharf/godel-scheduler-api/pkg/client/clientset/versioned
 github.com/kubewharf/godel-scheduler-api/pkg/client/clientset/versioned/scheme
 github.com/kubewharf/godel-scheduler-api/pkg/client/clientset/versioned/typed/node/v1alpha1
 github.com/kubewharf/godel-scheduler-api/pkg/client/clientset/versioned/typed/scheduling/v1alpha1
+github.com/kubewharf/godel-scheduler-api/pkg/client/listers/node/v1alpha1
+github.com/kubewharf/godel-scheduler-api/pkg/client/listers/scheduling/v1alpha1
 # github.com/libopenstorage/openstorage v1.0.0 => github.com/libopenstorage/openstorage v1.0.0
 ## explicit
 github.com/libopenstorage/openstorage/api
@@ -876,6 +878,7 @@ go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc
 # go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.20.0 => go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.20.0
 go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp
 # go.opentelemetry.io/otel v0.20.0 => go.opentelemetry.io/otel v0.20.0
+## explicit
 go.opentelemetry.io/otel
 go.opentelemetry.io/otel/attribute
 go.opentelemetry.io/otel/baggage

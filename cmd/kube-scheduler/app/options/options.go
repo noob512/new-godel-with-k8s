@@ -56,7 +56,7 @@ import (
 type Options struct {
 	godelClient godelclient.Interface
 	GodelComponentConfig godelschedulerconfig.GodelSchedulerConfiguration
-		SchedulerRenewIntervalSeconds int64
+	SchedulerRenewIntervalSeconds int64
 	// 以下字段是为了向后兼容而保留的，计划在未来版本中移除。
 	// UnitMaxBackoffSeconds 指定调度器在处理失败时的最大退避时间（秒）。
 	UnitMaxBackoffSeconds int64
@@ -313,6 +313,7 @@ func NewOptions() *Options {
 	}
 	//-----------------------------------------------
 	o := &Options{
+		GodelComponentConfig:          *cfg,
 		SecureServing:  apiserveroptions.NewSecureServingOptions().WithLoopback(),
 		Authentication: apiserveroptions.NewDelegatingAuthenticationOptions(),
 		Authorization:  apiserveroptions.NewDelegatingAuthorizationOptions(),

@@ -19,9 +19,9 @@ package util
 import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	utilfeature "k8s.io/apiserver/pkg/util/feature"
+	//utilfeature "k8s.io/apiserver/pkg/util/feature"
 
-	"k8s.io/kubernetes/godel-pkg/util/features"
+	//"k8s.io/kubernetes/godel-pkg/util/features"
 	"k8s.io/kubernetes/godel-pkg/util/helper"
 )
 
@@ -65,9 +65,13 @@ func GetNonzeroRequestForResource(resource v1.ResourceName, requests *v1.Resourc
 		return requests.Memory().Value()
 	case v1.ResourceEphemeralStorage:
 		// if the local storage capacity isolation feature gate is disabled, pods request 0 disk.
-		if !utilfeature.DefaultFeatureGate.Enabled(features.LocalStorageCapacityIsolation) {
-			return 0
-		}
+		// 检查 "LocalStorageCapacityIsolation" 特性门是否被启用。
+		// 如果该特性门被禁用，则返回 0，表示不应应用与本地存储容量隔离相关的逻辑或限制。
+		// 这通常用于控制 Kubernetes 节点上本地临时存储（如 emptyDir、卷的默认介质等）的容量隔离功能是否生效。
+		// if !utilfeature.DefaultFeatureGate.Enabled(features.LocalStorageCapacityIsolation) {
+		// 	return 0
+		// }
+		return 0
 
 		quantity, found := (*requests)[v1.ResourceEphemeralStorage]
 		if !found {
@@ -101,16 +105,21 @@ func GetNonZeroQuantityForResource(name v1.ResourceName, requests v1.ResourceLis
 		}
 		return requests.Memory()
 	case v1.ResourceEphemeralStorage:
-		// if the local storage capacity isolation feature gate is disabled, pods request 0 disk.
-		if !utilfeature.DefaultFeatureGate.Enabled(features.LocalStorageCapacityIsolation) {
-			resource.NewQuantity(0, resource.BinarySI)
-		}
+		// 检查 "LocalStorageCapacityIsolation" 特性门是否被禁用。
+		// 如果该特性门被禁用，则 pods 对本地临时存储的请求量被视为 0，表示不进行存储容量隔离。
+		// 这通常用于控制 Kubernetes 节点上本地临时存储（如 emptyDir、卷的默认介质等）的容量隔离功能是否生效。
+		// if !utilfeature.DefaultFeatureGate.Enabled(features.LocalStorageCapacityIsolation) {
+		// 	return resource.NewQuantity(0, resource.BinarySI) // 返回 0 容量请求
+		// }
+		return resource.NewQuantity(0, resource.BinarySI)
 
+		// 尝试从 Pod 的资源请求中获取 "ephemeral-storage" 的值。
 		quantity, found := requests[v1.ResourceEphemeralStorage]
 		if !found {
-			resource.NewQuantity(0, resource.BinarySI)
+			// 如果 Pod 没有显式请求 ephemeral-storage，则返回 0 容量。
+			return resource.NewQuantity(0, resource.BinarySI)
 		}
-		return &quantity
+		return &quantity // 返回找到的请求量
 	default:
 		if helper.IsScalarResourceName(name) {
 			quantity, found := requests[name]
