@@ -21,9 +21,10 @@ import (
 	"net"
 	"os"
 	"time"
+	"math"
 
 	godelclient "github.com/kubewharf/godel-scheduler-api/pkg/client/clientset/versioned"
-	godelschedulerconfig "github.com/kubewharf/godel-scheduler/pkg/scheduler/apis/config"
+	godelschedulerconfig "k8s.io/kubernetes/godel-pkg/scheduler/apis/config"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -55,6 +56,18 @@ import (
 type Options struct {
 	godelClient godelclient.Interface
 	GodelComponentConfig godelschedulerconfig.GodelSchedulerConfiguration
+		SchedulerRenewIntervalSeconds int64
+	// 以下字段是为了向后兼容而保留的，计划在未来版本中移除。
+	// UnitMaxBackoffSeconds 指定调度器在处理失败时的最大退避时间（秒）。
+	UnitMaxBackoffSeconds int64
+	// UnitInitialBackoffSeconds 指定调度器在处理失败时的初始退避时间（秒）。
+	UnitInitialBackoffSeconds int64
+	// DisablePreemption 控制是否禁用调度器的抢占（Preemption）功能。
+	// 如果为 true，则调度器不会尝试驱逐低优先级 Pod 来为高优先级 Pod 腾出空间。
+	DisablePreemption bool
+	// AttemptImpactFactorOnPriority 是一个影响优先级计算的因子，用于在调度决策中考虑潜在的抢占影响。
+	AttemptImpactFactorOnPriority float64
+	//----------------------------------------------------
 	// The default values.
 	ComponentConfig *kubeschedulerconfig.KubeSchedulerConfiguration
 
@@ -77,9 +90,228 @@ type Options struct {
 	// Flags hold the parsed CLI flags.
 	Flags *cliflag.NamedFlagSets
 }
+//--------------------------------------------------------------------
+const (
+	// DefaultUnitInitialBackoffInSeconds is the default value for the initial backoff duration
+	// for unschedulable units. To change the default podInitialBackoffDurationSeconds used by the
+	// scheduler, update the ComponentConfig value in defaults.go
+	DefaultUnitInitialBackoffInSeconds = 10
+	// DefaultUnitMaxBackoffInSeconds is the default value for the max backoff duration
+	// for unschedulable units. To change the default unitMaxBackoffDurationSeconds used by the
+	// scheduler, update the ComponentConfig value in defaults.go
+	DefaultUnitMaxBackoffInSeconds = 300
+	// DefaultDisablePreemption is the default value for the option to disable preemption ability
+	// for unschedulable pods.
+	DefaultDisablePreemption        = true
+	CandidateSelectPolicyBest       = "Best"
+	CandidateSelectPolicyBetter     = "Better"
+	CandidateSelectPolicyRandom     = "Random"
+	BetterPreemptionPolicyAscending = "Ascending"
+	BetterPreemptionPolicyDichotomy = "Dichotomy"
+	// DefaultBlockQueue is the default value for the option to use block queue for SchedulingQueue.
+	DefaultBlockQueue = false
+	// DefaultPodUpgradePriorityInMinutes is the default upgrade priority duration for godel sort.
+	DefaultPodUpgradePriorityInMinutes = 5
+	// DefaultGodelSchedulerName defines the name of default scheduler.
+	DefaultGodelSchedulerName = "my-cus-godel-scheduler"
+	// DefaultRenewIntervalInSeconds is the default value for the renew interval duration for scheduler.
+	DefaultRenewIntervalInSeconds = 30
+
+	// DefaultSchedulerName is default high level scheduler name
+	DefaultSchedulerName = "godel-scheduler"
+
+	// DefaultClientConnectionQPS is default scheduler qps
+	DefaultClientConnectionQPS = 10000.0
+	// DefaultClientConnectionBurst is default scheduler burst
+	DefaultClientConnectionBurst = 10000
+
+	// DefaultIDC is default idc name for godel scheduler
+	DefaultIDC = "lq"
+	// DefaultCluster is default cluster name for godel scheduler
+	DefaultCluster = "default"
+	// DefaultTracer is default tracer name for godel scheduler
+
+	DefaultSubClusterKey = ""
+
+	// DefaultAttemptImpactFactorOnPriority is the default attempt factors used by godel sort
+	DefaultAttemptImpactFactorOnPriority = 10.0
+
+	DefaultMaxWaitingDeletionDuration = 120
+
+	DefaultReservationTimeOutSeconds = 60
+)
+
+const (
+	// DefaultPercentageOfNodesToScore defines the percentage of nodes of all nodes
+	// that once found feasible, the scheduler stops looking for more nodes.
+	// A value of 0 means adaptive, meaning the scheduler figures out a proper default.
+	DefaultPercentageOfNodesToScore = 0
+
+	DefaultIncreasedPercentageOfNodesToScore = 0
+
+	// MaxCustomPriorityScore is the max score UtilizationShapePoint expects.
+	MaxCustomPriorityScore int64 = 10
+
+	// MaxTotalScore is the maximum total score.
+	MaxTotalScore int64 = math.MaxInt64
+
+	// MaxWeight defines the max weight value allowed for custom PriorityPolicy
+	MaxWeight = MaxTotalScore / MaxCustomPriorityScore
+)
+
+func newDefaultComponentConfig() (*godelschedulerconfig.GodelSchedulerConfiguration, error) {
+	cfg := godelschedulerconfig.GodelSchedulerConfiguration{}
+
+	SetDefaults_GodelSchedulerConfiguration(&cfg)
+	return &cfg, nil
+}
+
+// SetDefaults_GodelSchedulerConfiguration 为 Godel 调度器配置结构体设置合理的默认值。
+// 该函数确保即使用户未显式配置某些字段，调度器也能以安全、合理的默认行为运行。
+func SetDefaults_GodelSchedulerConfiguration(obj *godelschedulerconfig.GodelSchedulerConfiguration) {
+	
+
+	// 2. 客户端连接（ClientConnection）与绑定地址（Healthz/Metrics）配置
+	{
+		// 默认使用 Protobuf 格式与 Kubernetes API Server 通信，以提升性能
+		if len(obj.ClientConnection.ContentType) == 0 {
+			obj.ClientConnection.ContentType = "application/vnd.kubernetes.protobuf"
+		}
+
+		// 调度器对 QPS 和 Burst 有特定需求，设置专属默认值（高于通用客户端）
+		if obj.ClientConnection.QPS == 0.0 {
+			obj.ClientConnection.QPS = DefaultClientConnectionQPS
+		}
+		if obj.ClientConnection.Burst == 0 {
+			obj.ClientConnection.Burst = DefaultClientConnectionBurst
+		}
+	}
+
+	// 3. 调试相关配置（Profiling）
+	{
+		// 默认启用性能分析（pprof）
+		if obj.EnableProfiling == nil {
+			enableProfiling := true
+			obj.EnableProfiling = &enableProfiling
+		}
+
+		// 若启用了性能分析，则默认也启用竞争分析（contention profiling）
+		if *obj.EnableProfiling && obj.EnableContentionProfiling == nil {
+			enableContentionProfiling := true
+			obj.EnableContentionProfiling = &enableContentionProfiling
+		}
+	}
+
+	// 4. Godel 调度器核心配置
+	{
+		// 若未设置 Godel 调度器名称，使用默认名称
+		if len(obj.GodelSchedulerName) == 0 {
+			obj.GodelSchedulerName = "my-cus-k8s"+DefaultGodelSchedulerName //这个可以自定义
+		}
+
+		// 设置 Kubernetes 侧使用的调度器名称（用于 Pod.Spec.SchedulerName）
+		if obj.SchedulerName == nil {
+			defaultValue := DefaultSchedulerName
+			//这个必需与Kubernetes 中调度器的标识名（对应 Pod.spec.schedulerName）一致
+			obj.SchedulerName = &defaultValue
+		}
+
+		// 若未配置追踪器（Tracer），使用无操作（No-op）默认选项
+
+
+		// 设置子集群标识的标签键（用于多集群调度）
+		if obj.SubClusterKey == nil {
+			defaultValue := DefaultSubClusterKey
+			obj.SubClusterKey = &defaultValue
+		}
+
+		// 设置资源预留（Reservation）的超时时间（秒），若未配置或非法则使用默认值
+		if obj.ReservationTimeOutSeconds <= 0 {
+			obj.ReservationTimeOutSeconds = DefaultReservationTimeOutSeconds
+		}
+	}
+
+	// 5. Godel 调度器默认 Profile（调度策略配置）
+	{
+		// 若未设置默认 Profile，创建一个空的
+		if obj.DefaultProfile == nil {
+			obj.DefaultProfile = &godelschedulerconfig.GodelSchedulerProfile{}
+		}
+
+		// 设置默认调度时要评分的节点百分比（用于性能优化）
+		if obj.DefaultProfile.PercentageOfNodesToScore == nil {
+			percentageOfNodesToScore := int32(DefaultPercentageOfNodesToScore)
+			obj.DefaultProfile.PercentageOfNodesToScore = &percentageOfNodesToScore
+		}
+
+		// 设置负载较高时增加的节点评分百分比
+		if obj.DefaultProfile.IncreasedPercentageOfNodesToScore == nil {
+			increasedPercentageOfNodesToScore := int32(DefaultIncreasedPercentageOfNodesToScore)
+			obj.DefaultProfile.IncreasedPercentageOfNodesToScore = &increasedPercentageOfNodesToScore
+		}
+
+		// 设置调度单元（如 Pod）重试的初始退避时间（秒）
+		if obj.DefaultProfile.UnitInitialBackoffSeconds == nil {
+			defaultUnitInitialBackoffInSeconds := int64(DefaultUnitInitialBackoffInSeconds)
+			obj.DefaultProfile.UnitInitialBackoffSeconds = &defaultUnitInitialBackoffInSeconds
+		}
+
+		// 设置调度单元重试的最大退避时间（秒）
+		if obj.DefaultProfile.UnitMaxBackoffSeconds == nil {
+			defaultUnitMaxBackoffInSeconds := int64(DefaultUnitMaxBackoffInSeconds)
+			obj.DefaultProfile.UnitMaxBackoffSeconds = &defaultUnitMaxBackoffInSeconds
+		}
+
+		// 设置重试次数对调度优先级的影响因子
+		if obj.DefaultProfile.AttemptImpactFactorOnPriority == nil {
+			attemptImpactFactorOnPriority := DefaultAttemptImpactFactorOnPriority
+			obj.DefaultProfile.AttemptImpactFactorOnPriority = &attemptImpactFactorOnPriority
+		}
+
+		// 默认不禁用抢占（Preemption）
+		if obj.DefaultProfile.DisablePreemption == nil {
+			value := true
+			obj.DefaultProfile.DisablePreemption = &value
+		}
+
+		// 默认不禁用阻塞队列（BlockQueue）功能
+		if obj.DefaultProfile.DisablePreemption == nil {
+			value := false
+			obj.DefaultProfile.DisablePreemption = &value
+		}
+
+		// 设置等待删除 Pod 的最大容忍时长（用于资源回收）
+		if obj.DefaultProfile.MaxWaitingDeletionDuration == 0 {
+			obj.DefaultProfile.MaxWaitingDeletionDuration = DefaultMaxWaitingDeletionDuration
+		}
+
+		// 设置候选节点选择策略（如随机选择）
+		if obj.DefaultProfile.CandidatesSelectPolicy == nil {
+			value := CandidateSelectPolicyRandom
+			obj.DefaultProfile.CandidatesSelectPolicy = &value
+		}
+
+		// 设置更优节点选择策略列表（用于抢占决策，如升序、二分查找等）
+		if obj.DefaultProfile.BetterSelectPolicies == nil {
+			obj.DefaultProfile.BetterSelectPolicies = &godelschedulerconfig.StringSlice{
+				BetterPreemptionPolicyAscending,
+				BetterPreemptionPolicyDichotomy,
+			}
+		}
+	}
+}
+
+
+
+//-----------------------------------------------------------------------
 
 // NewOptions returns default scheduler app options.
 func NewOptions() *Options {
+	cfg, err := newDefaultComponentConfig()
+	if err != nil {
+		return nil
+	}
+	//-----------------------------------------------
 	o := &Options{
 		SecureServing:  apiserveroptions.NewSecureServingOptions().WithLoopback(),
 		Authentication: apiserveroptions.NewDelegatingAuthenticationOptions(),

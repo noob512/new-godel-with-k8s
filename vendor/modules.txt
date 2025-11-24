@@ -482,17 +482,6 @@ github.com/josharian/intern
 github.com/json-iterator/go
 # github.com/karrick/godirwalk v1.16.1 => github.com/karrick/godirwalk v1.16.1
 github.com/karrick/godirwalk
-# github.com/kubewharf/godel-scheduler v0.0.0-00010101000000-000000000000 => /home/k8sps/godel-scheduler
-## explicit
-github.com/kubewharf/godel-scheduler/pkg/apis/config
-github.com/kubewharf/godel-scheduler/pkg/scheduler/apis/config
-github.com/kubewharf/godel-scheduler/pkg/util
-github.com/kubewharf/godel-scheduler/pkg/util/features
-github.com/kubewharf/godel-scheduler/pkg/util/helper
-github.com/kubewharf/godel-scheduler/pkg/util/pod
-github.com/kubewharf/godel-scheduler/pkg/util/tracing
-github.com/kubewharf/godel-scheduler/pkg/util/volume/util
-github.com/kubewharf/godel-scheduler/pkg/volume/persistentvolume/util
 # github.com/kubewharf/godel-scheduler-api v0.0.0-00010101000000-000000000000 => /home/k8sps/godel-scheduler-api
 ## explicit
 github.com/kubewharf/godel-scheduler-api/pkg/apis/node/v1alpha1
@@ -501,8 +490,6 @@ github.com/kubewharf/godel-scheduler-api/pkg/client/clientset/versioned
 github.com/kubewharf/godel-scheduler-api/pkg/client/clientset/versioned/scheme
 github.com/kubewharf/godel-scheduler-api/pkg/client/clientset/versioned/typed/node/v1alpha1
 github.com/kubewharf/godel-scheduler-api/pkg/client/clientset/versioned/typed/scheduling/v1alpha1
-github.com/kubewharf/godel-scheduler-api/pkg/client/listers/node/v1alpha1
-github.com/kubewharf/godel-scheduler-api/pkg/client/listers/scheduling/v1alpha1
 # github.com/libopenstorage/openstorage v1.0.0 => github.com/libopenstorage/openstorage v1.0.0
 ## explicit
 github.com/libopenstorage/openstorage/api
@@ -2034,9 +2021,6 @@ k8s.io/gengo/generator
 k8s.io/gengo/namer
 k8s.io/gengo/parser
 k8s.io/gengo/types
-# k8s.io/klog v1.0.0 => k8s.io/klog v1.0.0
-## explicit
-k8s.io/klog
 # k8s.io/klog/v2 v2.100.1 => k8s.io/klog/v2 v2.60.1
 ## explicit
 k8s.io/klog/v2
