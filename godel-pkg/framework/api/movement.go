@@ -22,8 +22,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	"github.com/kubewharf/godel-scheduler/pkg/util/generationstore"
-	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
+	"k8s.io/kubernetes/godel-pkg/util/generationstore"
+	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
 )
 
 func transferStore(cacheStore, snapshotStore generationstore.Store) (generationstore.ListStore, generationstore.RawStore) {

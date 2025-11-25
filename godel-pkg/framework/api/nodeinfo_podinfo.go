@@ -22,12 +22,12 @@ import (
 	"github.com/google/go-cmp/cmp"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	utilfeature "k8s.io/apiserver/pkg/util/feature"
+	//utilfeature "k8s.io/apiserver/pkg/util/feature"
 
-	godelfeatures "github.com/kubewharf/godel-scheduler/pkg/features"
-	"github.com/kubewharf/godel-scheduler/pkg/util"
-	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
-	"github.com/kubewharf/godel-scheduler/pkg/util/splay"
+	//godelfeatures "k8s.io/kubernetes/godel-pkg/features"
+	"k8s.io/kubernetes/godel-pkg/util"
+	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
+	"k8s.io/kubernetes/godel-pkg/util/splay"
 )
 
 // PodPartitionInfo records a pod Priority and a PodResourceType, which we use to partition all ordered pods in Splay-Tree.
@@ -331,9 +331,9 @@ func (m *PodInfoMaintainer) AddPodInfo(p *PodInfo) {
 		m.podsWithRequiredAntiAffinity.Add(p)
 	}
 
-	if utilfeature.DefaultFeatureGate.Enabled(godelfeatures.ResourceReservation) && podutil.IsReservationPlaceholderPod(p.Pod) {
-		m.reserved[p.PodKey] = p
-	}
+	// if utilfeature.DefaultFeatureGate.Enabled(godelfeatures.ResourceReservation) && podutil.IsReservationPlaceholderPod(p.Pod) {
+	// 	m.reserved[p.PodKey] = p
+	// }
 
 	for i := range m.podFilters {
 		if !m.podFilters[i](p) {
@@ -358,9 +358,9 @@ func (m *PodInfoMaintainer) RemovePodInfo(p *PodInfo) {
 		m.podsWithRequiredAntiAffinity.Del(p)
 	}
 
-	if utilfeature.DefaultFeatureGate.Enabled(godelfeatures.ResourceReservation) && podutil.IsReservationPlaceholderPod(p.Pod) {
-		delete(m.reserved, p.PodKey)
-	}
+	// if utilfeature.DefaultFeatureGate.Enabled(godelfeatures.ResourceReservation) && podutil.IsReservationPlaceholderPod(p.Pod) {
+	// 	delete(m.reserved, p.PodKey)
+	// }
 
 	if _, ok := m.neverBePreempted[p.PodKey]; ok {
 		delete(m.neverBePreempted, p.PodKey)

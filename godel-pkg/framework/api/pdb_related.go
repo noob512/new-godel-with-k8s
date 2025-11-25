@@ -20,8 +20,8 @@ import (
 	policy "k8s.io/api/policy/v1"
 	"k8s.io/apimachinery/pkg/labels"
 
-	"github.com/kubewharf/godel-scheduler/pkg/util"
-	"github.com/kubewharf/godel-scheduler/pkg/util/generationstore"
+	"k8s.io/kubernetes/godel-pkg/util"
+	"k8s.io/kubernetes/godel-pkg/util/generationstore"
 )
 
 type pdbItemImpl struct {

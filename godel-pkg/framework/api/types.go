@@ -28,17 +28,17 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
-	utilfeature "k8s.io/apiserver/pkg/util/feature"
+	//utilfeature "k8s.io/apiserver/pkg/util/feature"
 	"k8s.io/client-go/tools/events"
 
-	binderconfig "github.com/kubewharf/godel-scheduler/pkg/binder/apis/config"
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/apis/config"
-	godelutil "github.com/kubewharf/godel-scheduler/pkg/util"
-	"github.com/kubewharf/godel-scheduler/pkg/util/features"
-	"github.com/kubewharf/godel-scheduler/pkg/util/generationstore"
-	"github.com/kubewharf/godel-scheduler/pkg/util/helper"
-	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
-	"github.com/kubewharf/godel-scheduler/pkg/util/tracing"
+	//binderconfig "k8s.io/kubernetes/godel-pkg/binder/apis/config"
+	"k8s.io/kubernetes/godel-pkg/scheduler/apis/config"
+	godelutil "k8s.io/kubernetes/godel-pkg/util"
+	//"k8s.io/kubernetes/godel-pkg/util/features"
+	"k8s.io/kubernetes/godel-pkg/util/generationstore"
+	"k8s.io/kubernetes/godel-pkg/util/helper"
+	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
+	"k8s.io/kubernetes/godel-pkg/util/tracing"
 )
 
 var (
@@ -448,10 +448,10 @@ func (r *Resource) Add(rl v1.ResourceList) {
 		case v1.ResourcePods:
 			r.AllowedPodNumber += int(rQuant.Value())
 		case v1.ResourceEphemeralStorage:
-			if utilfeature.DefaultFeatureGate.Enabled(features.LocalStorageCapacityIsolation) {
-				// if the local storage capacity isolation feature gate is disabled, pods request 0 disk.
-				r.EphemeralStorage += rQuant.Value()
-			}
+			// if utilfeature.DefaultFeatureGate.Enabled(features.LocalStorageCapacityIsolation) {
+			// 	// if the local storage capacity isolation feature gate is disabled, pods request 0 disk.
+			// 	r.EphemeralStorage += rQuant.Value()
+			// }
 		default:
 			if helper.IsScalarResourceName(rName) {
 				r.AddScalar(rName, rQuant.Value())
@@ -475,10 +475,10 @@ func (r *Resource) Sub(rl v1.ResourceList) {
 		case v1.ResourcePods:
 			r.AllowedPodNumber -= int(rQuant.Value())
 		case v1.ResourceEphemeralStorage:
-			if utilfeature.DefaultFeatureGate.Enabled(features.LocalStorageCapacityIsolation) {
-				// if the local storage capacity isolation feature gate is disabled, pods request 0 disk.
-				r.EphemeralStorage -= rQuant.Value()
-			}
+			// if utilfeature.DefaultFeatureGate.Enabled(features.LocalStorageCapacityIsolation) {
+			// 	// if the local storage capacity isolation feature gate is disabled, pods request 0 disk.
+			// 	r.EphemeralStorage -= rQuant.Value()
+			// }
 		default:
 			if helper.IsScalarResourceName(rName) {
 				r.AddScalar(rName, -rQuant.Value())
@@ -496,9 +496,9 @@ func (r *Resource) AddResource(resource *Resource) {
 	r.MilliCPU += resource.MilliCPU
 	r.Memory += resource.Memory
 	r.AllowedPodNumber += resource.AllowedPodNumber
-	if utilfeature.DefaultFeatureGate.Enabled(features.LocalStorageCapacityIsolation) {
-		r.EphemeralStorage += resource.EphemeralStorage
-	}
+	// if utilfeature.DefaultFeatureGate.Enabled(features.LocalStorageCapacityIsolation) {
+	// 	r.EphemeralStorage += resource.EphemeralStorage
+	// }
 
 	for rName, rQuant := range resource.ScalarResources {
 		if quant, ok := r.getScalarResourceQuantity(rName); ok {
@@ -528,9 +528,9 @@ func (r *Resource) SubResource(resource *Resource) {
 	r.MilliCPU -= resource.MilliCPU
 	r.Memory -= resource.Memory
 	r.AllowedPodNumber -= resource.AllowedPodNumber
-	if utilfeature.DefaultFeatureGate.Enabled(features.LocalStorageCapacityIsolation) {
-		r.EphemeralStorage -= resource.EphemeralStorage
-	}
+	// if utilfeature.DefaultFeatureGate.Enabled(features.LocalStorageCapacityIsolation) {
+	// 	r.EphemeralStorage -= resource.EphemeralStorage
+	// }
 
 	for rName, rQuant := range resource.ScalarResources {
 		quant, _ := r.getScalarResourceQuantity(rName)
@@ -663,11 +663,11 @@ func (r *Resource) Satisfy(request *Resource) bool {
 	if request.Memory > 0 && r.Memory < request.Memory {
 		return false
 	}
-	if utilfeature.DefaultFeatureGate.Enabled(features.LocalStorageCapacityIsolation) {
-		if request.EphemeralStorage > 0 && r.EphemeralStorage < request.EphemeralStorage {
-			return false
-		}
-	}
+	// if utilfeature.DefaultFeatureGate.Enabled(features.LocalStorageCapacityIsolation) {
+	// 	if request.EphemeralStorage > 0 && r.EphemeralStorage < request.EphemeralStorage {
+	// 		return false
+	// 	}
+	// }
 	for rName, rVal := range r.ScalarResources {
 		if request.ScalarResources[rName] > 0 && rVal < request.ScalarResources[rName] {
 			return false
@@ -934,7 +934,14 @@ func NewVictimSearchingPluginCollectionSpec(preemptions []config.Plugin, enableQ
 	return pluginCollection
 }
 
-func NewVictimCheckingPluginCollectionSpec(preemptions []binderconfig.Plugin, enableQuickPass, forceQuickPass bool) *VictimCheckingPluginCollectionSpec {
+type binderPlugin struct {
+	// Name defines the name of plugin
+	Name string `json:"name"`
+	// Weight defines the weight of plugin, only used for Score plugins.
+	Weight int64 `json:"weight,omitempty"`
+}
+
+func NewVictimCheckingPluginCollectionSpec(preemptions []binderPlugin, enableQuickPass, forceQuickPass bool) *VictimCheckingPluginCollectionSpec {
 	pluginCollection := &VictimCheckingPluginCollectionSpec{
 		EnableQuickPassVal: enableQuickPass,
 		ForceQuickPassVal:  forceQuickPass,

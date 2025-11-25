@@ -24,9 +24,9 @@ import (
 	schedulingv1 "k8s.io/client-go/listers/scheduling/v1"
 	"k8s.io/klog/v2"
 
-	framework "github.com/kubewharf/godel-scheduler/pkg/framework/api"
-	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
-	unitutil "github.com/kubewharf/godel-scheduler/pkg/util/unit"
+	framework "k8s.io/kubernetes/godel-pkg/framework/api"
+	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
+	unitutil "k8s.io/kubernetes/godel-pkg/util/unit"
 )
 
 // GetUnitIdentifier return id of the unit.

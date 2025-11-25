@@ -498,6 +498,10 @@ github.com/kubewharf/godel-scheduler-api/pkg/client/informers/externalversions/s
 github.com/kubewharf/godel-scheduler-api/pkg/client/informers/externalversions/scheduling/v1alpha1
 github.com/kubewharf/godel-scheduler-api/pkg/client/listers/node/v1alpha1
 github.com/kubewharf/godel-scheduler-api/pkg/client/listers/scheduling/v1alpha1
+# github.com/kubewharf/katalyst-api v0.0.0-00010101000000-000000000000 => /home/k8sps/katalyst-api
+## explicit
+github.com/kubewharf/katalyst-api/pkg/apis/node/v1alpha1
+github.com/kubewharf/katalyst-api/pkg/consts
 # github.com/libopenstorage/openstorage v1.0.0 => github.com/libopenstorage/openstorage v1.0.0
 ## explicit
 github.com/libopenstorage/openstorage/api

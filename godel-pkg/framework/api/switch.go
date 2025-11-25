@@ -20,7 +20,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kubewharf/godel-scheduler/pkg/util/bitplace"
+	"k8s.io/kubernetes/godel-pkg/util/bitplace"
 )
 
 type SwitchType int64

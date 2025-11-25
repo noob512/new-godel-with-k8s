@@ -24,7 +24,11 @@ import (
 	//------------------------------------------
 	godelclient "github.com/kubewharf/godel-scheduler-api/pkg/client/clientset/versioned"
 	crdinformers "github.com/kubewharf/godel-scheduler-api/pkg/client/informers/externalversions"
-	commoncache "k8s.io/kubernetes/godel-pkg/common/cache"
+	// commoncache "k8s.io/kubernetes/godel-pkg/common/cache"
+	//"k8s.io/apimachinery/pkg/util/clock"
+	"k8s.io/kubernetes/godel-pkg/scheduler/apis/config"
+	godelcache "k8s.io/kubernetes/godel-pkg/scheduler/cache"
+	"k8s.io/client-go/tools/events"
 	//-------------------------------------------
 
 	v1 "k8s.io/api/core/v1"
@@ -55,6 +59,22 @@ import (
 	"k8s.io/kubernetes/pkg/scheduler/profile"
 )
 
+//-------------------------------------------
+//-=-------------------------------------------
+type GodelschedulerOptions struct {
+	defaultProfile     *config.GodelSchedulerProfile
+	subClusterProfiles map[string]config.GodelSchedulerProfile
+
+	renewInterval int64
+	subClusterKey string
+}
+
+var defaultGodelSchedulerOptions = GodelschedulerOptions{
+	renewInterval: config.DefaultRenewIntervalInSeconds,
+	subClusterKey: config.DefaultSubClusterKey,
+}
+//-------------------------------------------
+
 const (
 	// Duration the scheduler will wait before expiring an assumed pod.
 	// See issue #106361 for more details about this parameter and its value.
@@ -67,6 +87,47 @@ var ErrNoNodesAvailable = fmt.Errorf("no nodes available to schedule pods")
 // Scheduler watches for new unscheduled pods. It attempts to find
 // nodes that they fit on and writes bindings back to the api server.
 type Scheduler struct {
+	//------------------------------------------------------------
+	// Name 用于标识这个 Godel 调度器实例的名称。
+	Name string
+	// SchedulerName 是更高层级的调度器名称，用于选择哪些 Pod 应由 Godel 调度器负责，
+	// 并过滤掉不相关的 Pod。
+	// Pod 的 Spec.SchedulerName 必须与此字段匹配，才会被此调度器处理。
+	SchedulerName *string
+
+	// informerFactory 是标准 Kubernetes 核心资源的 SharedInformer 工厂。
+	informerFactory informers.SharedInformerFactory
+
+	// crdInformerFactory 是 Godel 自定义资源的 SharedInformer 工厂。
+	crdInformerFactory crdinformers.SharedInformerFactory
+
+	// crdClient 是 Godel 自定义资源（如 Scheduler, PodGroup 等）的客户端接口。
+	crdClient godelclient.Interface
+
+	// options 存储调度器的配置选项。
+	options schedulerOptions
+
+	// podLister 是 Pod 资源的 Lister，提供对 Pod 信息的只读缓存访问。
+	podLister corelisters.PodLister
+
+	// commonCache 是调度器使用的缓存接口，用于存储和管理节点、Pod 等资源的状态信息。
+	commonCache godelcache.SchedulerCache
+
+	// mayHasPreemption 标记此调度器实例是否可能执行抢占（Preemption）操作。
+	mayHasPreemption bool
+	// defaultSubClusterConfig 是默认子集群的配置。
+	//defaultSubClusterConfig *subClusterConfig
+
+
+	// schedulerMaintainer 是一个状态维护器，负责维护和更新调度器自身的状态。
+	//schedulerMaintainer StatusMaintainer
+
+
+	// recorder 是事件记录器，用于向 Kubernetes API Server 发送调度器相关的事件。
+	// 根据 KEP 383，这应该是新的 events.k8s.io/v1 API 的适配器。
+	recorder events.EventRecorder
+
+	//------------------------------------------------------------
 	// It is expected that changes made via Cache will be observed
 	// by NodeLister and Algorithm.
 	Cache internalcache.Cache
@@ -258,23 +319,23 @@ func New(
 		opt(&options)
 	}
 	//--------------------------------------------------
-	Godeloptions:=defaultGodelSchedulerOptions
-	globalClock := clock.RealClock{}
+	//Godeloptions:=defaultGodelSchedulerOptions
+	//globalClock := clock.RealClock{}
 	podLister := informerFactory.Core().V1().Pods().Lister()
-	podInformer := informerFactory.Core().V1().Pods()
+	//podInformer := informerFactory.Core().V1().Pods()
 	//-------------------------------------------------
 	podLister = informerFactory.Core().V1().Pods().Lister()
 	nodeLister := informerFactory.Core().V1().Nodes().Lister()
 
 	//-----------------------------------------------
-	handlerWrapper := commoncache.MakeCacheHandlerWrapper().
-	ComponentName(godelSchedulerName).
-	SchedulerType(*schedulerName).
-	PodAssumedTTL(15 * time.Minute). // Pod 假定（assumed）状态的 TTL
-	Period(10 * time.Second).        // 缓存定期同步周期
-	StopCh(stopEverything).
-	PodLister(podLister).
-	PodInformer(podInformer)
+	// handlerWrapper := commoncache.MakeCacheHandlerWrapper().
+	// ComponentName(godelSchedulerName).
+	// SchedulerType(*schedulerName).
+	// PodAssumedTTL(15 * time.Minute). // Pod 假定（assumed）状态的 TTL
+	// Period(10 * time.Second).        // 缓存定期同步周期
+	// StopCh(stopEverything).
+	// PodLister(podLister).
+	// PodInformer(podInformer)
 	//-----------------------------------------------
 
 	if options.applyDefaultProfile {
@@ -356,9 +417,9 @@ func New(
 		//---------------------------------------
 	sched.Name=godelSchedulerName
 	sched.SchedulerName=schedulerName
-	sched.commonCache=godelcache.New(handlerWrapper.Obj())
+	//sched.commonCache=godelcache.New(handlerWrapper.Obj())
 	sched.mayHasPreemption=false
-	sched.schedulerMaintainer=NewSchedulerStatusMaintainer(globalClock, crdClient, godelSchedulerName, Godeloptions.renewInterval)
+	//sched.schedulerMaintainer=NewSchedulerStatusMaintainer(globalClock, crdClient, godelSchedulerName, Godeloptions.renewInterval)
 	sched.podLister=podLister
 	sched.informerFactory=informerFactory
 	sched.crdInformerFactory=crdInformerFactory

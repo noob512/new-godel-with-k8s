@@ -28,15 +28,15 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/sets"
-	utilfeature "k8s.io/apiserver/pkg/util/feature"
+	//utilfeature "k8s.io/apiserver/pkg/util/feature"
 	"k8s.io/klog/v2"
 
-	godelfeatures "github.com/kubewharf/godel-scheduler/pkg/features"
-	godelutil "github.com/kubewharf/godel-scheduler/pkg/util"
-	"github.com/kubewharf/godel-scheduler/pkg/util/features"
-	"github.com/kubewharf/godel-scheduler/pkg/util/generationstore"
-	"github.com/kubewharf/godel-scheduler/pkg/util/helper"
-	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
+	//godelfeatures "k8s.io/kubernetes/godel-pkg/features"
+	godelutil "k8s.io/kubernetes/godel-pkg/util"
+	//"k8s.io/kubernetes/godel-pkg/util/features"
+	"k8s.io/kubernetes/godel-pkg/util/generationstore"
+	"k8s.io/kubernetes/godel-pkg/util/helper"
+	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
 )
 
 type NodeInfo interface {
@@ -188,29 +188,35 @@ type NodeInfoImpl struct {
 // NewNodeInfo returns a ready to use empty NodeInfo object.
 // If any pods are given in arguments, their information will be aggregated in
 // the returned object.
+// NewNodeInfo 创建并初始化一个新的 NodeInfo 对象，用于存储和管理节点的状态信息。
+// 该函数接收一个可变参数列表，包含需要初始添加到节点信息中的 Pod 列表。
+// 如果启用了 "NonNativeResourceSchedulingSupport" 特性门，则会初始化 NumaTopologyStatus。
 func NewNodeInfo(pods ...*v1.Pod) NodeInfo {
 	ni := &NodeInfoImpl{
 		PodInfoMaintainer:          NewPodInfoMaintainer(),
-		GuaranteedRequested:        &Resource{},
-		GuaranteedNonZeroRequested: &Resource{},
-		GuaranteedAllocatable:      &Resource{},
-		GuaranteedCapacity:         &Resource{},
-		GuaranteedReserved:         &Resource{},
-		BestEffortRequested:        &Resource{},
-		BestEffortNonZeroRequested: &Resource{},
-		BestEffortAllocatable:      &Resource{},
-		TransientInfo:              NewTransientSchedulerInfo(),
-		Generation:                 0,
-		UsedPorts:                  make(HostPortInfo),
-		ImageStates:                make(map[string]*ImageStateSummary),
+		GuaranteedRequested:        &Resource{}, // 用于追踪节点上 Guaranteed QoS 等级 Pod 的资源请求总和
+		GuaranteedNonZeroRequested: &Resource{}, // 用于追踪 Guaranteed QoS 等级 Pod 的非零资源请求总和
+		GuaranteedAllocatable:      &Resource{}, // 用于追踪 Guaranteed QoS 等级的可分配资源
+		GuaranteedCapacity:         &Resource{}, // 用于追踪 Guaranteed QoS 等级的总容量
+		GuaranteedReserved:         &Resource{}, // 用于追踪 Guaranteed QoS 等级的预留资源
+		BestEffortRequested:        &Resource{}, // 用于追踪节点上 BestEffort QoS 等级 Pod 的资源请求总和
+		BestEffortNonZeroRequested: &Resource{}, // 用于追踪 BestEffort QoS 等级 Pod 的非零资源请求总和
+		BestEffortAllocatable:      &Resource{}, // 用于追踪 BestEffort QoS 等级的可分配资源
+		TransientInfo:              NewTransientSchedulerInfo(), // 存储临时调度信息
+		Generation:                 0, // 用于追踪 NodeInfo 变更的代数，每次变更时递增
+		UsedPorts:                  make(HostPortInfo), // 记录节点上已被使用的 HostPort 信息
+		ImageStates:                make(map[string]*ImageStateSummary), // 记录节点上镜像的状态摘要
 	}
-	if utilfeature.DefaultFeatureGate.Enabled(godelfeatures.NonNativeResourceSchedulingSupport) {
-		ni.NumaTopologyStatus = newNumaTopologyStatus(NewResource(nil))
-	}
+	// // 检查 "NonNativeResourceSchedulingSupport" 特性门是否启用
+	// if utilfeature.DefaultFeatureGate.Enabled(godelfeatures.NonNativeResourceSchedulingSupport) {
+	// 	// 如果启用，则初始化 NumaTopologyStatus，用于管理节点的 NUMA 拓扑和资源状态
+	// 	ni.NumaTopologyStatus = newNumaTopologyStatus(NewResource(nil))
+	// }
+	// 遍历传入的 Pod 列表，将每个 Pod 的信息添加到 NodeInfo 中
 	for _, pod := range pods {
-		ni.AddPod(pod)
+		ni.AddPod(pod) // 调用 AddPod 方法更新节点的资源使用情况和其他状态信息
 	}
-	return ni
+	return ni // 返回初始化完成的 NodeInfo 对象
 }
 
 // GetNodeName returns the node name of the node info. Both Node and NMNode should share the same node name.
@@ -584,45 +590,65 @@ func (n *NodeInfoImpl) String() string {
 
 // update node info based on the pod and sign.
 // The sign will be set to `+1` when AddPod and to `-1` when RemovePod.
+// update 根据 Pod 的信息和操作类型（添加或删除）更新 NodeInfoImpl 的资源统计信息。
+// sign 参数用于指示操作类型：+1 表示添加 Pod，-1 表示删除 Pod。
+// preempt 参数指示此次更新是否与抢占（preemption）相关。
 func (n *NodeInfoImpl) update(podInfo *PodInfo, sign int64, preempt bool) {
+	// 根据 Pod 的资源类型（Guaranteed, BestEffort）选择对应的资源统计字段。
+	// 这些字段用于区分不同 QoS 等级 Pod 的资源占用情况。
 	var requested, nonZeroRequested **Resource
 	switch podInfo.PodResourceType {
 	case podutil.GuaranteedPod:
+		// Guaranteed Pod 的资源请求和非零资源请求统计
 		requested, nonZeroRequested = &n.GuaranteedRequested, &n.GuaranteedNonZeroRequested
 	case podutil.BestEffortPod:
+		// BestEffort Pod 的资源请求和非零资源请求统计
 		requested, nonZeroRequested = &n.BestEffortRequested, &n.BestEffortNonZeroRequested
 	default:
+		// 如果 Pod 的资源类型注解无效或无法解析，记录警告日志。
+		// 按照 TODO 的说明，这种情况需要特殊处理机制，但当前默认按 Guaranteed 处理。
 		klog.InfoS("Failed to parse resource type for pod", "pod", klog.KObj(podInfo.Pod), "err", podInfo.PodResourceTypeError)
-		// if pod annotation is illegal but should be added to cache, the pod is considered as a guaranteed pod
-		// TODO we need a mechanism to handle bound pod with illegal pod resource type
 		requested, nonZeroRequested = &n.GuaranteedRequested, &n.GuaranteedNonZeroRequested
 	}
 
+	// 根据 sign 更新节点上累计的总资源请求量 (requested)。
+	// sign > 0 (添加 Pod) 时，资源量增加；sign < 0 (删除 Pod) 时，资源量减少。
 	(*requested).MilliCPU += sign * podInfo.Res.MilliCPU
 	(*requested).Memory += sign * podInfo.Res.Memory
 	(*requested).EphemeralStorage += sign * podInfo.Res.EphemeralStorage
+
+	// 处理标量资源 (Scalar Resources)
 	if (*requested).ScalarResources == nil && len(podInfo.Res.ScalarResources) > 0 {
+		// 如果当前节点的标量资源映射为空，但 Pod 有标量资源请求，则初始化该映射。
 		(*requested).ScalarResources = map[v1.ResourceName]int64{}
 	}
 	for rName, rQuant := range podInfo.Res.ScalarResources {
+		// 更新节点上对应标量资源的累计请求量。
 		(*requested).ScalarResources[rName] += sign * rQuant
 	}
+
+	// 根据 sign 更新节点上累计的非零资源请求量 (nonZeroRequested)。
+	// 这通常用于追踪至少请求了 1 个单位资源的 Pod 的总和（例如，至少请求了 1m CPU 的 Pod 总和）。
 	(*nonZeroRequested).MilliCPU += sign * podInfo.Non0CPU
 	(*nonZeroRequested).Memory += sign * podInfo.Non0Mem
 
-	// Consume ports when pod added or release ports when pod removed.
+	// 更新节点上已使用的 HostPort 信息。
+	// sign > 0 表示添加 Pod (占用端口)，sign < 0 表示删除 Pod (释放端口)。
 	n.updateUsedPorts(podInfo.Pod, sign > 0)
 
-	// update non-native resources
+	// 更新非原生资源（如 NUMA 拓扑相关资源）的统计信息。
+	// sign > 0 表示添加，preempt 表示是否为抢占操作。
 	n.NumaTopologyStatus.updateNonNativeResource(podInfo, sign > 0, preempt)
 
-	// update reserved resources information.
-	if utilfeature.DefaultFeatureGate.Enabled(godelfeatures.ResourceReservation) {
-		// placeholder pod, update reserved resources
-		if podutil.IsReservationPlaceholderPod(podInfo.Pod) {
-			n.updateReservedResource(podInfo, sign)
-		}
-	}
+	// 检查 ResourceReservation 特性门是否启用。
+	// if utilfeature.DefaultFeatureGate.Enabled(godelfeatures.ResourceReservation) {
+	// 	// 如果启用，并且当前 Pod 是一个资源预留（Reservation）的占位符 Pod。
+	// 	if podutil.IsReservationPlaceholderPod(podInfo.Pod) {
+	// 		// 则更新节点上预留的资源信息。
+	// 		// sign 用于指示是增加 (+1) 还是减少 (-1) 预留资源。
+	// 		n.updateReservedResource(podInfo, sign)
+	// 	}
+	// }
 }
 
 // TODO: only reserve CPU & Memory at first stage
@@ -667,39 +693,64 @@ func (n *NodeInfoImpl) RemovePod(pod *v1.Pod, preempt bool) error {
 	return fmt.Errorf("no corresponding pod %s in pods of node %s", pod.Name, n.getNodeName())
 }
 
-// resourceRequest = max(sum(podSpec.Containers), podSpec.InitContainers) + overHead
+// CalculateResource 计算 Pod 的总资源请求量。
+// 计算公式为：resourceRequest = max(sum(podSpec.Containers), podSpec.InitContainers) + overhead
+// 其中：
+// - sum(podSpec.Containers) 是 Pod 中所有普通容器的资源请求之和。
+// - podSpec.InitContainers 是 Pod 中所有 Init 容器的资源请求（取最大值）。
+// - overhead 是 Pod 级别的开销资源（如果启用 PodOverhead 特性门）。
+//
+// 返回值包括：
+// - res: Pod 的总资源请求量（CPU、内存、临时存储等）。
+// - non0CPU: Pod 请求的非零 CPU 量的总和（用于 BestEffort/Guaranteed 资源统计）。
+// - non0Mem: Pod 请求的非零内存的总和（用于 BestEffort/Guaranteed 资源统计）。
 func CalculateResource(pod *v1.Pod) (res Resource, non0CPU int64, non0Mem int64) {
 	resPtr := &res
+
+	// 1. 计算所有普通容器（Containers）的资源请求总和。
+	// 对于普通容器，它们是并行运行的，所以资源请求是累加的。
 	for _, c := range pod.Spec.Containers {
+		// 累加当前容器的资源请求到总和中。
 		resPtr.Add(c.Resources.Requests)
+		// 获取当前容器非零资源请求量（CPU 和内存）。
 		non0CPUReq, non0MemReq := godelutil.GetNonzeroRequests(&c.Resources.Requests)
+		// 将当前容器的非零请求累加到 Pod 总的非零请求中。
 		non0CPU += non0CPUReq
 		non0Mem += non0MemReq
-		// No non-zero resources for GPUs or opaque resources.
+		// 注意：目前未计算 GPU 或其他标量资源的非零请求。
 	}
+
+	// 2. 计算所有 Init 容器（InitContainers）的最大资源请求。
+	// Init 容器是按顺序运行的，节点必须满足其最大资源请求才能调度。
 	for _, ic := range pod.Spec.InitContainers {
+		// SetMaxResource 会更新 resPtr，使其包含当前 Init 容器资源请求与之前 resPtr 中资源的较大值。
 		resPtr.SetMaxResource(ic.Resources.Requests)
+		// 获取当前 Init 容器的非零资源请求量。
 		non0CPUReq, non0MemReq := godelutil.GetNonzeroRequests(&ic.Resources.Requests)
+		// 对于非零请求，也取所有 Init 容器中的最大值。
 		if non0CPU < non0CPUReq {
 			non0CPU = non0CPUReq
 		}
-
 		if non0Mem < non0MemReq {
 			non0Mem = non0MemReq
 		}
 	}
 
-	// If Overhead is being utilized, add to the total requests for the pod
-	if pod.Spec.Overhead != nil && utilfeature.DefaultFeatureGate.Enabled(features.PodOverhead) {
-		resPtr.Add(pod.Spec.Overhead)
-		if _, found := pod.Spec.Overhead[v1.ResourceCPU]; found {
-			non0CPU += pod.Spec.Overhead.Cpu().MilliValue()
-		}
+	// 3. 如果 Pod 定义了 Overhead（开销）并且 PodOverhead 特性门已启用，则将其加入总请求。
+	// if pod.Spec.Overhead != nil && utilfeature.DefaultFeatureGate.Enabled(features.PodOverhead) {
+	// 	// 将 Pod 开销资源累加到总资源请求中。
+	// 	resPtr.Add(pod.Spec.Overhead)
+	// 	// 如果开销中包含 CPU，则将其 MilliValue 累加到 non0CPU 中。
+	// 	if _, found := pod.Spec.Overhead[v1.ResourceCPU]; found {
+	// 		non0CPU += pod.Spec.Overhead.Cpu().MilliValue()
+	// 	}
+	// 	// 如果开销中包含内存，则将其 Value 累加到 non0Mem 中。
+	// 	if _, found := pod.Spec.Overhead[v1.ResourceMemory]; found {
+	// 		non0Mem += pod.Spec.Overhead.Memory().Value()
+	// 	}
+	// }
 
-		if _, found := pod.Spec.Overhead[v1.ResourceMemory]; found {
-			non0Mem += pod.Spec.Overhead.Memory().Value()
-		}
-	}
+	// 返回计算得出的总资源请求、非零 CPU 请求总和和非零内存请求总和。
 	return res, non0CPU, non0Mem
 }
 

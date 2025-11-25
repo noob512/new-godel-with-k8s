@@ -24,9 +24,9 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/component-base/metrics"
 
-	pkgmetrics "github.com/kubewharf/godel-scheduler/pkg/common/metrics"
-	"github.com/kubewharf/godel-scheduler/pkg/scheduler/apis/config"
-	podutil "github.com/kubewharf/godel-scheduler/pkg/util/pod"
+	pkgmetrics "k8s.io/kubernetes/godel-pkg/common/metrics"
+	"k8s.io/kubernetes/godel-pkg/scheduler/apis/config"
+	podutil "k8s.io/kubernetes/godel-pkg/util/pod"
 )
 
 type ObservableUnit interface {

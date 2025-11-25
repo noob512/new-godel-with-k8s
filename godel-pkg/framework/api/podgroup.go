@@ -19,7 +19,7 @@ package api
 import (
 	schedulingv1a1 "github.com/kubewharf/godel-scheduler-api/pkg/apis/scheduling/v1alpha1"
 
-	"github.com/kubewharf/godel-scheduler/pkg/util/generationstore"
+	"k8s.io/kubernetes/godel-pkg/util/generationstore"
 )
 
 type GenerationPodGroup interface {
