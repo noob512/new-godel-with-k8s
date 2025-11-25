@@ -19,11 +19,16 @@ package scheduler
 import (
 	"fmt"
 	"reflect"
-	"strings"
+	//"strings"
+
+	//-----------------------------------------------------------------------------
+	crdinformers "github.com/kubewharf/godel-scheduler-api/pkg/client/informers/externalversions"
+	schedulingv1a1 "github.com/kubewharf/godel-scheduler-api/pkg/apis/scheduling/v1alpha1"
+	//------------------------------------------------------------------------------
 
 	v1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
+	//"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/informers"
@@ -251,6 +256,7 @@ func addAllEventHandlers(
 	informerFactory informers.SharedInformerFactory,
 	dynInformerFactory dynamicinformer.DynamicSharedInformerFactory,
 	gvkMap map[framework.GVK]framework.ActionType,
+	crdInformerFactory crdinformers.SharedInformerFactory,
 ) {
 	// scheduled pod cache
 	informerFactory.Core().V1().Pods().Informer().AddEventHandler(
@@ -315,109 +321,141 @@ func addAllEventHandlers(
 		},
 	)
 
-	buildEvtResHandler := func(at framework.ActionType, gvk framework.GVK, shortGVK string) cache.ResourceEventHandlerFuncs {
-		funcs := cache.ResourceEventHandlerFuncs{}
-		if at&framework.Add != 0 {
-			evt := framework.ClusterEvent{Resource: gvk, ActionType: framework.Add, Label: fmt.Sprintf("%vAdd", shortGVK)}
-			funcs.AddFunc = func(_ interface{}) {
-				sched.SchedulingQueue.MoveAllToActiveOrBackoffQueue(evt, nil)
-			}
-		}
-		if at&framework.Update != 0 {
-			evt := framework.ClusterEvent{Resource: gvk, ActionType: framework.Update, Label: fmt.Sprintf("%vUpdate", shortGVK)}
-			funcs.UpdateFunc = func(_, _ interface{}) {
-				sched.SchedulingQueue.MoveAllToActiveOrBackoffQueue(evt, nil)
-			}
-		}
-		if at&framework.Delete != 0 {
-			evt := framework.ClusterEvent{Resource: gvk, ActionType: framework.Delete, Label: fmt.Sprintf("%vDelete", shortGVK)}
-			funcs.DeleteFunc = func(_ interface{}) {
-				sched.SchedulingQueue.MoveAllToActiveOrBackoffQueue(evt, nil)
-			}
-		}
-		return funcs
-	}
+	//-------------------------------------------------------------------------
+	// ==================== Scheduler CRD 事件处理器 ====================
+	// 监听 Godel Scheduler 自身配置的变更（如调度策略更新）
+	crdInformerFactory.Scheduling().V1alpha1().Schedulers().Informer().AddEventHandler(
+		// 使用 FilteringResourceEventHandler 只处理与当前调度器实例相关的事件
+		cache.FilteringResourceEventHandler{
+			FilterFunc: func(obj interface{}) bool {
+				switch t := obj.(type) {
+				case *schedulingv1a1.Scheduler:
+					// 添加日志打印 Scheduler CRD 的名称和当前调度器的名称
+					klog.InfoS("比较调度器名称", "schedulerCRDName", t.Name, "currentSchedulerName", sched.Name)
+					return t.Name == sched.Name // 只处理名称匹配的 Scheduler CRD
+				case cache.DeletedFinalStateUnknown:
+					// 处理删除事件中缓存可能不一致的情况
+					if scheduler, ok := t.Obj.(*schedulingv1a1.Scheduler); ok {
+						// 添加日志打印 DeletedFinalStateUnknown 中的 Scheduler 名称和当前调度器的名称
+						klog.InfoS("比较调度器名称", "schedulerCRDName", scheduler.Name, "currentSchedulerName", sched.Name)
+						return scheduler.Name == sched.Name
+					}
+					utilruntime.HandleError(fmt.Errorf("unable to convert object %T to *v1alpha1.Scheduler in %T", obj, sched))
+					return false
+				default:
+					utilruntime.HandleError(fmt.Errorf("unable to handle object in %T: %T", sched, obj))
+					return false
+				}
+			},
+			Handler: cache.ResourceEventHandlerFuncs{
+				UpdateFunc: sched.onSchedulerUpdate, // Scheduler CRD 更新时触发配置重载
+			},
+		},
+	)
 
-	for gvk, at := range gvkMap {
-		switch gvk {
-		case framework.Node, framework.Pod:
-			// Do nothing.
-		case framework.CSINode:
-			informerFactory.Storage().V1().CSINodes().Informer().AddEventHandler(
-				buildEvtResHandler(at, framework.CSINode, "CSINode"),
-			)
-		case framework.CSIDriver:
-			informerFactory.Storage().V1().CSIDrivers().Informer().AddEventHandler(
-				buildEvtResHandler(at, framework.CSIDriver, "CSIDriver"),
-			)
-		case framework.CSIStorageCapacity:
-			informerFactory.Storage().V1().CSIStorageCapacities().Informer().AddEventHandler(
-				buildEvtResHandler(at, framework.CSIStorageCapacity, "CSIStorageCapacity"),
-			)
-		case framework.PersistentVolume:
-			// MaxPDVolumeCountPredicate: since it relies on the counts of PV.
-			//
-			// PvAdd: Pods created when there are no PVs available will be stuck in
-			// unschedulable queue. But unbound PVs created for static provisioning and
-			// delay binding storage class are skipped in PV controller dynamic
-			// provisioning and binding process, will not trigger events to schedule pod
-			// again. So we need to move pods to active queue on PV add for this
-			// scenario.
-			//
-			// PvUpdate: Scheduler.bindVolumesWorker may fail to update assumed pod volume
-			// bindings due to conflicts if PVs are updated by PV controller or other
-			// parties, then scheduler will add pod back to unschedulable queue. We
-			// need to move pods to active queue on PV update for this scenario.
-			informerFactory.Core().V1().PersistentVolumes().Informer().AddEventHandler(
-				buildEvtResHandler(at, framework.PersistentVolume, "Pv"),
-			)
-		case framework.PersistentVolumeClaim:
-			// MaxPDVolumeCountPredicate: add/update PVC will affect counts of PV when it is bound.
-			informerFactory.Core().V1().PersistentVolumeClaims().Informer().AddEventHandler(
-				buildEvtResHandler(at, framework.PersistentVolumeClaim, "Pvc"),
-			)
-		case framework.StorageClass:
-			if at&framework.Add != 0 {
-				informerFactory.Storage().V1().StorageClasses().Informer().AddEventHandler(
-					cache.ResourceEventHandlerFuncs{
-						AddFunc: sched.onStorageClassAdd,
-					},
-				)
-			}
-			if at&framework.Update != 0 {
-				informerFactory.Storage().V1().StorageClasses().Informer().AddEventHandler(
-					cache.ResourceEventHandlerFuncs{
-						UpdateFunc: func(_, _ interface{}) {
-							sched.SchedulingQueue.MoveAllToActiveOrBackoffQueue(queue.StorageClassUpdate, nil)
-						},
-					},
-				)
-			}
-		default:
-			// Tests may not instantiate dynInformerFactory.
-			if dynInformerFactory == nil {
-				continue
-			}
-			// GVK is expected to be at least 3-folded, separated by dots.
-			// <kind in plural>.<version>.<group>
-			// Valid examples:
-			// - foos.v1.example.com
-			// - bars.v1beta1.a.b.c
-			// Invalid examples:
-			// - foos.v1 (2 sections)
-			// - foo.v1.example.com (the first section should be plural)
-			if strings.Count(string(gvk), ".") < 2 {
-				klog.ErrorS(nil, "incorrect event registration", "gvk", gvk)
-				continue
-			}
-			// Fall back to try dynamic informers.
-			gvr, _ := schema.ParseResourceArg(string(gvk))
-			dynInformer := dynInformerFactory.ForResource(*gvr).Informer()
-			dynInformer.AddEventHandler(
-				buildEvtResHandler(at, gvk, strings.Title(gvr.Resource)),
-			)
-		}
-	}
+	// buildEvtResHandler := func(at framework.ActionType, gvk framework.GVK, shortGVK string) cache.ResourceEventHandlerFuncs {
+	// 	funcs := cache.ResourceEventHandlerFuncs{}
+	// 	if at&framework.Add != 0 {
+	// 		evt := framework.ClusterEvent{Resource: gvk, ActionType: framework.Add, Label: fmt.Sprintf("%vAdd", shortGVK)}
+	// 		funcs.AddFunc = func(_ interface{}) {
+	// 			sched.SchedulingQueue.MoveAllToActiveOrBackoffQueue(evt, nil)
+	// 		}
+	// 	}
+	// 	if at&framework.Update != 0 {
+	// 		evt := framework.ClusterEvent{Resource: gvk, ActionType: framework.Update, Label: fmt.Sprintf("%vUpdate", shortGVK)}
+	// 		funcs.UpdateFunc = func(_, _ interface{}) {
+	// 			sched.SchedulingQueue.MoveAllToActiveOrBackoffQueue(evt, nil)
+	// 		}
+	// 	}
+	// 	if at&framework.Delete != 0 {
+	// 		evt := framework.ClusterEvent{Resource: gvk, ActionType: framework.Delete, Label: fmt.Sprintf("%vDelete", shortGVK)}
+	// 		funcs.DeleteFunc = func(_ interface{}) {
+	// 			sched.SchedulingQueue.MoveAllToActiveOrBackoffQueue(evt, nil)
+	// 		}
+	// 	}
+	// 	return funcs
+	// }
+
+	// for gvk, at := range gvkMap {
+	// 	switch gvk {
+	// 	case framework.Node, framework.Pod:
+	// 		// Do nothing.
+	// 	case framework.CSINode:
+	// 		informerFactory.Storage().V1().CSINodes().Informer().AddEventHandler(
+	// 			buildEvtResHandler(at, framework.CSINode, "CSINode"),
+	// 		)
+	// 	case framework.CSIDriver:
+	// 		informerFactory.Storage().V1().CSIDrivers().Informer().AddEventHandler(
+	// 			buildEvtResHandler(at, framework.CSIDriver, "CSIDriver"),
+	// 		)
+	// 	case framework.CSIStorageCapacity:
+	// 		informerFactory.Storage().V1().CSIStorageCapacities().Informer().AddEventHandler(
+	// 			buildEvtResHandler(at, framework.CSIStorageCapacity, "CSIStorageCapacity"),
+	// 		)
+	// 	case framework.PersistentVolume:
+	// 		// MaxPDVolumeCountPredicate: since it relies on the counts of PV.
+	// 		//
+	// 		// PvAdd: Pods created when there are no PVs available will be stuck in
+	// 		// unschedulable queue. But unbound PVs created for static provisioning and
+	// 		// delay binding storage class are skipped in PV controller dynamic
+	// 		// provisioning and binding process, will not trigger events to schedule pod
+	// 		// again. So we need to move pods to active queue on PV add for this
+	// 		// scenario.
+	// 		//
+	// 		// PvUpdate: Scheduler.bindVolumesWorker may fail to update assumed pod volume
+	// 		// bindings due to conflicts if PVs are updated by PV controller or other
+	// 		// parties, then scheduler will add pod back to unschedulable queue. We
+	// 		// need to move pods to active queue on PV update for this scenario.
+	// 		informerFactory.Core().V1().PersistentVolumes().Informer().AddEventHandler(
+	// 			buildEvtResHandler(at, framework.PersistentVolume, "Pv"),
+	// 		)
+	// 	case framework.PersistentVolumeClaim:
+	// 		// MaxPDVolumeCountPredicate: add/update PVC will affect counts of PV when it is bound.
+	// 		informerFactory.Core().V1().PersistentVolumeClaims().Informer().AddEventHandler(
+	// 			buildEvtResHandler(at, framework.PersistentVolumeClaim, "Pvc"),
+	// 		)
+	// 	case framework.StorageClass:
+	// 		if at&framework.Add != 0 {
+	// 			informerFactory.Storage().V1().StorageClasses().Informer().AddEventHandler(
+	// 				cache.ResourceEventHandlerFuncs{
+	// 					AddFunc: sched.onStorageClassAdd,
+	// 				},
+	// 			)
+	// 		}
+	// 		if at&framework.Update != 0 {
+	// 			informerFactory.Storage().V1().StorageClasses().Informer().AddEventHandler(
+	// 				cache.ResourceEventHandlerFuncs{
+	// 					UpdateFunc: func(_, _ interface{}) {
+	// 						sched.SchedulingQueue.MoveAllToActiveOrBackoffQueue(queue.StorageClassUpdate, nil)
+	// 					},
+	// 				},
+	// 			)
+	// 		}
+	// 	default:
+	// 		// Tests may not instantiate dynInformerFactory.
+	// 		if dynInformerFactory == nil {
+	// 			continue
+	// 		}
+	// 		// GVK is expected to be at least 3-folded, separated by dots.
+	// 		// <kind in plural>.<version>.<group>
+	// 		// Valid examples:
+	// 		// - foos.v1.example.com
+	// 		// - bars.v1beta1.a.b.c
+	// 		// Invalid examples:
+	// 		// - foos.v1 (2 sections)
+	// 		// - foo.v1.example.com (the first section should be plural)
+	// 		if strings.Count(string(gvk), ".") < 2 {
+	// 			klog.ErrorS(nil, "incorrect event registration", "gvk", gvk)
+	// 			continue
+	// 		}
+	// 		// Fall back to try dynamic informers.
+	// 		gvr, _ := schema.ParseResourceArg(string(gvk))
+	// 		dynInformer := dynInformerFactory.ForResource(*gvr).Informer()
+	// 		dynInformer.AddEventHandler(
+	// 			buildEvtResHandler(at, gvk, strings.Title(gvr.Resource)),
+	// 		)
+	// 	}
+	// }
 }
 
 func nodeSchedulingPropertiesChange(newNode *v1.Node, oldNode *v1.Node) *framework.ClusterEvent {

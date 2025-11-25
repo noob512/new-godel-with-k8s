@@ -533,6 +533,7 @@ func (o *Options) ApplyTo(c *schedulerappconfig.Config) error {
 		o.ApplyDeprecated()
 		o.ApplyLeaderElectionTo(o.ComponentConfig)
 		c.ComponentConfig = *o.ComponentConfig
+		c.GodelComponentConfig = o.GodelComponentConfig
 	} else {
 		cfg, err := loadConfigFromFile(o.ConfigFile)
 		if err != nil {

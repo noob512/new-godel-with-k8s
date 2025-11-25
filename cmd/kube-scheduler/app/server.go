@@ -41,7 +41,7 @@ import (
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/events"
-	"k8s.io/client-go/tools/leaderelection"
+	//"k8s.io/client-go/tools/leaderelection"
 	cliflag "k8s.io/component-base/cli/flag"
 	"k8s.io/component-base/cli/globalflag"
 	"k8s.io/component-base/configz"
@@ -141,97 +141,37 @@ func runCommand(cmd *cobra.Command, opts *options.Options, registryOptions ...Op
 	return Run(ctx, cc, sched)
 }
 
-// Run executes the scheduler based on the given configuration. It only returns on error or when context is done.
+// Run 根据给定的配置执行调度器。仅在出现错误或上下文完成时返回。
 func Run(ctx context.Context, cc *schedulerserverconfig.CompletedConfig, sched *scheduler.Scheduler) error {
-	// To help debugging, immediately log version
+	// 为了帮助调试，立即记录版本信息
 	klog.InfoS("Starting Kubernetes Scheduler", "version", version.Get())
 
+	// 记录 Golang 运行时设置
 	klog.InfoS("Golang settings", "GOGC", os.Getenv("GOGC"), "GOMAXPROCS", os.Getenv("GOMAXPROCS"), "GOTRACEBACK", os.Getenv("GOTRACEBACK"))
 
-	// Configz registration.
-	if cz, err := configz.New("componentconfig"); err == nil {
-		cz.Set(cc.ComponentConfig)
-	} else {
-		return fmt.Errorf("unable to register configz: %s", err)
-	}
-
-	// Prepare the event broadcaster.
+	// 准备事件广播器。
 	cc.EventBroadcaster.StartRecordingToSink(ctx.Done())
 
-	// Setup healthz checks.
-	var checks []healthz.HealthChecker
-	if cc.ComponentConfig.LeaderElection.LeaderElect {
-		checks = append(checks, cc.LeaderElection.WatchDog)
-	}
-
-	waitingForLeader := make(chan struct{})
-	isLeader := func() bool {
-		select {
-		case _, ok := <-waitingForLeader:
-			// if channel is closed, we are leading
-			return !ok
-		default:
-			// channel is open, we are waiting for a leader
-			return false
-		}
-	}
-
-	// Start up the healthz server.
-	if cc.SecureServing != nil {
-		handler := buildHandlerChain(newHealthzAndMetricsHandler(&cc.ComponentConfig, cc.InformerFactory, isLeader, checks...), cc.Authentication.Authenticator, cc.Authorization.Authorizer)
-		// TODO: handle stoppedCh and listenerStoppedCh returned by c.SecureServing.Serve
-		if _, _, err := cc.SecureServing.Serve(handler, 0, ctx.Done()); err != nil {
-			// fail early for secure handlers, removing the old error loop from above
-			return fmt.Errorf("failed to start secure server: %v", err)
-		}
-	}
-
-	// Start all informers.
+	// 启动所有 informer。
 	cc.InformerFactory.Start(ctx.Done())
-	// DynInformerFactory can be nil in tests.
+	// DynInformerFactory 在测试中可能为 nil。
 	if cc.DynInformerFactory != nil {
 		cc.DynInformerFactory.Start(ctx.Done())
 	}
 
-	// Wait for all caches to sync before scheduling.
+	// 等待所有缓存同步后再进行调度。
 	cc.InformerFactory.WaitForCacheSync(ctx.Done())
-	// DynInformerFactory can be nil in tests.
+	// DynInformerFactory 在测试中可能为 nil。
 	if cc.DynInformerFactory != nil {
 		cc.DynInformerFactory.WaitForCacheSync(ctx.Done())
 	}
 
-	// If leader election is enabled, runCommand via LeaderElector until done and exit.
-	if cc.LeaderElection != nil {
-		cc.LeaderElection.Callbacks = leaderelection.LeaderCallbacks{
-			OnStartedLeading: func(ctx context.Context) {
-				close(waitingForLeader)
-				sched.Run(ctx)
-			},
-			OnStoppedLeading: func() {
-				select {
-				case <-ctx.Done():
-					// We were asked to terminate. Exit 0.
-					klog.InfoS("Requested to terminate, exiting")
-					os.Exit(0)
-				default:
-					// We lost the lock.
-					klog.ErrorS(nil, "Leaderelection lost")
-					klog.FlushAndExit(klog.ExitFlushTimeout, 1)
-				}
-			},
-		}
-		leaderElector, err := leaderelection.NewLeaderElector(*cc.LeaderElection)
-		if err != nil {
-			return fmt.Errorf("couldn't create leader elector: %v", err)
-		}
+	// 启动 Godel CRD informer 工厂
+	cc.GodelCrdInformerFactory.Start(ctx.Done())
+	// 等待 Godel CRD informer 缓存同步
+	cc.GodelCrdInformerFactory.WaitForCacheSync(ctx.Done())
 
-		leaderElector.Run(ctx)
-
-		return fmt.Errorf("lost lease")
-	}
-
-	// Leader election is disabled, so runCommand inline until done.
-	close(waitingForLeader)
+	// 运行调度器
 	sched.Run(ctx)
 	return fmt.Errorf("finished without leader elect")
 }
