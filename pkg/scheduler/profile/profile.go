@@ -64,7 +64,14 @@ func NewMap(cfgs []config.KubeSchedulerProfile, r frameworkruntime.Registry, rec
 }
 
 // HandlesSchedulerName returns whether a profile handles the given scheduler name.
-func (m Map) HandlesSchedulerName(name string) bool {
+// HandlesSchedulerName 检查调度器名称是否在映射中，或者是否等于 godelName。
+// 如果 name 在映射 m 中存在，或者 name 等于 godelName，则返回 true；否则返回 false。
+func (m Map) HandlesSchedulerName(name string, godelName string,SelectedName string) bool {
+	// 检查 name 是否等于 godelName。
+	if SelectedName == godelName {
+		return true
+	}
+	// 检查 name 是否存在于映射 m 中。
 	_, ok := m[name]
 	return ok
 }
