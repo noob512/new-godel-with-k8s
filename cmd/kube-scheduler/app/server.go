@@ -154,22 +154,27 @@ func Run(ctx context.Context, cc *schedulerserverconfig.CompletedConfig, sched *
 
 	// 启动所有 informer。
 	cc.InformerFactory.Start(ctx.Done())
+	klog.Info("所有informer启动成功")
 	// DynInformerFactory 在测试中可能为 nil。
 	if cc.DynInformerFactory != nil {
 		cc.DynInformerFactory.Start(ctx.Done())
 	}
 
 	// 等待所有缓存同步后再进行调度。
+	klog.Info("等待informer同步")
 	cc.InformerFactory.WaitForCacheSync(ctx.Done())
+	klog.Info("寻常informer同步完成")
 	// DynInformerFactory 在测试中可能为 nil。
 	if cc.DynInformerFactory != nil {
 		cc.DynInformerFactory.WaitForCacheSync(ctx.Done())
 	}
 
 	// 启动 Godel CRD informer 工厂
+	klog.Info("启动crd-informer同步")
 	cc.GodelCrdInformerFactory.Start(ctx.Done())
 	// 等待 Godel CRD informer 缓存同步
 	cc.GodelCrdInformerFactory.WaitForCacheSync(ctx.Done())
+	klog.Info("crd-informer同步完成")
 
 	// 运行调度器
 	sched.Run(ctx)
@@ -260,6 +265,7 @@ func Setup(ctx context.Context, opts *options.Options, outOfTreeRegistryOptions 
 			return nil, nil, err
 		}
 	}
+	klog.InfoS("cc.GodelComponentConfig.SchedulerName", "name", *cc.GodelComponentConfig.SchedulerName)
 
 	recorderFactory := getRecorderFactory(&cc)
 	completedProfiles := make([]kubeschedulerconfig.KubeSchedulerProfile, 0)

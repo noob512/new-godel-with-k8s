@@ -1,0 +1,393 @@
+# --- 1. ServiceAccount ---
+# 定义一个服务账户 (ServiceAccount) 用于运行自定义调度器 Pod。
+# Pod 中的进程将使用此账户的身份与 Kubernetes API 进行交互。
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: my-scheduler # 服务账户的名称
+  namespace: kube-system # 服务账户所在的命名空间，通常在 kube-system 中运行调度器
+
+---
+# --- 2. 自定义 ClusterRole (Godel 调度器权限) ---
+# 定义一个集群角色 (ClusterRole)，包含 Godel 调度器所需的完整权限
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: godel # 该 ClusterRole 的名称，用于唯一标识
+rules:
+  # --- 事件 (Events) 相关权限 ---
+  - apiGroups:
+      - "" # 核心 API 组
+      - events.k8s.io # events.k8s.io API 组
+    resources:
+      - events # 资源类型为 events
+    verbs:
+      - create # 允许创建事件
+      - patch  # 允许打补丁更新事件
+      - update # 允许更新事件
+
+  # --- 租约 (Leases) 相关权限 ---
+  # 允许 Godel 调度器对租约 (Leases) 进行所有操作，主要用于领导者选举 (Leader Election) 机制。
+  - apiGroups:
+      - coordination.k8s.io # coordination.k8s.io API 组
+    resources:
+      - leases # 资源类型为 leases
+    verbs:
+      - "*" # "*" 表示允许所有动作 (get, list, watch, create, update, patch, delete)
+
+  # 允许 Godel 调度器获取和更新名为 "kube-scheduler" 的租约。
+  # 这可能是为了与原生调度器的租约进行某种协调或接管。
+  - apiGroups:
+      - coordination.k8s.io
+    resourceNames:
+      - kube-scheduler # 指定具体资源名称
+    resources:
+      - leases
+    verbs:
+      - get    # 允许获取特定租约
+      - update # 允许更新特定租约
+
+  # --- 端点 (Endpoints) 相关权限 ---
+  # 允许 Godel 调度器创建端点 (Endpoints)。
+  - apiGroups:
+      - "" # 核心 API 组
+    resources:
+      - endpoints # 资源类型为 endpoints
+    verbs:
+      - create # 允许创建端点
+
+  # 允许 Godel 调度器获取和更新名为 "kube-scheduler" 的端点。
+  # 这可能是为了与原生调度器的端点进行某种协调。
+  - apiGroups:
+      - "" # 核心 API 组
+    resourceNames:
+      - kube-scheduler # 指定具体资源名称
+    resources:
+      - endpoints # 资源类型为 endpoints
+    verbs:
+      - get    # 允许获取特定端点
+      - update # 允许更新特定端点
+
+  # --- 节点 (Nodes) 相关权限 ---
+  # 允许 Godel 调度器对节点 (Nodes) 进行获取、列出、监听、打补丁和删除操作。
+  - apiGroups:
+      - "" # 核心 API 组
+    resources:
+      - nodes # 资源类型为 nodes
+    verbs:
+      - get    # 允许获取节点信息
+      - list   # 允许列出所有节点
+      - watch  # 允许监听节点变化
+      - patch  # 允许打补丁更新节点
+      - delete # 允许删除节点
+
+  # --- Pod 和 ConfigMap 相关权限 ---
+  # 允许 Godel 调度器对 Pod 和 ConfigMap 进行所有操作。
+  - apiGroups:
+      - "" # 核心 API 组
+    resources:
+      - pods      # 资源类型为 pods
+      - configmaps # 资源类型为 configmaps
+    verbs:
+      - "*" # 允许所有动作
+
+  # --- Pod 绑定 (Pod Binding) 相关权限 ---
+  # 允许 Godel 调度器创建 Pod 绑定 (bindings) 和 pods/binding，这是调度 Pod 到特定节点的关键操作。
+  - apiGroups:
+      - "" # 核心 API 组
+    resources:
+      - bindings      # 资源类型为 bindings
+      - pods/binding  # 资源类型为 pods/binding
+    verbs:
+      - create # 允许创建绑定
+
+  # --- Pod 状态 (Pod Status) 相关权限 ---
+  # 允许 Godel 调度器对 Pod 的状态 (status subresource) 进行打补丁和更新操作。
+  - apiGroups:
+      - "" # 核心 API 组
+    resources:
+      - pods/status # 资源类型为 pods/status (Pod 的状态子资源)
+    verbs:
+      - patch  # 允许打补丁更新 Pod 状态
+      - update # 允许更新 Pod 状态
+
+  # --- ReplicationController 和 Service 相关权限 ---
+  # 允许 Godel 调度器对 ReplicationController 和 Service 进行获取、列出和监听操作。
+  - apiGroups:
+      - "" # 核心 API 组
+    resources:
+      - replicationcontrollers # 资源类型为 replicationcontrollers
+      - services             # 资源类型为 services
+    verbs:
+      - get   # 允许获取
+      - list  # 允许列出
+      - watch # 允许监听
+
+  # --- 应用 (Apps) 相关权限 ---
+  # 允许 Godel 调度器对 apps 和 extensions API 组中的 ReplicaSet, Deployment, DaemonSet 进行获取、列出和监听操作。
+  - apiGroups:
+      - apps       # apps API 组
+      - extensions # extensions API 组 (已弃用，但仍被广泛使用)
+    resources:
+      - replicasets  # 资源类型为 replicasets
+      - deployments  # 资源类型为 deployments
+      - daemonsets   # 资源类型为 daemonsets
+    verbs:
+      - get   # 允许获取
+      - list  # 允许列出
+      - watch # 允许监听
+
+  # 允许 Godel 调度器对 apps API 组中的 StatefulSet 进行获取、列出和监听操作。
+  - apiGroups:
+      - apps # apps API 组
+    resources:
+      - statefulsets # 资源类型为 statefulsets
+    verbs:
+      - get   # 允许获取
+      - list  # 允许列出
+      - watch # 允许监听
+
+  # --- Pod Disruption Budget 相关权限 ---
+  # 允许 Godel 调度器对 Pod Disruption Budget (PDB) 进行获取、列出和监听操作。
+  - apiGroups:
+      - policy # policy API 组
+    resources:
+      - poddisruptionbudgets # 资源类型为 poddisruptionbudgets
+    verbs:
+      - get   # 允许获取
+      - list  # 允许列出
+      - watch # 允许监听
+
+  # --- 持久卷 (PersistentVolume) 相关权限 ---
+  # 允许 Godel 调度器对 PersistentVolumeClaim 和 PersistentVolume 进行获取、列出和监听操作。
+  - apiGroups:
+      - "" # 核心 API 组
+    resources:
+      - persistentvolumeclaims # 资源类型为 persistentvolumeclaims
+      - persistentvolumes      # 资源类型为 persistentvolumes
+    verbs:
+      - get   # 允许获取
+      - list  # 允许列出
+      - watch # 允许监听
+
+  # --- 身份验证 (Authentication) 相关权限 ---
+  # 允许 Godel 调度器创建 TokenReview，用于验证持有者令牌 (bearer token) 的身份。
+  - apiGroups:
+      - authentication.k8s.io # authentication.k8s.io API 组
+    resources:
+      - tokenreviews # 资源类型为 tokenreviews
+    verbs:
+      - create # 允许创建 tokenreviews
+
+  # --- 授权 (Authorization) 相关权限 ---
+  # 允许 Godel 调度器创建 SubjectAccessReview，用于检查用户或服务账户是否有权限执行某个操作。
+  - apiGroups:
+      - authorization.k8s.io # authorization.k8s.io API 组
+    resources:
+      - subjectaccessreviews # 资源类型为 subjectaccessreviews
+    verbs:
+      - create # 允许创建 subjectaccessreviews
+
+  # --- 存储 (Storage) 相关权限 ---
+  # 允许 Godel 调度器对 storage.k8s.io API 组中的 CSINode 和 StorageClass 进行获取、列出和监听操作。
+  - apiGroups:
+      - storage.k8s.io # storage.k8s.io API 组
+    resources:
+      - csinodes      # 资源类型为 csinodes
+      - storageclasses # 资源类型为 storageclasses
+    verbs:
+      - get   # 允许获取
+      - list  # 允许列出
+      - watch # 允许监听
+
+  # --- Godel 自定义资源 (CRDs) 相关权限 ---
+  # 允许 Godel 调度器对 Godel 自定义 API 组中的 Schedulers, PodGroups, Reservations 及其状态子资源进行所有操作。
+  # 这些是 Godel 调度器的核心功能所依赖的自定义资源。
+  - apiGroups:
+      - scheduling.godel.kubewharf.io # Godel 自定义 API 组
+    resources:
+      - schedulers              # 调度器配置
+      - schedulers/status       # 调度器状态
+      - podgroups             # Pod 组
+      - podgroups/status      # Pod 组状态
+      - reservations          # 资源预留
+      - reservations/status   # 资源预留状态
+    verbs:
+      - "*" # 允许所有动作
+
+  # --- 优先级类 (PriorityClass) 相关权限 ---
+  # 允许 Godel 调度器对 PriorityClass 进行所有操作。
+  - apiGroups:
+      - scheduling.k8s.io # scheduling.k8s.io API 组
+    resources:
+      - priorityclasses # 资源类型为 priorityclasses
+    verbs:
+      - "*" # 允许所有动作
+
+  # --- 命名空间 (Namespace) 相关权限 ---
+  # 允许 Godel 调度器对 Namespace 进行获取、列出和监听操作。
+  - apiGroups:
+      - "" # 核心 API 组
+    resources:
+      - namespaces # 资源类型为 namespaces
+    verbs:
+      - get   # 允许获取
+      - list  # 允许列出
+      - watch # 允许监听
+
+  # --- Godel Node Manager 相关权限 ---
+  # 允许 Godel 调度器对 Godel Node Manager 自定义 API 组中的 NMNode 进行获取、列出和监听操作。
+  - apiGroups:
+      - node.godel.kubewharf.io # Godel Node Manager 自定义 API 组
+    resources:
+      - nmnodes # 资源类型为 nmnodes
+    verbs:
+      - get   # 允许获取
+      - list  # 允许列出
+      - watch # 允许监听
+
+  # --- Katalyst 相关权限 ---
+  # 允许 Godel 调度器对 Katalyst 自定义 API 组中的 CustomNodeResources 进行所有操作。
+  # Katalyst 是字节跳动开源的 Kubernetes 节点资源管理项目，Godel 可能与之集成。
+  - apiGroups:
+      - node.katalyst.kubewharf.io # Katalyst 自定义 API 组
+    resources:
+      - customnoderesources # 资源类型为 customnoderesources
+    verbs:
+      - "*" # 允许所有动作
+
+  # --- Movements 相关权限 (通配符 API 组) ---
+  # 允许 Godel 调度器对所有 API 组中的 movements 资源进行列出、监听和打补丁操作。
+  # 这可能是用于处理资源移动或迁移的通用资源。
+  - apiGroups:
+      - "*" # 通配符，表示所有 API 组
+    resources:
+      - movements # 资源类型为 movements
+    verbs:
+      - list  # 允许列出
+      - watch # 允许监听
+      - patch # 允许打补丁
+
+  # 允许 Godel 调度器对所有 API 组中的 movements/status 资源进行更新和打补丁操作。
+  - apiGroups:
+      - "*" # 通配符，表示所有 API 组
+    resources:
+      - movements/status # 资源类型为 movements/status
+    verbs:
+      - update # 允许更新
+      - patch  # 允许打补丁
+
+---
+# --- 3. 绑定 Godel ClusterRole ---
+# 创建一个集群角色绑定 (ClusterRoleBinding)，将上面定义的 Godel ClusterRole
+# 绑定到 'my-scheduler' ServiceAccount。
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: my-scheduler-as-godel # 集群角色绑定的名称
+subjects:
+- kind: ServiceAccount # 绑定对象类型
+  name: my-scheduler # 绑定到哪个 ServiceAccount
+  namespace: kube-system # ServiceAccount 所在的命名空间
+roleRef: # 指定要绑定的角色
+  apiGroup: rbac.authorization.k8s.io # RBAC API 组
+  kind: ClusterRole # 角色类型
+  name: godel # 引用上面创建的 Godel ClusterRole
+
+---
+# --- 4. 绑定内置 kube-scheduler 角色 ---
+# 创建一个集群角色绑定 (ClusterRoleBinding)，将内置的 system:kube-scheduler 角色
+# 绑定到 'my-scheduler' ServiceAccount。这赋予了调度器原生 kube-scheduler 的核心权限。
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: my-scheduler-as-kube-scheduler # 集群角色绑定的名称
+subjects:
+- kind: ServiceAccount # 绑定对象类型
+  name: my-scheduler # 绑定到哪个 ServiceAccount
+  namespace: kube-system # ServiceAccount 所在的命名空间
+roleRef: # 指定要绑定的角色
+  kind: ClusterRole # 角色类型
+  name: system:kube-scheduler # 内置的 kube-scheduler 角色名称
+  apiGroup: rbac.authorization.k8s.io # RBAC API 组
+
+---
+# --- 5. 绑定内置 volume-scheduler 角色 ---
+# 创建一个集群角色绑定 (ClusterRoleBinding)，将内置的 system:volume-scheduler 角色
+# 绑定到 'my-scheduler' ServiceAccount。这赋予了调度器处理存储卷相关的权限。
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: my-scheduler-as-volume-scheduler # 集群角色绑定的名称
+subjects:
+- kind: ServiceAccount # 绑定对象类型
+  name: my-scheduler # 绑定到哪个 ServiceAccount
+  namespace: kube-system # ServiceAccount 所在的命名空间
+roleRef: # 指定要绑定的角色
+  kind: ClusterRole # 角色类型
+  name: system:volume-scheduler # 内置的 volume-scheduler 角色名称
+  apiGroup: rbac.authorization.k8s.io # RBAC API 组
+
+---
+# --- 6. RoleBinding for authentication-reader ---
+# 创建一个角色绑定 (RoleBinding)，将 'extension-apiserver-authentication-reader' 角色
+# 绑定到 'my-scheduler' ServiceAccount。
+# 这个角色通常允许组件读取用于 API Server 身份验证的配置信息 (ConfigMap)。
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: my-scheduler-extension-apiserver-authentication-reader # RoleBinding 的名称
+  namespace: kube-system # RoleBinding 所在的命名空间，与角色定义的命名空间一致
+roleRef: # 指定要绑定的角色
+  kind: Role # 角色类型 (Role 是命名空间级别的)
+  name: extension-apiserver-authentication-reader # 角色名称
+  apiGroup: rbac.authorization.k8s.io # RBAC API 组
+subjects: # 指定被绑定的对象
+- kind: ServiceAccount # 绑定对象类型
+  name: my-scheduler # 绑定到哪个 ServiceAccount
+  namespace: kube-system # ServiceAccount 所在的命名空间
+
+---
+# --- 7. Deployment ---
+# 定义一个 Deployment，用于部署和管理自定义调度器 Pod。
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels: # Deployment 的标签
+    component: scheduler # 表示这是一个调度器组件
+    tier: control-plane # 表示属于控制平面
+  name: my-scheduler # Deployment 的名称
+  namespace: kube-system # Deployment 所在的命名空间
+spec: # Deployment 的期望状态
+  selector: # 定义如何查找属于此 Deployment 的 Pod
+    matchLabels: # 匹配标签
+      component: scheduler
+      tier: control-plane
+  replicas: 1 # 副本数量，设置为 1 表示单实例
+  template: # Pod 模板，定义如何创建 Pod
+    metadata:
+      labels: # Pod 的标签
+        component: scheduler
+        tier: control-plane
+        version: second # 可以用来区分不同版本的调度器
+    spec: # Pod 的期望状态
+      # --- 修改：添加 nodeName，强制调度到 control-plane 节点 ---
+      # nodeName 会将 Pod 强制调度到指定名称的节点上。
+      # 这通常用于确保控制平面组件运行在特定节点。
+      nodeName: godel-demo-default-control-plane
+      # --- 修改结束 ---
+      serviceAccountName: my-scheduler # 指定 Pod 使用哪个 ServiceAccount
+      containers: # 定义 Pod 中的容器列表
+      - command: # 容器启动时执行的命令
+        - /usr/local/bin/kube-scheduler # 启动 kube-scheduler 二进制文件
+        #- --config=/etc/kubernetes/my-scheduler/my-scheduler-config.yaml # 指定配置文件路径
+        # image: k8s.m.daocloud.io/kube-scheduler:v1.22.0  # 请确保该镜像存在且有效 (注释掉)
+        image: my-kube-scheduler:1.24 # 使用的容器镜像名称和标签
+        name: kube-second-scheduler # 容器的名称
+        resources: # 容器资源请求和限制
+          requests:
+            cpu: '0.1' # 请求的 CPU 资源
+        securityContext: # 容器安全上下文
+          privileged: false # 是否为特权容器 (false 表示非特权)
+      hostNetwork: false # Pod 是否使用宿主机网络 (false 表示使用 Pod 网络)
+      hostPID: false # Pod 是否使用宿主机 PID 命名空间 (false 表示使用 Pod PID 命名空间)

@@ -528,6 +528,7 @@ func (o *Options) initFlags() {
 
 // ApplyTo applies the scheduler options to the given scheduler app configuration.
 func (o *Options) ApplyTo(c *schedulerappconfig.Config) error {
+	klog.InfoS("最开始的选项配置中o.GodelComponentConfig.SchedulerName", "name", *o.GodelComponentConfig.SchedulerName)
 	if len(o.ConfigFile) == 0 {
 		// If the --config arg is not specified, honor the deprecated as well as leader election CLI args.
 		o.ApplyDeprecated()
@@ -535,6 +536,7 @@ func (o *Options) ApplyTo(c *schedulerappconfig.Config) error {
 		c.ComponentConfig = *o.ComponentConfig
 		c.GodelComponentConfig = o.GodelComponentConfig
 	} else {
+		klog.Info("配置文件长度不为0")
 		cfg, err := loadConfigFromFile(o.ConfigFile)
 		if err != nil {
 			return err
@@ -586,63 +588,59 @@ func (o *Options) Validate() []error {
 }
 
 // Config return a scheduler config object
+// Config 函数用于构建并返回调度器的配置对象
 func (o *Options) Config() (*schedulerappconfig.Config, error) {
+	// 如果安全服务配置存在，尝试使用自签名证书进行默认配置
 	if o.SecureServing != nil {
 		if err := o.SecureServing.MaybeDefaultWithSelfSignedCerts("localhost", nil, []net.IP{netutils.ParseIPSloppy("127.0.0.1")}); err != nil {
 			return nil, fmt.Errorf("error creating self-signed certificates: %v", err)
 		}
 	}
 
+	// 创建调度器配置对象
 	c := &schedulerappconfig.Config{}
+	// 将选项应用到配置对象
 	if err := o.ApplyTo(c); err != nil {
 		return nil, err
 	}
 
-	// Prepare kube config.
+	// 准备 kube 配置
 	kubeConfig, err := createKubeConfig(c.ComponentConfig.ClientConnection, o.Master)
 	if err != nil {
 		return nil, err
 	}
 
 	//---------------------------------------------
+	// 创建 Godel 相关客户端
 	_, _, _, godelCrdClient, err := createNewClients(
 		c.GodelComponentConfig.ClientConnection,
 		o.Master,
 		c.GodelComponentConfig.LeaderElection.RenewDeadline.Duration,
 	)
 	//----------------------------------------------
+	// 将 Godel CRD 客户端设置到配置对象
 	c.GodelCrdClient = godelCrdClient
+	// 创建 Godel CRD Informer 工厂
 	c.GodelCrdInformerFactory = crdinformers.NewSharedInformerFactory(c.GodelCrdClient, 0)
 
-	// Prepare kube clients.
+	// 准备 kube 客户端
 	client, eventClient, err := createClients(kubeConfig)
 	if err != nil {
 		return nil, err
 	}
 
+	// 创建事件广播器
 	c.EventBroadcaster = events.NewEventBroadcasterAdapter(eventClient)
 
-	// Set up leader election if enabled.
-	var leaderElectionConfig *leaderelection.LeaderElectionConfig
-	if c.ComponentConfig.LeaderElection.LeaderElect {
-		// Use the scheduler name in the first profile to record leader election.
-		schedulerName := corev1.DefaultSchedulerName
-		if len(c.ComponentConfig.Profiles) != 0 {
-			schedulerName = c.ComponentConfig.Profiles[0].SchedulerName
-		}
-		coreRecorder := c.EventBroadcaster.DeprecatedNewLegacyRecorder(schedulerName)
-		leaderElectionConfig, err = makeLeaderElectionConfig(c.ComponentConfig.LeaderElection, kubeConfig, coreRecorder)
-		if err != nil {
-			return nil, err
-		}
-	}
-
+	// 设置客户端和配置
 	c.Client = client
 	c.KubeConfig = kubeConfig
+	// 创建调度器 Informer 工厂
 	c.InformerFactory = scheduler.NewInformerFactory(client, 0)
+	// 创建动态客户端
 	dynClient := dynamic.NewForConfigOrDie(kubeConfig)
+	// 创建动态 Informer 工厂
 	c.DynInformerFactory = dynamicinformer.NewFilteredDynamicSharedInformerFactory(dynClient, 0, corev1.NamespaceAll, nil)
-	c.LeaderElection = leaderElectionConfig
 
 	return c, nil
 }
