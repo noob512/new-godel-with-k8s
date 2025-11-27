@@ -241,7 +241,6 @@ func (sched *Scheduler) deletePodFromCache(obj interface{}) {
 
 // assignedPod selects pods that are assigned (scheduled and running).
 func assignedPod(pod *v1.Pod) bool {
-	klog.InfoS("len(pod.Spec.NodeName)的长度为","len",len(pod.Spec.NodeName))
 	return len(pod.Spec.NodeName) != 0
 }
 
@@ -310,8 +309,8 @@ func addAllEventHandlers(
 			FilterFunc: func(obj interface{}) bool {
 				switch t := obj.(type) {
 				case *v1.Pod:
-					//klog.Infof("Pod细节: %+v", *t) // 使用 *t 来解引用指针，打印整个 Pod 对象的字段
 					// 检查 Pod 是否未分配节点，并且当前调度器负责调度它。
+					//主要是在下面两个函数进行部分修改，避免将经过dispatcher处理后的pod被过滤掉
 					selectedScheduler := t.Annotations["godel.bytedance.com/selected-scheduler"]
 					return !assignedPod(t) && responsibleForPod(t, sched.Profiles,sched.Name,selectedScheduler)
 				case cache.DeletedFinalStateUnknown:

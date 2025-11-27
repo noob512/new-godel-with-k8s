@@ -396,12 +396,19 @@ func createNewClients(config Godelcomponentbaseconfig.ClientConnectionConfigurat
 
 // NewOptions returns default scheduler app options.
 func NewOptions() *Options {
+	//这个函数里面干的事就是创建一个结构体然后填充
+	//唯一需要注意的点就是该结构体中
+	//一个属性为：GodelSchedulerName：代表本调度器的名称，可以自定义
+	//一个属性为：SchedulerName：代表该调度器是否需要配合godel-dispatcher
+	//如果SchedulerName为"godel-scheduler"，则服从godel-dispatcher
+	//如果不是则不服从godel-dispatcher
 	cfg, err := newDefaultComponentConfig()
 	if err != nil {
 		return nil
 	}
 	//-----------------------------------------------
 	o := &Options{
+		//GodelComponentConfig：为了适配godel-dispatcher而定义的一些额外的选项
 		GodelComponentConfig:          *cfg,
 		SecureServing:  apiserveroptions.NewSecureServingOptions().WithLoopback(),
 		Authentication: apiserveroptions.NewDelegatingAuthenticationOptions(),

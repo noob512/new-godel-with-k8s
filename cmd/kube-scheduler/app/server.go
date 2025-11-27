@@ -70,6 +70,7 @@ type Option func(runtime.Registry) error
 
 // NewSchedulerCommand creates a *cobra.Command object with default parameters and registryOptions
 func NewSchedulerCommand(registryOptions ...Option) *cobra.Command {
+	//1.需要进入该函数中修改一些初始配置选项
 	opts := options.NewOptions()
 
 	cmd := &cobra.Command{
@@ -133,6 +134,7 @@ func runCommand(cmd *cobra.Command, opts *options.Options, registryOptions ...Op
 		cancel()
 	}()
 
+	//主要的修改集中在这里面
 	cc, sched, err := Setup(ctx, opts, registryOptions...)
 	if err != nil {
 		return err
@@ -240,6 +242,7 @@ func WithPlugin(name string, factory runtime.PluginFactory) Option {
 }
 
 // Setup creates a completed config and a scheduler based on the command args and options
+// Setup creates a completed config and a scheduler based on the command args and options
 func Setup(ctx context.Context, opts *options.Options, outOfTreeRegistryOptions ...Option) (*schedulerserverconfig.CompletedConfig, *scheduler.Scheduler, error) {
 	if cfg, err := latest.Default(); err != nil {
 		return nil, nil, err
@@ -252,6 +255,7 @@ func Setup(ctx context.Context, opts *options.Options, outOfTreeRegistryOptions 
 	}
 
 	c, err := opts.Config()
+	//1.在这个进行修改，主要是为了将之前创建的option传递给c
 	if err != nil {
 		return nil, nil, err
 	}
@@ -270,6 +274,7 @@ func Setup(ctx context.Context, opts *options.Options, outOfTreeRegistryOptions 
 	recorderFactory := getRecorderFactory(&cc)
 	completedProfiles := make([]kubeschedulerconfig.KubeSchedulerProfile, 0)
 	// Create the scheduler.
+	//2.在这个new函数中修改，主要是给scheduler额外添加一些属性
 	sched, err := scheduler.New(
 		cc.GodelComponentConfig.GodelSchedulerName,
 		cc.GodelComponentConfig.SchedulerName,

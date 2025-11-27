@@ -520,6 +520,7 @@ func New(
 	nodeLister := informerFactory.Core().V1().Nodes().Lister()
 
 	//-----------------------------------------------
+	//这个组件暂时没看到具体的作用是什么，也许可以删去
 	handlerWrapper := commoncache.MakeCacheHandlerWrapper().
 	ComponentName(godelSchedulerName).
 	SchedulerType(*schedulerName).
@@ -607,6 +608,7 @@ func New(
 		options.percentageOfNodesToScore,
 	)
 		//---------------------------------------
+		//为调度器添加一些额外的属性
 	sched.Name=godelSchedulerName
 	sched.SchedulerName=schedulerName
 	sched.commonCache=godelcache.New(handlerWrapper.Obj())
@@ -620,6 +622,8 @@ func New(
 	sched.client = client                 // 设置 API 客户端。
 	//---------------------------------------
 
+//addAllEventHandlers中1.添加了如何处理自定义的scheduler资源类型
+//2.修改了一下pod资源的过滤函数，避免将经过dispatcher处理后的pod被过滤掉
 	addAllEventHandlers(sched, informerFactory, dynInformerFactory, unionedGVKs(clusterEventMap), crdInformerFactory)
 
 	return sched, nil
@@ -627,6 +631,7 @@ func New(
 
 // Run begins watching and scheduling. It starts scheduling and blocked until the context is done.
 func (sched *Scheduler) Run(ctx context.Context) {
+	//启动schedulerMaintainer，为了向dispatcher提交自身scheduler信息
 	go sched.schedulerMaintainer.Run(sched.StopEverything)
 	sched.SchedulingQueue.Run()
 	wait.UntilWithContext(ctx, sched.scheduleOne, 0)
