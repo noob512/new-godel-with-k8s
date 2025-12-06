@@ -114,6 +114,10 @@ func (sched *Scheduler) deleteNodeFromCache(obj interface{}) {
 	if err := sched.Cache.RemoveNode(node); err != nil {
 		klog.ErrorS(err, "Scheduler cache RemoveNode failed")
 	}
+	// 清理节点的历史统计信息
+	if sched.nodeHistoryManager != nil {
+		sched.nodeHistoryManager.RemoveNode(node.Name)
+	}
 }
 
 func (sched *Scheduler) addPodToSchedulingQueue(obj interface{}) {

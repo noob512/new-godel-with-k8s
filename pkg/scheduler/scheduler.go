@@ -56,6 +56,7 @@ import (
 	frameworkruntime "k8s.io/kubernetes/pkg/scheduler/framework/runtime"
 	internalcache "k8s.io/kubernetes/pkg/scheduler/internal/cache"
 	cachedebugger "k8s.io/kubernetes/pkg/scheduler/internal/cache/debugger"
+	"k8s.io/kubernetes/pkg/scheduler/internal/nodehistory"
 	internalqueue "k8s.io/kubernetes/pkg/scheduler/internal/queue"
 	"k8s.io/kubernetes/pkg/scheduler/metrics"
 	"k8s.io/kubernetes/pkg/scheduler/profile"
@@ -357,6 +358,9 @@ type Scheduler struct {
 	percentageOfNodesToScore int32
 
 	nextStartNodeIndex int
+
+	// nodeHistoryManager 管理节点的历史统计信息（成功率、冲突次数、新鲜度等）
+	nodeHistoryManager *nodehistory.NodeHistoryManager
 }
 
 type schedulerOptions struct {
@@ -382,11 +386,23 @@ type Option func(*schedulerOptions)
 type ScheduleResult struct {
 	// Name of the selected node.
 	SuggestedHost string
+	// CandidateNodes 候选节点列表（按得分从高到低排序）
+	CandidateNodes []CandidateNode
 	// The number of nodes the scheduler evaluated the pod against in the filtering
 	// phase and beyond.
 	EvaluatedNodes int
 	// The number of nodes out of the evaluated ones that fit the pod.
 	FeasibleNodes int
+}
+
+// CandidateNode 候选节点信息
+type CandidateNode struct {
+	// Name 节点名称
+	Name string
+	// Score 节点得分
+	Score int64
+	// AdoptionProbability 采纳概率
+	AdoptionProbability float64
 }
 
 // WithComponentConfigVersion sets the component config version to the
@@ -777,6 +793,7 @@ func newScheduler(
 		client:                   client,
 		nodeInfoSnapshot:         nodeInfoSnapshot,
 		percentageOfNodesToScore: percentageOfNodesToScore,
+		nodeHistoryManager:       nodehistory.NewNodeHistoryManager(),
 	}
 	sched.SchedulePod = sched.schedulePod
 	return &sched
