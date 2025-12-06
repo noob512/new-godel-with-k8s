@@ -214,17 +214,47 @@ func (sched *Scheduler) scheduleOne(ctx context.Context) {
 	if sts := fwk.RunReservePluginsReserve(schedulingCycleCtx, state, assumedPod, scheduleResult.SuggestedHost); !sts.IsSuccess() {
 		// Reserve失败，记录冲突
 		sched.nodeHistoryManager.RecordConflict(scheduleResult.SuggestedHost)
-		// 记录调度错误指标。
-		metrics.PodScheduleError(fwk.ProfileName(), metrics.SinceInSeconds(start))
-		// 触发 Unreserve 插件来清理与预留 Pod 相关的状态。
-		fwk.RunReservePluginsUnreserve(schedulingCycleCtx, state, assumedPod, scheduleResult.SuggestedHost)
-		// 从缓存中移除假设的 Pod。
-		if forgetErr := sched.Cache.ForgetPod(assumedPod); forgetErr != nil {
-			klog.ErrorS(forgetErr, "Scheduler cache ForgetPod failed")
+
+		// 如果有候选节点，尝试候选节点
+		if len(scheduleResult.CandidateNodes) > 1 {
+			klog.V(4).InfoS("Reserve failed for primary node, trying candidate nodes",
+				"pod", klog.KObj(assumedPod),
+				"primaryNode", scheduleResult.SuggestedHost)
+
+			// 清理首选节点的状态
+			fwk.RunReservePluginsUnreserve(schedulingCycleCtx, state, assumedPod, scheduleResult.SuggestedHost)
+			if forgetErr := sched.Cache.ForgetPod(assumedPod); forgetErr != nil {
+				klog.ErrorS(forgetErr, "Scheduler cache ForgetPod failed")
+			}
+
+			// 尝试候选节点（从第二个开始，因为第一个是首选节点）
+			success, candidateNode := sched.tryCandidateNodesForReserve(
+				schedulingCycleCtx, fwk, state, assumedPod, assumedPodInfo,
+				scheduleResult.CandidateNodes[1:], start)
+
+			if success {
+				// 成功在候选节点上 Reserve，更新 scheduleResult 并继续
+				scheduleResult.SuggestedHost = candidateNode
+				klog.V(4).InfoS("Successfully reserved on candidate node",
+					"pod", klog.KObj(assumedPod),
+					"node", candidateNode)
+				// 继续后续流程（Permit、绑定等）
+			} else {
+				// 所有候选节点都失败，执行原有失败处理逻辑
+				metrics.PodScheduleError(fwk.ProfileName(), metrics.SinceInSeconds(start))
+				sched.handleSchedulingFailure(fwk, assumedPodInfo, sts.AsError(), SchedulerError, clearNominatedNode)
+				return
+			}
+		} else {
+			// 没有候选节点，执行原有失败处理逻辑
+			metrics.PodScheduleError(fwk.ProfileName(), metrics.SinceInSeconds(start))
+			fwk.RunReservePluginsUnreserve(schedulingCycleCtx, state, assumedPod, scheduleResult.SuggestedHost)
+			if forgetErr := sched.Cache.ForgetPod(assumedPod); forgetErr != nil {
+				klog.ErrorS(forgetErr, "Scheduler cache ForgetPod failed")
+			}
+			sched.handleSchedulingFailure(fwk, assumedPodInfo, sts.AsError(), SchedulerError, clearNominatedNode)
+			return
 		}
-		// 处理调度失败。
-		sched.handleSchedulingFailure(fwk, assumedPodInfo, sts.AsError(), SchedulerError, clearNominatedNode)
-		return
 	}
 
 	// --- 运行 Permit 插件 ---
@@ -326,11 +356,34 @@ func (sched *Scheduler) scheduleOne(ctx context.Context) {
 		if !preBindStatus.IsSuccess() {
 			// PreBind失败，记录冲突
 			sched.nodeHistoryManager.RecordConflict(scheduleResult.SuggestedHost)
-			// 记录调度错误指标。
+
+			// 如果有候选节点，尝试候选节点
+			if len(scheduleResult.CandidateNodes) > 1 {
+				klog.V(4).InfoS("PreBind failed for primary node, trying candidate nodes",
+					"pod", klog.KObj(assumedPod),
+					"primaryNode", scheduleResult.SuggestedHost)
+
+				// 清理首选节点的状态
+				fwk.RunReservePluginsUnreserve(bindingCycleCtx, state, assumedPod, scheduleResult.SuggestedHost)
+				if forgetErr := sched.Cache.ForgetPod(assumedPod); forgetErr != nil {
+					klog.ErrorS(forgetErr, "scheduler cache ForgetPod failed")
+				}
+
+				// 尝试候选节点（从第二个开始，因为第一个是首选节点）
+				success, _ := sched.tryCandidateNodesForPreBind(
+					bindingCycleCtx, fwk, state, assumedPod, assumedPodInfo,
+					scheduleResult.CandidateNodes[1:], start)
+
+				if success {
+					// 成功在候选节点上绑定，直接返回
+					// 注意：这里已经完成了完整的绑定流程（包括 PostBind），所以直接返回
+					return
+				}
+			}
+
+			// 没有候选节点或所有候选节点都失败，执行原有失败处理逻辑
 			metrics.PodScheduleError(fwk.ProfileName(), metrics.SinceInSeconds(start))
-			// 触发 Unreserve 插件来清理与预留 Pod 相关的状态。
 			fwk.RunReservePluginsUnreserve(bindingCycleCtx, state, assumedPod, scheduleResult.SuggestedHost)
-			// 从缓存中移除假设的 Pod。
 			if forgetErr := sched.Cache.ForgetPod(assumedPod); forgetErr != nil {
 				klog.ErrorS(forgetErr, "scheduler cache ForgetPod failed")
 			} else {
@@ -346,7 +399,7 @@ func (sched *Scheduler) scheduleOne(ctx context.Context) {
 
 		// --- 尝试绑定到首选节点 ---
 		// 尝试绑定到首选节点
-		bindingNode := scheduleResult.SuggestedHost // 获取首选节点。
+		bindingNode := scheduleResult.SuggestedHost                             // 获取首选节点。
 		err := sched.bind(bindingCycleCtx, fwk, assumedPod, bindingNode, state) // 尝试绑定。
 		// 如果首选节点绑定失败。
 		if err != nil {
@@ -614,10 +667,10 @@ func (sched *Scheduler) schedulePod(ctx context.Context, fwk framework.Framework
 	trace.Step("Prioritizing done")
 
 	return ScheduleResult{
-		SuggestedHost:   selectedHost,
-		CandidateNodes:  candidateNodes,
-		EvaluatedNodes:  len(feasibleNodes) + len(diagnosis.NodeToStatusMap),
-		FeasibleNodes:   len(feasibleNodes),
+		SuggestedHost:  selectedHost,
+		CandidateNodes: candidateNodes,
+		EvaluatedNodes: len(feasibleNodes) + len(diagnosis.NodeToStatusMap),
+		FeasibleNodes:  len(feasibleNodes),
 	}, nil
 }
 
@@ -1048,7 +1101,7 @@ func selectCandidateNodes(nodeScoreList framework.NodeScoreList, maxCandidates i
 		// 将每个节点的 Name 和 Score 封装成 CandidateNode 结构体，
 		// 并追加到 candidates 切片中。
 		candidates = append(candidates, CandidateNode{
-			Name:  sortedList[i].Name, // 节点名称
+			Name:  sortedList[i].Name,  // 节点名称
 			Score: sortedList[i].Score, // 节点分数
 		})
 	}
@@ -1184,4 +1237,135 @@ func updatePod(client clientset.Interface, pod *v1.Pod, condition *v1.PodConditi
 		podStatusCopy.NominatedNodeName = nominatingInfo.NominatedNodeName
 	}
 	return util.PatchPodStatus(client, pod, podStatusCopy)
+}
+
+// tryCandidateNodesForReserve 尝试在候选节点上执行 Reserve 操作
+// 返回是否成功以及成功时的节点名称
+func (sched *Scheduler) tryCandidateNodesForReserve(
+	ctx context.Context,
+	fwk framework.Framework,
+	state *framework.CycleState,
+	assumedPod *v1.Pod,
+	podInfo *framework.QueuedPodInfo,
+	candidateNodes []CandidateNode,
+	startTime time.Time,
+) (bool, string) {
+	for _, candidate := range candidateNodes {
+		candidateNode := candidate.Name
+		klog.V(4).InfoS("Trying to reserve on candidate node",
+			"pod", klog.KObj(assumedPod),
+			"candidateNode", candidateNode)
+
+		// 更新 Pod 的 NodeName
+		assumedPod.Spec.NodeName = candidateNode
+
+		// 尝试 Assume Pod 到候选节点
+		if assumeErr := sched.Cache.AssumePod(assumedPod); assumeErr != nil {
+			klog.V(4).InfoS("AssumePod failed for candidate node",
+				"pod", klog.KObj(assumedPod),
+				"node", candidateNode,
+				"error", assumeErr)
+			sched.nodeHistoryManager.RecordConflict(candidateNode)
+			continue
+		}
+
+		// 尝试 Reserve
+		if sts := fwk.RunReservePluginsReserve(ctx, state, assumedPod, candidateNode); !sts.IsSuccess() {
+			// Reserve 失败，清理状态
+			fwk.RunReservePluginsUnreserve(ctx, state, assumedPod, candidateNode)
+			if forgetErr := sched.Cache.ForgetPod(assumedPod); forgetErr != nil {
+				klog.ErrorS(forgetErr, "Scheduler cache ForgetPod failed")
+			}
+			sched.nodeHistoryManager.RecordConflict(candidateNode)
+			klog.V(4).InfoS("Reserve failed for candidate node",
+				"pod", klog.KObj(assumedPod),
+				"node", candidateNode)
+			continue
+		}
+
+		// Reserve 成功
+		klog.V(4).InfoS("Successfully reserved on candidate node",
+			"pod", klog.KObj(assumedPod),
+			"node", candidateNode)
+		return true, candidateNode
+	}
+
+	// 所有候选节点都失败
+	return false, ""
+}
+
+// tryCandidateNodesForPreBind 尝试在候选节点上执行 PreBind 和 Bind 操作
+// 返回是否成功以及成功时的节点名称
+func (sched *Scheduler) tryCandidateNodesForPreBind(
+	ctx context.Context,
+	fwk framework.Framework,
+	state *framework.CycleState,
+	assumedPod *v1.Pod,
+	podInfo *framework.QueuedPodInfo,
+	candidateNodes []CandidateNode,
+	startTime time.Time,
+) (bool, string) {
+	for _, candidate := range candidateNodes {
+		candidateNode := candidate.Name
+		klog.V(4).InfoS("Trying to prebind on candidate node",
+			"pod", klog.KObj(assumedPod),
+			"candidateNode", candidateNode)
+
+		// 更新 Pod 的 NodeName
+		assumedPod.Spec.NodeName = candidateNode
+
+		// 尝试 Assume Pod 到候选节点
+		if assumeErr := sched.Cache.AssumePod(assumedPod); assumeErr != nil {
+			klog.V(4).InfoS("AssumePod failed for candidate node",
+				"pod", klog.KObj(assumedPod),
+				"node", candidateNode,
+				"error", assumeErr)
+			sched.nodeHistoryManager.RecordConflict(candidateNode)
+			continue
+		}
+
+		// 尝试 Reserve
+		if sts := fwk.RunReservePluginsReserve(ctx, state, assumedPod, candidateNode); !sts.IsSuccess() {
+			fwk.RunReservePluginsUnreserve(ctx, state, assumedPod, candidateNode)
+			if forgetErr := sched.Cache.ForgetPod(assumedPod); forgetErr != nil {
+				klog.ErrorS(forgetErr, "Scheduler cache ForgetPod failed")
+			}
+			sched.nodeHistoryManager.RecordConflict(candidateNode)
+			continue
+		}
+
+		// 尝试 PreBind
+		if preBindStatus := fwk.RunPreBindPlugins(ctx, state, assumedPod, candidateNode); !preBindStatus.IsSuccess() {
+			fwk.RunReservePluginsUnreserve(ctx, state, assumedPod, candidateNode)
+			if forgetErr := sched.Cache.ForgetPod(assumedPod); forgetErr != nil {
+				klog.ErrorS(forgetErr, "Scheduler cache ForgetPod failed")
+			}
+			sched.nodeHistoryManager.RecordConflict(candidateNode)
+			continue
+		}
+
+		// 尝试 Bind
+		if bindErr := sched.bind(ctx, fwk, assumedPod, candidateNode, state); bindErr != nil {
+			fwk.RunReservePluginsUnreserve(ctx, state, assumedPod, candidateNode)
+			if forgetErr := sched.Cache.ForgetPod(assumedPod); forgetErr != nil {
+				klog.ErrorS(forgetErr, "Scheduler cache ForgetPod failed")
+			}
+			sched.nodeHistoryManager.RecordConflict(candidateNode)
+			continue
+		}
+
+		// 绑定成功
+		klog.V(2).InfoS("Successfully bound to candidate node",
+			"pod", klog.KObj(assumedPod),
+			"node", candidateNode)
+		sched.nodeHistoryManager.RecordSuccess(candidateNode)
+		metrics.PodScheduled(fwk.ProfileName(), metrics.SinceInSeconds(startTime))
+		metrics.PodSchedulingAttempts.Observe(float64(podInfo.Attempts))
+		metrics.PodSchedulingDuration.WithLabelValues(getAttemptsLabel(podInfo)).Observe(metrics.SinceInSeconds(podInfo.InitialAttemptTimestamp))
+		fwk.RunPostBindPlugins(ctx, state, assumedPod, candidateNode)
+		return true, candidateNode
+	}
+
+	// 所有候选节点都失败
+	return false, ""
 }
