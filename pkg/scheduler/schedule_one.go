@@ -207,6 +207,7 @@ func (sched *Scheduler) scheduleOne(ctx context.Context) {
 		sched.handleSchedulingFailure(fwk, assumedPodInfo, err, SchedulerError, clearNominatedNode)
 		return
 	}
+	nextNum := 0
 
 	// --- 运行 Reserve 插件 ---
 	// 运行 Reserve 插件的 Reserve 方法。
@@ -221,6 +222,9 @@ func (sched *Scheduler) scheduleOne(ctx context.Context) {
 				"pod", klog.KObj(assumedPod),
 				"primaryNode", scheduleResult.SuggestedHost)
 
+			// 取消 Permit Wait（如果存在）
+			sched.cancelPermitWait(fwk, assumedPod)
+
 			// 清理首选节点的状态
 			fwk.RunReservePluginsUnreserve(schedulingCycleCtx, state, assumedPod, scheduleResult.SuggestedHost)
 			if forgetErr := sched.Cache.ForgetPod(assumedPod); forgetErr != nil {
@@ -228,17 +232,35 @@ func (sched *Scheduler) scheduleOne(ctx context.Context) {
 			}
 
 			// 尝试候选节点（从第二个开始，因为第一个是首选节点）
-			success, candidateNode := sched.tryCandidateNodesForReserve(
+			success, candidateNode, curNextNum, permitStatus := sched.tryCandidateNodesForReserve(
 				schedulingCycleCtx, fwk, state, assumedPod, assumedPodInfo,
 				scheduleResult.CandidateNodes[1:], start)
 
+			nextNum = curNextNum
+
 			if success {
-				// 成功在候选节点上 Reserve，更新 scheduleResult 并继续
+				// 成功在候选节点上 Reserve，检查 Permit 状态
+				if permitStatus != nil && !permitStatus.IsSuccess() {
+					// Permit 失败，清理并继续尝试下一个候选节点（如果有）
+					fwk.RunReservePluginsUnreserve(schedulingCycleCtx, state, assumedPod, candidateNode)
+					if forgetErr := sched.Cache.ForgetPod(assumedPod); forgetErr != nil {
+						klog.ErrorS(forgetErr, "Scheduler cache ForgetPod failed")
+					}
+					sched.nodeHistoryManager.RecordConflict(candidateNode)
+					// 继续尝试下一个候选节点或失败
+					metrics.PodScheduleError(fwk.ProfileName(), metrics.SinceInSeconds(start))
+					sched.handleSchedulingFailure(fwk, assumedPodInfo, permitStatus.AsError(), SchedulerError, clearNominatedNode)
+					return
+				}
+
+				// Reserve 和 Permit 都成功，更新 scheduleResult 并继续
 				scheduleResult.SuggestedHost = candidateNode
+				// 如果 Permit 返回 Wait，状态会在绑定阶段处理
 				klog.V(4).InfoS("Successfully reserved on candidate node",
 					"pod", klog.KObj(assumedPod),
-					"node", candidateNode)
-				// 继续后续流程（Permit、绑定等）
+					"node", candidateNode,
+					"permitWait", permitStatus != nil && permitStatus.Code() == framework.Wait)
+				// 继续后续流程（如果 Permit 返回 Wait，会在绑定阶段等待）
 			} else {
 				// 所有候选节点都失败，执行原有失败处理逻辑
 				metrics.PodScheduleError(fwk.ProfileName(), metrics.SinceInSeconds(start))
@@ -260,6 +282,8 @@ func (sched *Scheduler) scheduleOne(ctx context.Context) {
 	// --- 运行 Permit 插件 ---
 	// 运行 Permit 插件。
 	// 这些插件可以批准、拒绝或延迟 Pod 的绑定。
+	// 注意：如果 Reserve 阶段成功切换到候选节点并重新执行了 Permit，这里会再次执行 Permit
+	// 这是必要的，因为 Permit 可能依赖节点特定信息，需要为最终选定的节点执行
 	runPermitStatus := fwk.RunPermitPlugins(schedulingCycleCtx, state, assumedPod, scheduleResult.SuggestedHost)
 	// 如果 Permit 插件返回的状态不是 "Wait" 且不是成功。
 	if runPermitStatus.Code() != framework.Wait && !runPermitStatus.IsSuccess() {
@@ -358,10 +382,13 @@ func (sched *Scheduler) scheduleOne(ctx context.Context) {
 			sched.nodeHistoryManager.RecordConflict(scheduleResult.SuggestedHost)
 
 			// 如果有候选节点，尝试候选节点
-			if len(scheduleResult.CandidateNodes) > 1 {
+			if len(scheduleResult.CandidateNodes) > 1 && nextNum <= 2 {
 				klog.V(4).InfoS("PreBind failed for primary node, trying candidate nodes",
 					"pod", klog.KObj(assumedPod),
 					"primaryNode", scheduleResult.SuggestedHost)
+
+				// 取消 Permit Wait（如果存在）
+				sched.cancelPermitWait(fwk, assumedPod)
 
 				// 清理首选节点的状态
 				fwk.RunReservePluginsUnreserve(bindingCycleCtx, state, assumedPod, scheduleResult.SuggestedHost)
@@ -370,9 +397,9 @@ func (sched *Scheduler) scheduleOne(ctx context.Context) {
 				}
 
 				// 尝试候选节点（从第二个开始，因为第一个是首选节点）
-				success, _ := sched.tryCandidateNodesForPreBind(
+				success, _, _ := sched.tryCandidateNodesForPreBind(
 					bindingCycleCtx, fwk, state, assumedPod, assumedPodInfo,
-					scheduleResult.CandidateNodes[1:], start)
+					scheduleResult.CandidateNodes[nextNum:], start)
 
 				if success {
 					// 成功在候选节点上绑定，直接返回
@@ -413,10 +440,20 @@ func (sched *Scheduler) scheduleOne(ctx context.Context) {
 
 			// 如果首选节点绑定失败，尝试使用候选节点列表中的其他节点
 			bound := false // 标记是否成功绑定到某个节点。
+			founded := false
+			// 取消 Permit Wait（如果存在）
+			sched.cancelPermitWait(fwk, assumedPod)
 			// 遍历调度结果中的候选节点列表。
 			for i, candidate := range scheduleResult.CandidateNodes {
+				if candidate.Name == bindingNode {
+					founded = true
+					continue
+				}
 				if i == 0 {
 					// 第一个节点（首选节点）已经尝试过了，跳过。
+					continue
+				}
+				if !founded {
 					continue
 				}
 				// 取消之前的预留（在首选节点上）。
@@ -448,6 +485,42 @@ func (sched *Scheduler) scheduleOne(ctx context.Context) {
 				// 为新的候选节点运行 Reserve 插件。
 				if sts := fwk.RunReservePluginsReserve(bindingCycleCtx, state, assumedPod, bindingNode); !sts.IsSuccess() {
 					// 如果 Reserve 失败，运行 Unreserve 清理，移除 Pod，记录冲突，然后继续。
+					fwk.RunReservePluginsUnreserve(bindingCycleCtx, state, assumedPod, bindingNode)
+					if forgetErr := sched.Cache.ForgetPod(assumedPod); forgetErr != nil {
+						klog.ErrorS(forgetErr, "scheduler cache ForgetPod failed")
+					}
+					sched.nodeHistoryManager.RecordConflict(bindingNode)
+					continue
+				}
+
+				// 重新执行 Permit 插件（因为节点变了）
+				permitStatus, needWait := sched.reexecutePermitForCandidate(bindingCycleCtx, fwk, state, assumedPod, bindingNode)
+				if permitStatus != nil && !permitStatus.IsSuccess() && permitStatus.Code() != framework.Wait {
+					// Permit 失败或拒绝，清理状态
+					fwk.RunReservePluginsUnreserve(bindingCycleCtx, state, assumedPod, bindingNode)
+					if forgetErr := sched.Cache.ForgetPod(assumedPod); forgetErr != nil {
+						klog.ErrorS(forgetErr, "scheduler cache ForgetPod failed")
+					}
+					sched.nodeHistoryManager.RecordConflict(bindingNode)
+					continue
+				}
+
+				// 如果 Permit 返回 Wait，需要等待
+				if needWait {
+					waitOnPermitStatus := fwk.WaitOnPermit(bindingCycleCtx, assumedPod)
+					if !waitOnPermitStatus.IsSuccess() {
+						// WaitOnPermit 失败，清理状态
+						fwk.RunReservePluginsUnreserve(bindingCycleCtx, state, assumedPod, bindingNode)
+						if forgetErr := sched.Cache.ForgetPod(assumedPod); forgetErr != nil {
+							klog.ErrorS(forgetErr, "scheduler cache ForgetPod failed")
+						}
+						sched.nodeHistoryManager.RecordConflict(bindingNode)
+						continue
+					}
+				}
+
+				// 尝试 PreBind
+				if preBindStatus := fwk.RunPreBindPlugins(bindingCycleCtx, state, assumedPod, bindingNode); !preBindStatus.IsSuccess() {
 					fwk.RunReservePluginsUnreserve(bindingCycleCtx, state, assumedPod, bindingNode)
 					if forgetErr := sched.Cache.ForgetPod(assumedPod); forgetErr != nil {
 						klog.ErrorS(forgetErr, "scheduler cache ForgetPod failed")
@@ -614,55 +687,29 @@ func (sched *Scheduler) schedulePod(ctx context.Context, fwk framework.Framework
 		)
 	}
 
-	// 根据采纳概率筛选候选节点
-	// 如果采纳概率 > 0.5，则以该概率保留节点（例如0.8的概率直接占用）
-	// 如果采纳概率 <= 0.5，则不保留该节点
-	filteredCandidates := make([]CandidateNode, 0, len(candidateNodes))
-	for i := range candidateNodes {
-		adoptionProb := candidateNodes[i].AdoptionProbability
-		if adoptionProb > 0.5 {
-			// 以采纳概率决定是否保留该节点
-			// 生成0-1之间的随机数，如果小于采纳概率则保留
-			randomValue := rand.Float64()
-			if randomValue < adoptionProb {
-				filteredCandidates = append(filteredCandidates, candidateNodes[i])
-				klog.V(4).InfoS("Node adopted based on adoption probability",
-					"pod", klog.KObj(pod),
-					"node", candidateNodes[i].Name,
-					"adoptionProbability", adoptionProb,
-					"randomValue", randomValue)
-			} else {
-				klog.V(4).InfoS("Node not adopted despite high probability",
-					"pod", klog.KObj(pod),
-					"node", candidateNodes[i].Name,
-					"adoptionProbability", adoptionProb,
-					"randomValue", randomValue)
-			}
-		} else {
-			// 采纳概率 <= 0.5，不保留该节点
-			klog.V(5).InfoS("Node not adopted due to low adoption probability",
-				"pod", klog.KObj(pod),
-				"node", candidateNodes[i].Name,
-				"adoptionProbability", adoptionProb)
-		}
-	}
+	// 根据累积概率选择主节点和备选节点
+	// 逻辑：
+	// - 第一个节点的采纳率为 p1，有 p1 的概率直接 reserve 第一个节点
+	// - 如果第一个节点没有被选中，第二个节点的采纳率为 p2，有 (1-p1)*p2 的概率 reserve 第二个节点
+	// - 如果前两个都没被选中，第三个节点的采纳率为 p3，有 (1-p1)*(1-p2)*p3 的概率 reserve 第三个节点
+	// - 总共会选取三个备选节点（包括主节点）
+	const maxSelectedCandidates = 3
+	selectedCandidates := sched.selectNodesByCumulativeProbability(candidateNodes, maxSelectedCandidates, pod)
 
-	// 如果筛选后没有候选节点，fallback到第一个节点（确保调度可以继续）
-	selectedHost := candidateNodes[0].Name
-	if len(filteredCandidates) == 0 {
-		klog.V(4).InfoS("No nodes adopted, falling back to primary node",
-			"pod", klog.KObj(pod),
-			"fallbackNode", selectedHost)
-		filteredCandidates = candidateNodes[:1]
-	} else {
-		// 使用筛选后的候选节点列表
-		candidateNodes = filteredCandidates
-		selectedHost = candidateNodes[0].Name
-		klog.V(4).InfoS("Selected candidate nodes based on adoption probability",
-			"pod", klog.KObj(pod),
-			"selectedNode", selectedHost,
-			"candidateCount", len(candidateNodes))
+	// 确定主节点（第一个被选中的节点）
+	selectedHost := selectedCandidates[0].Name
+	candidateNodes = selectedCandidates
+
+	// 构建候选节点名称列表用于日志
+	candidateNames := make([]string, len(candidateNodes))
+	for i, c := range candidateNodes {
+		candidateNames[i] = c.Name
 	}
+	klog.V(4).InfoS("Selected candidate nodes based on cumulative adoption probability",
+		"pod", klog.KObj(pod),
+		"selectedNode", selectedHost,
+		"candidateCount", len(candidateNodes),
+		"candidates", candidateNames)
 
 	trace.Step("Prioritizing done")
 
@@ -1239,8 +1286,8 @@ func updatePod(client clientset.Interface, pod *v1.Pod, condition *v1.PodConditi
 	return util.PatchPodStatus(client, pod, podStatusCopy)
 }
 
-// tryCandidateNodesForReserve 尝试在候选节点上执行 Reserve 操作
-// 返回是否成功以及成功时的节点名称
+// tryCandidateNodesForReserve 尝试在候选节点上执行 Reserve 和 Permit 操作
+// 返回是否成功、成功时的节点名称、候选节点索引、Permit状态（如果返回Wait）
 func (sched *Scheduler) tryCandidateNodesForReserve(
 	ctx context.Context,
 	fwk framework.Framework,
@@ -1249,8 +1296,10 @@ func (sched *Scheduler) tryCandidateNodesForReserve(
 	podInfo *framework.QueuedPodInfo,
 	candidateNodes []CandidateNode,
 	startTime time.Time,
-) (bool, string) {
+) (bool, string, int, *framework.Status) {
+	i := 1
 	for _, candidate := range candidateNodes {
+		i++
 		candidateNode := candidate.Name
 		klog.V(4).InfoS("Trying to reserve on candidate node",
 			"pod", klog.KObj(assumedPod),
@@ -1283,18 +1332,35 @@ func (sched *Scheduler) tryCandidateNodesForReserve(
 			continue
 		}
 
-		// Reserve 成功
+		// Reserve 成功，重新执行 Permit 插件
+		permitStatus, needWait := sched.reexecutePermitForCandidate(ctx, fwk, state, assumedPod, candidateNode)
+		if permitStatus != nil && !permitStatus.IsSuccess() && permitStatus.Code() != framework.Wait {
+			// Permit 失败或拒绝，清理状态
+			fwk.RunReservePluginsUnreserve(ctx, state, assumedPod, candidateNode)
+			if forgetErr := sched.Cache.ForgetPod(assumedPod); forgetErr != nil {
+				klog.ErrorS(forgetErr, "Scheduler cache ForgetPod failed")
+			}
+			sched.nodeHistoryManager.RecordConflict(candidateNode)
+			klog.V(4).InfoS("Permit failed for candidate node",
+				"pod", klog.KObj(assumedPod),
+				"node", candidateNode,
+				"status", permitStatus)
+			continue
+		}
+
+		// Reserve 和 Permit 都成功（Permit 可能返回 Wait）
 		klog.V(4).InfoS("Successfully reserved on candidate node",
 			"pod", klog.KObj(assumedPod),
-			"node", candidateNode)
-		return true, candidateNode
+			"node", candidateNode,
+			"permitWait", needWait)
+		return true, candidateNode, i, permitStatus
 	}
 
 	// 所有候选节点都失败
-	return false, ""
+	return false, "", i, nil
 }
 
-// tryCandidateNodesForPreBind 尝试在候选节点上执行 PreBind 和 Bind 操作
+// tryCandidateNodesForPreBind 尝试在候选节点上执行 Reserve、Permit、PreBind 和 Bind 操作
 // 返回是否成功以及成功时的节点名称
 func (sched *Scheduler) tryCandidateNodesForPreBind(
 	ctx context.Context,
@@ -1304,8 +1370,10 @@ func (sched *Scheduler) tryCandidateNodesForPreBind(
 	podInfo *framework.QueuedPodInfo,
 	candidateNodes []CandidateNode,
 	startTime time.Time,
-) (bool, string) {
+) (bool, string, int) {
+	i := 1
 	for _, candidate := range candidateNodes {
+		i++
 		candidateNode := candidate.Name
 		klog.V(4).InfoS("Trying to prebind on candidate node",
 			"pod", klog.KObj(assumedPod),
@@ -1332,6 +1400,32 @@ func (sched *Scheduler) tryCandidateNodesForPreBind(
 			}
 			sched.nodeHistoryManager.RecordConflict(candidateNode)
 			continue
+		}
+
+		// 重新执行 Permit 插件（因为节点变了）
+		permitStatus, needWait := sched.reexecutePermitForCandidate(ctx, fwk, state, assumedPod, candidateNode)
+		if permitStatus != nil && !permitStatus.IsSuccess() && permitStatus.Code() != framework.Wait {
+			// Permit 失败或拒绝，清理状态
+			fwk.RunReservePluginsUnreserve(ctx, state, assumedPod, candidateNode)
+			if forgetErr := sched.Cache.ForgetPod(assumedPod); forgetErr != nil {
+				klog.ErrorS(forgetErr, "Scheduler cache ForgetPod failed")
+			}
+			sched.nodeHistoryManager.RecordConflict(candidateNode)
+			continue
+		}
+
+		// 如果 Permit 返回 Wait，需要等待
+		if needWait {
+			waitOnPermitStatus := fwk.WaitOnPermit(ctx, assumedPod)
+			if !waitOnPermitStatus.IsSuccess() {
+				// WaitOnPermit 失败，清理状态
+				fwk.RunReservePluginsUnreserve(ctx, state, assumedPod, candidateNode)
+				if forgetErr := sched.Cache.ForgetPod(assumedPod); forgetErr != nil {
+					klog.ErrorS(forgetErr, "Scheduler cache ForgetPod failed")
+				}
+				sched.nodeHistoryManager.RecordConflict(candidateNode)
+				continue
+			}
 		}
 
 		// 尝试 PreBind
@@ -1363,9 +1457,154 @@ func (sched *Scheduler) tryCandidateNodesForPreBind(
 		metrics.PodSchedulingAttempts.Observe(float64(podInfo.Attempts))
 		metrics.PodSchedulingDuration.WithLabelValues(getAttemptsLabel(podInfo)).Observe(metrics.SinceInSeconds(podInfo.InitialAttemptTimestamp))
 		fwk.RunPostBindPlugins(ctx, state, assumedPod, candidateNode)
-		return true, candidateNode
+		return true, candidateNode, i
 	}
 
 	// 所有候选节点都失败
-	return false, ""
+	return false, "", i
+}
+
+// selectNodesByCumulativeProbability 根据累积概率选择节点
+// 逻辑：
+// - 第一个节点的采纳率为 p1，有 p1 的概率直接 reserve 第一个节点
+// - 如果第一个节点没有被选中（概率 1-p1），第二个节点的采纳率为 p2，有 (1-p1)*p2 的概率 reserve 第二个节点
+// - 如果前两个都没被选中，第三个节点的采纳率为 p3，有 (1-p1)*(1-p2)*p3 的概率 reserve 第三个节点
+// - 最多返回 maxCandidates 个候选节点（包括主节点）
+// 如果所有节点都没有被选中，则fallback到第一个节点
+func (sched *Scheduler) selectNodesByCumulativeProbability(
+	candidateNodes []CandidateNode,
+	maxCandidates int,
+	pod *v1.Pod,
+) []CandidateNode {
+	if len(candidateNodes) == 0 {
+		return candidateNodes
+	}
+
+	// 限制候选节点数量
+	if len(candidateNodes) > maxCandidates {
+		candidateNodes = candidateNodes[:maxCandidates]
+	}
+
+	// 生成一个随机数用于选择
+	randomValue := rand.Float64()
+	klog.V(5).InfoS("Selecting nodes by cumulative probability",
+		"pod", klog.KObj(pod),
+		"randomValue", randomValue,
+		"candidateCount", len(candidateNodes))
+
+	// 计算累积概率并选择节点
+	var selectedNodes []CandidateNode
+	cumulativeProb := 0.0
+	selectedIndex := -1
+
+	for i := 0; i < len(candidateNodes) && i < maxCandidates; i++ {
+		p := candidateNodes[i].AdoptionProbability
+
+		// 计算当前节点的累积概率
+		// 节点1: p1
+		// 节点2: p1 + (1-p1)*p2
+		// 节点3: p1 + (1-p1)*p2 + (1-p1)*(1-p2)*p3
+		if i == 0 {
+			cumulativeProb = p
+		} else {
+			// 计算前面所有节点都不被选中的概率
+			prevNotSelectedProb := 1.0
+			for j := 0; j < i; j++ {
+				prevNotSelectedProb *= (1.0 - candidateNodes[j].AdoptionProbability)
+			}
+			cumulativeProb += prevNotSelectedProb * p
+		}
+
+		// 检查随机数是否落在当前节点的概率区间内
+		if randomValue < cumulativeProb {
+			selectedIndex = i
+			klog.V(4).InfoS("Node selected by cumulative probability",
+				"pod", klog.KObj(pod),
+				"node", candidateNodes[i].Name,
+				"adoptionProbability", p,
+				"cumulativeProbability", cumulativeProb,
+				"randomValue", randomValue,
+				"index", i)
+			break
+		}
+
+		klog.V(5).InfoS("Node not selected in cumulative probability check",
+			"pod", klog.KObj(pod),
+			"node", candidateNodes[i].Name,
+			"adoptionProbability", p,
+			"cumulativeProbability", cumulativeProb,
+			"randomValue", randomValue,
+			"index", i)
+	}
+
+	// 如果没有节点被选中，fallback到第一个节点
+	if selectedIndex == -1 {
+		selectedIndex = 0
+		klog.V(4).InfoS("No node selected by cumulative probability, falling back to first node",
+			"pod", klog.KObj(pod),
+			"fallbackNode", candidateNodes[0].Name,
+			"randomValue", randomValue,
+			"cumulativeProbability", cumulativeProb)
+	}
+
+	// 构建返回的候选节点列表
+	// 主节点是选中的节点，然后按顺序添加其他节点（最多 maxCandidates 个）
+	selectedNodes = make([]CandidateNode, 0, maxCandidates)
+
+	// 首先添加选中的节点作为主节点
+	selectedNodes = append(selectedNodes, candidateNodes[selectedIndex])
+
+	// 然后按顺序添加其他节点作为备选（不包括已选中的节点）
+	for i := 0; i < len(candidateNodes) && len(selectedNodes) < maxCandidates; i++ {
+		if i != selectedIndex {
+			selectedNodes = append(selectedNodes, candidateNodes[i])
+		}
+	}
+
+	return selectedNodes
+}
+
+// cancelPermitWait 取消 Pod 的 Permit Wait 状态
+// 如果 Pod 正在等待 Permit，拒绝它以便切换到候选节点
+func (sched *Scheduler) cancelPermitWait(fwk framework.Framework, pod *v1.Pod) {
+	if fwk.GetWaitingPod(pod.UID) != nil {
+		fwk.RejectWaitingPod(pod.UID)
+		klog.V(4).InfoS("Cancelled permit wait for pod to switch to candidate node", "pod", klog.KObj(pod))
+	}
+}
+
+// reexecutePermitForCandidate 为候选节点重新执行 Permit 插件
+// 返回 Permit 状态和是否需要等待
+// 如果返回 needWait=true，调用者需要在绑定阶段调用 WaitOnPermit
+func (sched *Scheduler) reexecutePermitForCandidate(
+	ctx context.Context,
+	fwk framework.Framework,
+	state *framework.CycleState,
+	pod *v1.Pod,
+	nodeName string,
+) (*framework.Status, bool) {
+	permitStatus := fwk.RunPermitPlugins(ctx, state, pod, nodeName)
+
+	if permitStatus.Code() == framework.Wait {
+		// Permit 返回 Wait，需要等待
+		klog.V(4).InfoS("Permit returned Wait for candidate node",
+			"pod", klog.KObj(pod),
+			"node", nodeName)
+		return permitStatus, true
+	}
+
+	if !permitStatus.IsSuccess() {
+		// Permit 失败或拒绝
+		klog.V(4).InfoS("Permit failed for candidate node",
+			"pod", klog.KObj(pod),
+			"node", nodeName,
+			"status", permitStatus)
+		return permitStatus, false
+	}
+
+	// Permit 成功
+	klog.V(4).InfoS("Permit succeeded for candidate node",
+		"pod", klog.KObj(pod),
+		"node", nodeName)
+	return nil, false
 }
