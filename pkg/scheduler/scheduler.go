@@ -393,6 +393,9 @@ type ScheduleResult struct {
 	EvaluatedNodes int
 	// The number of nodes out of the evaluated ones that fit the pod.
 	FeasibleNodes int
+	// SecondaryReservedNode 如果次优节点被预留，记录节点名称；否则为空
+	// 这是为了在多个调度器并发工作时，以概率性方式为次优节点预留资源
+	SecondaryReservedNode string
 }
 
 // CandidateNode 候选节点信息
