@@ -207,8 +207,8 @@ func (sched *Scheduler) scheduleOne(ctx context.Context) {
 		sched.handleSchedulingFailure(fwk, assumedPodInfo, err, SchedulerError, clearNominatedNode)
 		return
 	}
-	nextNum := 0
 
+	nextNum := 1
 	// --- 运行 Reserve 插件（首选节点）---
 	// 总是为首选节点预留资源
 	// 运行 Reserve 插件的 Reserve 方法。
@@ -244,7 +244,7 @@ func (sched *Scheduler) scheduleOne(ctx context.Context) {
 
 			// 清理首选节点上已经预留的资源状态
 			fwk.RunReservePluginsUnreserve(schedulingCycleCtx, state, assumedPod, scheduleResult.SuggestedHost)
-			
+
 			// 从调度器缓存中移除 Pod 的假设状态
 			if forgetErr := sched.Cache.ForgetPod(assumedPod); forgetErr != nil {
 				klog.ErrorS(forgetErr, "Scheduler cache ForgetPod failed")
@@ -272,15 +272,15 @@ func (sched *Scheduler) scheduleOne(ctx context.Context) {
 				if permitStatus != nil && !permitStatus.IsSuccess() {
 					// Permit 阶段失败，需要清理当前节点的预留资源
 					fwk.RunReservePluginsUnreserve(schedulingCycleCtx, state, assumedPod, candidateNode)
-					
+
 					// 从调度器缓存中移除 Pod 的假设状态
 					if forgetErr := sched.Cache.ForgetPod(assumedPod); forgetErr != nil {
 						klog.ErrorS(forgetErr, "Scheduler cache ForgetPod failed")
 					}
-					
+
 					// 记录该候选节点的冲突信息
 					sched.nodeHistoryManager.RecordConflict(candidateNode)
-					
+
 					// 如果还有其他候选节点，可以继续尝试；否则处理调度失败
 					metrics.PodScheduleError(fwk.ProfileName(), metrics.SinceInSeconds(start))
 					sched.handleSchedulingFailure(fwk, assumedPodInfo, permitStatus.AsError(), SchedulerError, clearNominatedNode)
@@ -319,14 +319,17 @@ func (sched *Scheduler) scheduleOne(ctx context.Context) {
 	// --- 概率性为次优节点预留资源 ---
 	// 以 (1-p1)*p2 的概率同时为次优节点也预留资源，防止其他调度器占用
 	// 其中 p1 是首选节点的采纳概率，p2 是次优节点的采纳概率
+	ReserveSecond := false
+	var secondaryNode string
 	if len(scheduleResult.CandidateNodes) >= 2 {
 		shouldReserveSecondary := sched.shouldReserveSecondaryNode(
+			nextNum,
 			scheduleResult.CandidateNodes,
 			assumedPod,
 		)
 
 		if shouldReserveSecondary {
-			secondaryNode := scheduleResult.CandidateNodes[1].Name
+			secondaryNode = scheduleResult.CandidateNodes[nextNum].Name
 			klog.V(4).InfoS("Attempting to reserve secondary node by probability",
 				"pod", klog.KObj(assumedPod),
 				"primaryNode", scheduleResult.SuggestedHost,
@@ -340,6 +343,7 @@ func (sched *Scheduler) scheduleOne(ctx context.Context) {
 			// 尝试为次优节点执行 Reserve
 			if sts := fwk.RunReservePluginsReserve(schedulingCycleCtx, state, secondaryPod, secondaryNode); sts.IsSuccess() {
 				// 记录次优节点被预留
+				ReserveSecond = true
 				scheduleResult.SecondaryReservedNode = secondaryNode
 				klog.V(4).InfoS("Successfully reserved secondary node",
 					"pod", klog.KObj(assumedPod),
@@ -379,6 +383,9 @@ func (sched *Scheduler) scheduleOne(ctx context.Context) {
 		}
 		// 其中一个插件返回了非成功或非等待的状态。
 		// 触发 Unreserve 插件来清理状态。
+		if ReserveSecond {
+			fwk.RunReservePluginsUnreserve(schedulingCycleCtx, state, assumedPod, secondaryNode)
+		}
 		fwk.RunReservePluginsUnreserve(schedulingCycleCtx, state, assumedPod, scheduleResult.SuggestedHost)
 		// 从缓存中移除假设的 Pod。
 		if forgetErr := sched.Cache.ForgetPod(assumedPod); forgetErr != nil {
@@ -428,6 +435,9 @@ func (sched *Scheduler) scheduleOne(ctx context.Context) {
 				reason = SchedulerError
 			}
 			// 触发 Unreserve 插件来清理与预留 Pod 相关的状态。
+			if ReserveSecond {
+				fwk.RunReservePluginsUnreserve(schedulingCycleCtx, state, assumedPod, secondaryNode)
+			}
 			fwk.RunReservePluginsUnreserve(bindingCycleCtx, state, assumedPod, scheduleResult.SuggestedHost)
 			// 从缓存中移除假设的 Pod。
 			if forgetErr := sched.Cache.ForgetPod(assumedPod); forgetErr != nil {
@@ -466,7 +476,10 @@ func (sched *Scheduler) scheduleOne(ctx context.Context) {
 				// 取消 Permit Wait（如果存在）
 				sched.cancelPermitWait(fwk, assumedPod)
 
-				// 清理首选节点的状态
+				// 清理
+				if ReserveSecond {
+					fwk.RunReservePluginsUnreserve(schedulingCycleCtx, state, assumedPod, secondaryNode)
+				}
 				fwk.RunReservePluginsUnreserve(bindingCycleCtx, state, assumedPod, scheduleResult.SuggestedHost)
 				if forgetErr := sched.Cache.ForgetPod(assumedPod); forgetErr != nil {
 					klog.ErrorS(forgetErr, "scheduler cache ForgetPod failed")
@@ -486,6 +499,9 @@ func (sched *Scheduler) scheduleOne(ctx context.Context) {
 
 			// 没有候选节点或所有候选节点都失败，执行原有失败处理逻辑
 			metrics.PodScheduleError(fwk.ProfileName(), metrics.SinceInSeconds(start))
+			if ReserveSecond {
+				fwk.RunReservePluginsUnreserve(schedulingCycleCtx, state, assumedPod, secondaryNode)
+			}
 			fwk.RunReservePluginsUnreserve(bindingCycleCtx, state, assumedPod, scheduleResult.SuggestedHost)
 			if forgetErr := sched.Cache.ForgetPod(assumedPod); forgetErr != nil {
 				klog.ErrorS(forgetErr, "scheduler cache ForgetPod failed")
@@ -755,18 +771,18 @@ func (sched *Scheduler) schedulePod(ctx context.Context, fwk framework.Framework
 	// 如果没有找到合适的节点，返回调度失败的错误信息
 	if len(feasibleNodes) == 0 {
 		return result, &framework.FitError{
-			Pod:         pod,  // 待调度的 Pod
+			Pod:         pod,                               // 待调度的 Pod
 			NumAllNodes: sched.nodeInfoSnapshot.NumNodes(), // 总节点数
-			Diagnosis:   diagnosis, // 诊断信息，包含哪些节点不满足条件及原因
+			Diagnosis:   diagnosis,                         // 诊断信息，包含哪些节点不满足条件及原因
 		}
 	}
 
 	// 当只有一个节点满足条件时，直接使用该节点，无需进行优先级排序
 	if len(feasibleNodes) == 1 {
 		return ScheduleResult{
-			SuggestedHost:  feasibleNodes[0].Name,     // 建议的主机名
+			SuggestedHost:  feasibleNodes[0].Name,              // 建议的主机名
 			EvaluatedNodes: 1 + len(diagnosis.NodeToStatusMap), // 评估的节点数
-			FeasibleNodes:  1,                       // 可行的节点数
+			FeasibleNodes:  1,                                  // 可行的节点数
 		}, nil
 	}
 
@@ -777,7 +793,7 @@ func (sched *Scheduler) schedulePod(ctx context.Context, fwk framework.Framework
 	}
 
 	// 选择多个候选节点（最多保留前5个）
-	maxCandidates := 5
+	maxCandidates := 3
 	candidateNodes, err := selectCandidateNodes(priorityList, maxCandidates)
 	if err != nil {
 		return result, err
@@ -787,8 +803,8 @@ func (sched *Scheduler) schedulePod(ctx context.Context, fwk framework.Framework
 	// 采纳概率基于节点的历史调度成功率和当前评分
 	for i := range candidateNodes {
 		candidateNodes[i].AdoptionProbability = sched.nodeHistoryManager.CalculateAdoptionProbability(
-			candidateNodes[i].Name,   // 节点名称
-			candidateNodes[i].Score,  // 节点评分
+			candidateNodes[i].Name,  // 节点名称
+			candidateNodes[i].Score, // 节点评分
 		)
 	}
 
@@ -798,12 +814,12 @@ func (sched *Scheduler) schedulePod(ctx context.Context, fwk framework.Framework
 	// - 如果第一个节点没有被选中，第二个节点的采纳率为 p2，有 (1-p1)*p2 的概率 reserve 第二个节点
 	// - 如果前两个都没被选中，第三个节点的采纳率为 p3，有 (1-p1)*(1-p2)*p3 的概率 reserve 第三个节点
 	// - 总共会选取三个备选节点（包括主节点）
-	const maxSelectedCandidates = 3
-	selectedCandidates := sched.selectNodesByCumulativeProbability(candidateNodes, maxSelectedCandidates, pod)
+	// const maxSelectedCandidates = 3
+	// selectedCandidates := sched.selectNodesByCumulativeProbability(candidateNodes, maxSelectedCandidates, pod)
 
 	// 确定主节点（第一个被选中的节点）
-	selectedHost := selectedCandidates[0].Name
-	candidateNodes = selectedCandidates
+	selectedHost := candidateNodes[0].Name
+	//candidateNodes = candidateNodes
 
 	// 构建候选节点名称列表用于日志记录
 	candidateNames := make([]string, len(candidateNodes))
@@ -812,19 +828,19 @@ func (sched *Scheduler) schedulePod(ctx context.Context, fwk framework.Framework
 	}
 	// 记录选中的候选节点信息，便于调试和监控
 	klog.V(4).InfoS("Selected candidate nodes based on cumulative adoption probability",
-		"pod", klog.KObj(pod),        // Pod 对象信息
+		"pod", klog.KObj(pod), // Pod 对象信息
 		"selectedNode", selectedHost, // 选中的节点
 		"candidateCount", len(candidateNodes), // 候选节点数量
-		"candidates", candidateNames)  // 候选节点名称列表
+		"candidates", candidateNames) // 候选节点名称列表
 
 	trace.Step("Prioritizing done")
 
 	// 返回调度结果，包括建议的主机、候选节点列表和统计信息
 	return ScheduleResult{
-		SuggestedHost:  selectedHost,      // 建议调度到的主机名（主节点）
-		CandidateNodes: candidateNodes,    // 候选节点列表（包括主节点和备选节点）
+		SuggestedHost:  selectedHost,                                        // 建议调度到的主机名（主节点）
+		CandidateNodes: candidateNodes,                                      // 候选节点列表（包括主节点和备选节点）
 		EvaluatedNodes: len(feasibleNodes) + len(diagnosis.NodeToStatusMap), // 评估的节点总数
-		FeasibleNodes:  len(feasibleNodes), // 符合条件的节点数量
+		FeasibleNodes:  len(feasibleNodes),                                  // 符合条件的节点数量
 	}, nil
 }
 
@@ -1395,75 +1411,109 @@ func updatePod(client clientset.Interface, pod *v1.Pod, condition *v1.PodConditi
 
 // tryCandidateNodesForReserve 尝试在候选节点上执行 Reserve 和 Permit 操作
 // 返回是否成功、成功时的节点名称、候选节点索引、Permit状态（如果返回Wait）
+// tryCandidateNodesForReserve 尝试在候选节点上为 Pod 预留资源
+// 遍历候选节点列表，逐个尝试在节点上进行 Asssume、Reserve 和 Permit 操作
+// 返回值：(是否成功, 成功的节点名称, 尝试的节点数量, Permit状态)
 func (sched *Scheduler) tryCandidateNodesForReserve(
-	ctx context.Context,
-	fwk framework.Framework,
-	state *framework.CycleState,
-	assumedPod *v1.Pod,
-	podInfo *framework.QueuedPodInfo,
-	candidateNodes []CandidateNode,
-	startTime time.Time,
+	ctx context.Context, // 调度上下文
+	fwk framework.Framework, // 调度框架
+	state *framework.CycleState, // 调度周期状态
+	assumedPod *v1.Pod, // 已假设的 Pod 对象
+	podInfo *framework.QueuedPodInfo, // 队列中的 Pod 信息
+	candidateNodes []CandidateNode, // 候选节点列表
+	startTime time.Time, // 调度开始时间
 ) (bool, string, int, *framework.Status) {
-	i := 1
+
+	i := 1 // 记录尝试的节点数量（从1开始，因为第一个节点已经在外面处理过了）
+
+	// 遍历所有候选节点
 	for _, candidate := range candidateNodes {
-		i++
-		candidateNode := candidate.Name
+		i++                             // 增加尝试计数
+		candidateNode := candidate.Name // 获取候选节点名称
+
+		// 记录尝试在候选节点上预留的日志
 		klog.V(4).InfoS("Trying to reserve on candidate node",
 			"pod", klog.KObj(assumedPod),
 			"candidateNode", candidateNode)
 
-		// 更新 Pod 的 NodeName
+		// 更新 Pod 的目标节点名称
 		assumedPod.Spec.NodeName = candidateNode
 
-		// 尝试 Assume Pod 到候选节点
+		// 尝试将 Pod 假设到候选节点上
+		// 这会更新调度器缓存中的节点状态，标记节点上有这个 Pod
 		if assumeErr := sched.Cache.AssumePod(assumedPod); assumeErr != nil {
+			// Assume 失败，记录错误信息
 			klog.V(4).InfoS("AssumePod failed for candidate node",
 				"pod", klog.KObj(assumedPod),
 				"node", candidateNode,
 				"error", assumeErr)
+			// 记录节点冲突信息到历史管理器
 			sched.nodeHistoryManager.RecordConflict(candidateNode)
+			// 继续尝试下一个候选节点
 			continue
 		}
 
-		// 尝试 Reserve
+		// 在候选节点上运行 Reserve 插件
+		// Reserve 插件通常用于预留节点上的资源（如卷、网络资源等）
 		if sts := fwk.RunReservePluginsReserve(ctx, state, assumedPod, candidateNode); !sts.IsSuccess() {
-			// Reserve 失败，清理状态
+			// Reserve 失败，需要清理已假设的 Pod 状态
 			fwk.RunReservePluginsUnreserve(ctx, state, assumedPod, candidateNode)
+
+			// 从调度器缓存中移除假设的 Pod
 			if forgetErr := sched.Cache.ForgetPod(assumedPod); forgetErr != nil {
 				klog.ErrorS(forgetErr, "Scheduler cache ForgetPod failed")
 			}
+
+			// 记录节点冲突信息
 			sched.nodeHistoryManager.RecordConflict(candidateNode)
+
+			// 记录 Reserve 失败的日志
 			klog.V(4).InfoS("Reserve failed for candidate node",
 				"pod", klog.KObj(assumedPod),
 				"node", candidateNode)
+			// 继续尝试下一个候选节点
 			continue
 		}
 
 		// Reserve 成功，重新执行 Permit 插件
+		// 由于节点改变了，需要重新评估 Permit 约束
 		permitStatus, needWait := sched.reexecutePermitForCandidate(ctx, fwk, state, assumedPod, candidateNode)
+
+		// 检查 Permit 状态
 		if permitStatus != nil && !permitStatus.IsSuccess() && permitStatus.Code() != framework.Wait {
-			// Permit 失败或拒绝，清理状态
+			// Permit 明确失败（不是 Wait 状态），需要清理状态
 			fwk.RunReservePluginsUnreserve(ctx, state, assumedPod, candidateNode)
+
+			// 从调度器缓存中移除假设的 Pod
 			if forgetErr := sched.Cache.ForgetPod(assumedPod); forgetErr != nil {
 				klog.ErrorS(forgetErr, "Scheduler cache ForgetPod failed")
 			}
+
+			// 记录节点冲突信息
 			sched.nodeHistoryManager.RecordConflict(candidateNode)
+
+			// 记录 Permit 失败的日志
 			klog.V(4).InfoS("Permit failed for candidate node",
 				"pod", klog.KObj(assumedPod),
 				"node", candidateNode,
 				"status", permitStatus)
+			// 继续尝试下一个候选节点
 			continue
 		}
 
-		// Reserve 和 Permit 都成功（Permit 可能返回 Wait）
+		// Reserve 和 Permit 都成功（Permit 可能返回 Wait 状态）
+		// Wait 状态表示需要等待外部条件满足，但预留本身是成功的
 		klog.V(4).InfoS("Successfully reserved on candidate node",
 			"pod", klog.KObj(assumedPod),
 			"node", candidateNode,
-			"permitWait", needWait)
+			"permitWait", needWait) // 记录是否需要等待
+
+		// 返回成功结果：成功标志、选中的节点、尝试的节点数、Permit状态
 		return true, candidateNode, i, permitStatus
 	}
 
-	// 所有候选节点都失败
+	// 所有候选节点都尝试失败
+	// 返回：失败标志、空节点名称、尝试的节点数、nil状态
 	return false, "", i, nil
 }
 
@@ -1578,22 +1628,27 @@ func (sched *Scheduler) tryCandidateNodesForPreBind(
 // - 如果前两个都没被选中，第三个节点的采纳率为 p3，有 (1-p1)*(1-p2)*p3 的概率 reserve 第三个节点
 // - 最多返回 maxCandidates 个候选节点（包括主节点）
 // 如果所有节点都没有被选中，则fallback到第一个节点
+// selectNodesByCumulativeProbability 根据累积概率选择候选节点
+// 使用累积概率模型来选择节点：每个节点有其采纳概率，
+// 按顺序检查直到某个节点被选中，或所有节点都未被选中时回退到第一个节点
 func (sched *Scheduler) selectNodesByCumulativeProbability(
-	candidateNodes []CandidateNode,
-	maxCandidates int,
-	pod *v1.Pod,
+	candidateNodes []CandidateNode, // 候选节点列表（已按评分排序）
+	maxCandidates int, // 最大候选节点数量
+	pod *v1.Pod, // 待调度的 Pod 对象
 ) []CandidateNode {
+	// 如果没有候选节点，直接返回空列表
 	if len(candidateNodes) == 0 {
 		return candidateNodes
 	}
 
-	// 限制候选节点数量
+	// 限制候选节点数量不超过最大值
 	if len(candidateNodes) > maxCandidates {
 		candidateNodes = candidateNodes[:maxCandidates]
 	}
 
-	// 生成一个随机数用于选择
+	// 生成一个 [0,1) 范围内的随机数用于概率选择
 	randomValue := rand.Float64()
+	// 记录选择过程的日志信息
 	klog.V(5).InfoS("Selecting nodes by cumulative probability",
 		"pod", klog.KObj(pod),
 		"randomValue", randomValue,
@@ -1601,40 +1656,47 @@ func (sched *Scheduler) selectNodesByCumulativeProbability(
 
 	// 计算累积概率并选择节点
 	var selectedNodes []CandidateNode
-	cumulativeProb := 0.0
-	selectedIndex := -1
+	cumulativeProb := 0.0 // 累积概率
+	selectedIndex := -1   // 选中节点的索引
 
+	// 遍历候选节点，计算累积概率并进行选择
 	for i := 0; i < len(candidateNodes) && i < maxCandidates; i++ {
-		p := candidateNodes[i].AdoptionProbability
+		p := candidateNodes[i].AdoptionProbability // 当前节点的采纳概率
 
 		// 计算当前节点的累积概率
-		// 节点1: p1
-		// 节点2: p1 + (1-p1)*p2
-		// 节点3: p1 + (1-p1)*p2 + (1-p1)*(1-p2)*p3
+		// 累积概率计算逻辑：
+		// 节点1: p1 (直接采纳概率)
+		// 节点2: p1 + (1-p1)*p2 (第一个未选中，第二个被选中的概率)
+		// 节点3: p1 + (1-p1)*p2 + (1-p1)*(1-p2)*p3 (前两个未选中，第三个被选中的概率)
 		if i == 0 {
 			cumulativeProb = p
 		} else {
 			// 计算前面所有节点都不被选中的概率
+			// 这是当前节点有机会被选中的前提条件
 			prevNotSelectedProb := 1.0
 			for j := 0; j < i; j++ {
 				prevNotSelectedProb *= (1.0 - candidateNodes[j].AdoptionProbability)
 			}
+			// 当前节点的累积概率 = 之前累积概率 + (前面都不选中的概率 * 当前节点采纳概率)
 			cumulativeProb += prevNotSelectedProb * p
 		}
 
 		// 检查随机数是否落在当前节点的概率区间内
+		// 如果 randomValue < cumulativeProb，说明当前节点被选中
 		if randomValue < cumulativeProb {
 			selectedIndex = i
+			// 记录选中节点的详细信息
 			klog.V(4).InfoS("Node selected by cumulative probability",
 				"pod", klog.KObj(pod),
-				"node", candidateNodes[i].Name,
-				"adoptionProbability", p,
-				"cumulativeProbability", cumulativeProb,
-				"randomValue", randomValue,
-				"index", i)
-			break
+				"node", candidateNodes[i].Name, // 被选中的节点名称
+				"adoptionProbability", p, // 当前节点的采纳概率
+				"cumulativeProbability", cumulativeProb, // 累积概率
+				"randomValue", randomValue, // 生成的随机值
+				"index", i) // 节点在候选列表中的索引
+			break // 找到选中的节点，退出循环
 		}
 
+		// 记录未选中节点的信息（用于调试）
 		klog.V(5).InfoS("Node not selected in cumulative probability check",
 			"pod", klog.KObj(pod),
 			"node", candidateNodes[i].Name,
@@ -1644,12 +1706,12 @@ func (sched *Scheduler) selectNodesByCumulativeProbability(
 			"index", i)
 	}
 
-	// 如果没有节点被选中，fallback到第一个节点
+	// 如果没有节点被选中（理论上应该总会选中一个，但作为安全措施）
 	if selectedIndex == -1 {
-		selectedIndex = 0
+		selectedIndex = 0 // 回退到第一个节点
 		klog.V(4).InfoS("No node selected by cumulative probability, falling back to first node",
 			"pod", klog.KObj(pod),
-			"fallbackNode", candidateNodes[0].Name,
+			"fallbackNode", candidateNodes[0].Name, // 回退选择的节点
 			"randomValue", randomValue,
 			"cumulativeProbability", cumulativeProb)
 	}
@@ -1662,12 +1724,14 @@ func (sched *Scheduler) selectNodesByCumulativeProbability(
 	selectedNodes = append(selectedNodes, candidateNodes[selectedIndex])
 
 	// 然后按顺序添加其他节点作为备选（不包括已选中的节点）
+	// 这样确保主节点是概率选择的结果，其他节点作为备选
 	for i := 0; i < len(candidateNodes) && len(selectedNodes) < maxCandidates; i++ {
-		if i != selectedIndex {
+		if i != selectedIndex { // 跳过已经作为主节点选中的节点
 			selectedNodes = append(selectedNodes, candidateNodes[i])
 		}
 	}
 
+	// 返回选中的节点列表，其中第一个是主节点，其余是备选节点
 	return selectedNodes
 }
 
@@ -1677,18 +1741,24 @@ func (sched *Scheduler) selectNodesByCumulativeProbability(
 // - 首选节点的采纳概率为 p1，次优节点的采纳概率为 p2
 // - 以 (1-p1)*p2 的概率为次优节点预留资源
 // - 这样，次优节点被预留的概率是 (1-p1)*p2
+// shouldReserveSecondaryNode 根据概率模型决定是否预留次优节点
+// 使用概率计算来决定是否提前预留次优节点，以减少调度失败时的延迟
 func (sched *Scheduler) shouldReserveSecondaryNode(
-	candidateNodes []CandidateNode,
-	pod *v1.Pod,
+	nextNum int,
+	candidateNodes []CandidateNode, // 候选节点列表（已按优先级排序）
+	pod *v1.Pod, // 待调度的 Pod
 ) bool {
+	// 如果候选节点少于2个，无法预留次优节点
 	if len(candidateNodes) < 2 {
 		return false
 	}
 
-	p1 := candidateNodes[0].AdoptionProbability
-	p2 := candidateNodes[1].AdoptionProbability
+	// 获取首选节点和次优节点的采纳概率
+	p1 := candidateNodes[nextNum-1].AdoptionProbability // 首选节点采纳概率
+	p2 := candidateNodes[nextNum].AdoptionProbability   // 次优节点采纳概率
 
-	// 确保概率值在有效范围内
+	// 确保概率值在有效范围内 [0, 1]
+	// 这是为了处理可能的数值异常或计算错误
 	if p1 < 0 {
 		p1 = 0
 	}
@@ -1703,23 +1773,33 @@ func (sched *Scheduler) shouldReserveSecondaryNode(
 	}
 
 	// 计算次优节点预留概率：(1-p1)*p2
+	// 逻辑解释：
+	// - p1: 首选节点被采纳的概率
+	// - (1-p1): 首选节点不被采纳的概率
+	// - p2: 次优节点的采纳概率
+	// - (1-p1)*p2: 首选节点失败且次优节点成功被采纳的概率
+	// 这个概率反映了在首选节点失败时，次优节点能够成功被采纳的可能性
 	secondaryReserveProb := (1.0 - p1) * p2
 
-	// 生成随机数
+	// 生成 [0,1) 范围内的随机数用于概率判断
 	randomValue := rand.Float64()
 
+	// 根据随机数和计算出的概率决定是否预留次优节点
+	// 如果 randomValue < secondaryReserveProb，则预留次优节点
 	shouldReserve := randomValue < secondaryReserveProb
 
+	// 记录决策过程的详细日志
 	klog.V(4).InfoS("Determining secondary node reserve by probability",
-		"pod", klog.KObj(pod),
-		"primaryNode", candidateNodes[0].Name,
-		"primaryProb", p1,
-		"secondaryNode", candidateNodes[1].Name,
-		"secondaryProb", p2,
-		"secondaryReserveProb", secondaryReserveProb,
-		"randomValue", randomValue,
-		"shouldReserve", shouldReserve)
+		"pod", klog.KObj(pod), // Pod 信息
+		"primaryNode", candidateNodes[0].Name, // 首选节点名称
+		"primaryProb", p1, // 首选节点采纳概率
+		"secondaryNode", candidateNodes[1].Name, // 次优节点名称
+		"secondaryProb", p2, // 次优节点采纳概率
+		"secondaryReserveProb", secondaryReserveProb, // 计算出的次优节点预留概率
+		"randomValue", randomValue, // 生成的随机值
+		"shouldReserve", shouldReserve) // 最终决策结果
 
+	// 返回是否应该预留次优节点的决策
 	return shouldReserve
 }
 
