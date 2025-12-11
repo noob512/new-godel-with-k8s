@@ -321,7 +321,8 @@ func (sched *Scheduler) scheduleOne(ctx context.Context) {
 	// 其中 p1 是首选节点的采纳概率，p2 是次优节点的采纳概率
 	ReserveSecond := false
 	var secondaryNode string
-	if len(scheduleResult.CandidateNodes) >= 2 {
+	// 只有在启用次优节点预留功能时才执行
+	if sched.enableSecondaryReserve && len(scheduleResult.CandidateNodes) >= 2 {
 		shouldReserveSecondary := sched.shouldReserveSecondaryNode(
 			nextNum,
 			scheduleResult.CandidateNodes,
@@ -658,6 +659,8 @@ func (sched *Scheduler) scheduleOne(ctx context.Context) {
 				// 所有候选节点都失败了
 				// 记录调度错误指标。
 				metrics.PodScheduleError(fwk.ProfileName(), metrics.SinceInSeconds(start))
+				// 记录拒绝统计
+				sched.nodeHistoryManager.RecordRejection()
 				// 运行 Unreserve 清理最后尝试的节点。
 				fwk.RunReservePluginsUnreserve(bindingCycleCtx, state, assumedPod, bindingNode)
 				// 从缓存中移除 Pod。
@@ -675,6 +678,15 @@ func (sched *Scheduler) scheduleOne(ctx context.Context) {
 
 		// 绑定成功，记录成功统计
 		sched.nodeHistoryManager.RecordSuccess(bindingNode)
+		// 记录接收率统计：找出绑定节点在候选节点列表中的索引
+		acceptedIndex := 0
+		for i, candidate := range scheduleResult.CandidateNodes {
+			if candidate.Name == bindingNode {
+				acceptedIndex = i
+				break
+			}
+		}
+		sched.nodeHistoryManager.RecordAcceptance(acceptedIndex)
 
 		// 清理次优节点的预留（如果存在）
 		if scheduleResult.SecondaryReservedNode != "" {
@@ -792,8 +804,9 @@ func (sched *Scheduler) schedulePod(ctx context.Context, fwk framework.Framework
 		return result, err
 	}
 
-	// 选择多个候选节点（最多保留前5个）
-	maxCandidates := 3
+	// 选择多个候选节点（使用配置的备选节点数量）
+	// 总候选节点数 = 1(首选) + numBackup(备选)
+	maxCandidates := sched.nodeHistoryManager.GetNumBackup() + 1
 	candidateNodes, err := selectCandidateNodes(priorityList, maxCandidates)
 	if err != nil {
 		return result, err

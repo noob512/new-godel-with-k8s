@@ -361,6 +361,9 @@ type Scheduler struct {
 
 	// nodeHistoryManager 管理节点的历史统计信息（成功率、冲突次数、新鲜度等）
 	nodeHistoryManager *nodehistory.NodeHistoryManager
+
+	// enableSecondaryReserve 是否启用次优节点概率预留
+	enableSecondaryReserve bool
 }
 
 type schedulerOptions struct {
@@ -377,6 +380,14 @@ type schedulerOptions struct {
 	frameworkCapturer          FrameworkCapturer
 	parallelism                int32
 	applyDefaultProfile        bool
+
+	// 备选调度配置选项
+	// numBackupNodes 备选节点数量（默认为 3）
+	numBackupNodes int
+	// backupUpdateStrategy 本地状态更新策略（默认为 "p"）
+	backupUpdateStrategy nodehistory.UpdateStrategy
+	// enableSecondaryReserve 是否启用次优节点概率预留（默认为 true）
+	enableSecondaryReserve bool
 }
 
 // Option configures a Scheduler
@@ -505,6 +516,38 @@ var defaultSchedulerOptions = schedulerOptions{
 	// set dynamically in tests. Therefore, we delay creating it until New is actually
 	// invoked.
 	applyDefaultProfile: true,
+	// 备选调度配置默认值
+	numBackupNodes:         3,                                   // 默认保留 3 个备选节点
+	backupUpdateStrategy:   nodehistory.UpdateStrategyProbability, // 默认使用概率更新策略
+	enableSecondaryReserve: true,                                // 默认启用次优节点预留
+}
+
+// WithNumBackupNodes sets the number of backup nodes to keep for scheduling.
+// Default is 3.
+func WithNumBackupNodes(n int) Option {
+	return func(o *schedulerOptions) {
+		if n > 0 {
+			o.numBackupNodes = n
+		}
+	}
+}
+
+// WithBackupUpdateStrategy sets the strategy for updating local state when
+// backup nodes are selected. Options are: "first", "all", "p", "p-slot".
+// Default is "p" (probability-based update).
+func WithBackupUpdateStrategy(strategy nodehistory.UpdateStrategy) Option {
+	return func(o *schedulerOptions) {
+		o.backupUpdateStrategy = strategy
+	}
+}
+
+// WithEnableSecondaryReserve sets whether to enable probabilistic secondary node reservation.
+// When enabled, the scheduler may reserve resources on a secondary node to prevent
+// other schedulers from preempting it. Default is true.
+func WithEnableSecondaryReserve(enable bool) Option {
+	return func(o *schedulerOptions) {
+		o.enableSecondaryReserve = enable
+	}
 }
 
 // New returns a Scheduler
@@ -625,6 +668,9 @@ func New(
 		client,
 		snapshot,
 		options.percentageOfNodesToScore,
+		options.numBackupNodes,
+		options.backupUpdateStrategy,
+		options.enableSecondaryReserve,
 	)
 		//---------------------------------------
 		//为调度器添加一些额外的属性
@@ -774,17 +820,37 @@ func buildExtenders(extenders []schedulerapi.Extender, profiles []schedulerapi.K
 }
 
 // newScheduler creates a Scheduler object.
+// newScheduler 是 Scheduler 结构体的构造函数，用于创建并初始化一个新的调度器实例。
+// 该调度器负责接收待调度的 Pod 并根据预设的策略将其分配到合适的节点上。
 func newScheduler(
+	// cache 是一个内部缓存，存储了集群中节点和服务的信息，供调度器快速访问。
 	cache internalcache.Cache,
+	// extenders 是一个框架扩展器切片，允许外部组件自定义或扩展调度逻辑。
 	extenders []framework.Extender,
+	// nextPod 是一个函数，用于从调度队列中获取下一个等待调度的 Pod。
 	nextPod func() *framework.QueuedPodInfo,
+	// Error 是一个回调函数，当调度过程中发生错误时被调用，用于处理错误。
 	Error func(*framework.QueuedPodInfo, error),
+	// stopEverything 是一个只读的 channel，当收到信号时，通知调度器停止所有运行中的操作。
 	stopEverything <-chan struct{},
+	// schedulingQueue 是一个内部调度队列，存放所有等待调度的 Pod。
 	schedulingQueue internalqueue.SchedulingQueue,
+	// profiles 包含了调度所需的多种配置文件（Profile），每个 Profile 定义了一组不同的调度插件。
 	profiles profile.Map,
+	// client 是一个 Kubernetes API 客户端接口，用于与 API Server 交互，例如绑定 Pod 到节点。
 	client clientset.Interface,
+	// nodeInfoSnapshot 是节点信息的快照，提供调度决策所需的一致性视图。
 	nodeInfoSnapshot *internalcache.Snapshot,
-	percentageOfNodesToScore int32) *Scheduler {
+	// percentageOfNodesToScore 是一个性能调优参数，指定在调度一个 Pod 时，最多对多少百分比的节点进行评分。
+	percentageOfNodesToScore int32,
+	// numBackupNodes 定义了需要保留历史记录的备用节点数量，用于回滚或恢复。
+	numBackupNodes int,
+	// backupUpdateStrategy 定义了如何更新和维护备用节点的历史记录。
+	backupUpdateStrategy nodehistory.UpdateStrategy,
+	// enableSecondaryReserve 控制是否启用二级预留功能，这可能影响资源预留的策略。
+	enableSecondaryReserve bool,
+) *Scheduler {
+	// 创建一个新的 Scheduler 实例，并用传入的参数初始化其字段。
 	sched := Scheduler{
 		Cache:                    cache,
 		Extenders:                extenders,
@@ -796,9 +862,14 @@ func newScheduler(
 		client:                   client,
 		nodeInfoSnapshot:         nodeInfoSnapshot,
 		percentageOfNodesToScore: percentageOfNodesToScore,
-		nodeHistoryManager:       nodehistory.NewNodeHistoryManager(),
+		// 初始化节点历史管理器，用于管理备用节点的历史记录。
+		nodeHistoryManager:       nodehistory.NewNodeHistoryManagerWithConfig(numBackupNodes, backupUpdateStrategy),
+		enableSecondaryReserve:   enableSecondaryReserve,
 	}
+	// 将调度器实例的方法 schedulePod 赋值给其 SchedulePod 字段，以便后续调用。
+	// 这通常是为了实现某种形式的动态调度逻辑或注入依赖。
 	sched.SchedulePod = sched.schedulePod
+	// 返回新创建并初始化完成的调度器指针。
 	return &sched
 }
 

@@ -363,71 +363,94 @@ func TestShouldReserveSecondaryNode(t *testing.T) {
 }
 
 // TestShouldReserveSecondaryNodeProbabilityDistribution 测试次优节点预留决策的概率分布
+// TestShouldReserveSecondaryNodeProbabilityDistribution 是对 shouldReserveSecondaryNode 方法的概率分布测试
+// 该测试通过大量迭代运行来验证次优节点预留决策是否符合预期的概率分布规律
 func TestShouldReserveSecondaryNodeProbabilityDistribution(t *testing.T) {
+	// 创建一个简化的 Scheduler 实例，用于调用被测试的方法
+	// 初始化时包含一个节点历史管理器，用于跟踪节点的调度历史
 	sched := &Scheduler{
 		nodeHistoryManager: nodehistory.NewNodeHistoryManager(),
 	}
 
+	// 创建一个测试用的 Pod 对象，用于模拟调度请求
 	pod := &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-pod",
-			Namespace: "default",
+			Name:      "test-pod",  // Pod 名称
+			Namespace: "default",   // Pod 所在命名空间
 		},
 	}
 
+	// 定义测试用例切片，每个用例包含不同的节点采纳概率和期望的概率范围
 	tests := []struct {
-		name             string
-		p1               float64 // 首选节点采纳概率
-		p2               float64 // 次优节点采纳概率
-		expectedProbLow  float64 // 预期概率下限
-		expectedProbHigh float64 // 预期概率上限
+		name             string   // 测试用例名称
+		p1               float64  // 首选节点的采纳概率
+		p2               float64  // 次优节点的采纳概率
+		expectedProbLow  float64  // 预期预留概率的下限（允许一定误差范围）
+		expectedProbHigh float64  // 预期预留概率的上限（允许一定误差范围）
 	}{
 		{
+			// 测试用例1: 首选节点概率80%，次优节点概率60%
 			name:             "p1=0.8, p2=0.6",
-			p1:               0.8,
-			p2:               0.6,
-			expectedProbLow:  0.08, // (1-0.8)*0.6 = 0.12, 允许误差
-			expectedProbHigh: 0.16,
+			p1:               0.8,  // 首选节点采纳概率80%
+			p2:               0.6,  // 次优节点采纳概率60%
+			// 理论计算: (1-0.8)*0.6 = 0.12 (首选节点不被采纳的概率 * 次优节点被采纳的概率)
+			expectedProbLow:  0.08, // 预期概率下限，考虑统计误差
+			expectedProbHigh: 0.16, // 预期概率上限，考虑统计误差
 		},
 		{
+			// 测试用例2: 首选节点概率50%，次优节点概率50%
 			name:             "p1=0.5, p2=0.5",
-			p1:               0.5,
-			p2:               0.5,
-			expectedProbLow:  0.20, // (1-0.5)*0.5 = 0.25, 允许误差
-			expectedProbHigh: 0.30,
+			p1:               0.5,  // 首选节点采纳概率50%
+			p2:               0.5,  // 次优节点采纳概率50%
+			// 理论计算: (1-0.5)*0.5 = 0.25
+			expectedProbLow:  0.20, // 预期概率下限
+			expectedProbHigh: 0.30, // 预期概率上限
 		},
 		{
+			// 测试用例3: 首选节点概率20%，次优节点概率80%
 			name:             "p1=0.2, p2=0.8",
-			p1:               0.2,
-			p2:               0.8,
-			expectedProbLow:  0.58, // (1-0.2)*0.8 = 0.64, 允许误差
-			expectedProbHigh: 0.70,
+			p1:               0.2,  // 首选节点采纳概率20%
+			p2:               0.8,  // 次优节点采纳概率80%
+			// 理论计算: (1-0.2)*0.8 = 0.64
+			expectedProbLow:  0.58, // 预期概率下限
+			expectedProbHigh: 0.70, // 预期概率上限
 		},
 	}
 
+	// 遍历所有测试用例
 	for _, tt := range tests {
+		// 为每个测试用例创建一个子测试，便于单独运行和调试
 		t.Run(tt.name, func(t *testing.T) {
+			// 根据当前测试用例的概率参数创建候选节点
 			candidateNodes := []CandidateNode{
-				{Name: "node1", Score: 100, AdoptionProbability: tt.p1},
-				{Name: "node2", Score: 90, AdoptionProbability: tt.p2},
+				{Name: "node1", Score: 100, AdoptionProbability: tt.p1}, // 首选节点
+				{Name: "node2", Score: 90, AdoptionProbability: tt.p2},  // 次优节点
 			}
 
-			// 运行多次测试
-			iterations := 10000
-			reserveCount := 0
+			// 运行多次测试以收集统计样本
+			iterations := 10000                    // 迭代次数，足够大以保证统计意义
+			reserveCount := 0                      // 记录次优节点被预留的次数
 
+			// 循环执行预留决策，统计预留发生的次数
 			for i := 0; i < iterations; i++ {
+				// 调用被测试的方法，判断是否应该预留次优节点
+				// nextNum 参数为1，表示当前选择第1个节点
 				if sched.shouldReserveSecondaryNode(1, candidateNodes, pod) {
-					reserveCount++
+					reserveCount++ // 如果返回true，增加计数
 				}
 			}
 
+			// 计算实际观察到的预留概率
 			actualProb := float64(reserveCount) / float64(iterations)
+			// 计算理论预期的预留概率：(1-p1)*p2
+			// 即：首选节点不被采纳的概率 * 次优节点被采纳的概率
 			expectedProb := (1.0 - tt.p1) * tt.p2
 
+			// 输出统计结果，便于分析实际概率与期望概率的对比
 			t.Logf("Test %s: reserveCount=%d, actualProb=%.4f, expectedProb=%.4f",
 				tt.name, reserveCount, actualProb, expectedProb)
 
+			// 检查实际概率是否在期望的误差范围内
 			if actualProb < tt.expectedProbLow || actualProb > tt.expectedProbHigh {
 				t.Errorf("shouldReserveSecondaryNode() probability = %.4f, want between %.4f and %.4f (expected: %.4f)",
 					actualProb, tt.expectedProbLow, tt.expectedProbHigh, expectedProb)
@@ -556,51 +579,60 @@ func TestCandidateNodeWithAdoptionProbability(t *testing.T) {
 }
 
 // TestDualReserveScenario 测试双重预留场景
+// 该测试验证在首选节点采纳概率低而次优节点采纳概率高的情况下，次优节点预留的决策是否符合预期概率
 func TestDualReserveScenario(t *testing.T) {
+	// 创建一个简化的 Scheduler 实例，用于调用被测试的方法
+	// 初始化时包含一个节点历史管理器，用于跟踪节点的调度历史
 	sched := &Scheduler{
 		nodeHistoryManager: nodehistory.NewNodeHistoryManager(),
 	}
 
+	// 创建一个测试用的 Pod 对象，用于模拟调度请求
 	pod := &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-pod",
-			Namespace: "default",
+			Name:      "test-pod",  // Pod 名称
+			Namespace: "default",   // Pod 所在命名空间
 		},
 	}
 
 	// 模拟场景：首选节点采纳概率低，次优节点采纳概率高
 	// 这种情况下，应该有较高概率为次优节点预留
 	candidateNodes := []CandidateNode{
-		{Name: "node1", Score: 100, AdoptionProbability: 0.3}, // 低采纳概率
-		{Name: "node2", Score: 90, AdoptionProbability: 0.9},  // 高采纳概率
+		{Name: "node1", Score: 100, AdoptionProbability: 0.3}, // 首选节点，分数100，采纳概率30%（较低）
+		{Name: "node2", Score: 90, AdoptionProbability: 0.9},  // 次优节点，分数90，采纳概率90%（较高）
 	}
 
-	// 运行多次测试
-	iterations := 10000
-	reserveCount := 0
+	// 运行多次测试以收集统计样本
+	iterations := 10000                    // 迭代次数，足够大以保证统计意义
+	reserveCount := 0                      // 记录次优节点被预留的次数
 
+	// 循环执行预留决策，统计预留发生的次数
 	for i := 0; i < iterations; i++ {
+		// 调用被测试的方法，判断是否应该预留次优节点
+		// nextNum 参数为1，表示当前选择第1个节点（首选节点）
 		if sched.shouldReserveSecondaryNode(1, candidateNodes, pod) {
-			reserveCount++
+			reserveCount++ // 如果返回true，增加计数
 		}
 	}
 
-	// 预期概率: (1-0.3)*0.9 = 0.63
-	actualProb := float64(reserveCount) / float64(iterations)
-	expectedProb := 0.63
+	// 计算理论预期的预留概率：(1-0.3)*0.9 = 0.63
+	// 即：首选节点不被采纳的概率 * 次优节点被采纳的概率
+	actualProb := float64(reserveCount) / float64(iterations) // 计算实际观察到的预留概率
+	expectedProb := 0.63                                      // 理论预期概率
 
+	// 输出详细的测试结果和统计信息
 	t.Logf("Dual reserve scenario:")
-	t.Logf("  Primary node (node1): adoptionProb=0.3")
-	t.Logf("  Secondary node (node2): adoptionProb=0.9")
-	t.Logf("  Expected reserve probability: %.4f", expectedProb)
-	t.Logf("  Actual reserve probability: %.4f (from %d iterations)", actualProb, iterations)
-	t.Logf("  Reserve count: %d", reserveCount)
+	t.Logf("  Primary node (node1): adoptionProb=0.3")        // 输出首选节点信息
+	t.Logf("  Secondary node (node2): adoptionProb=0.9")      // 输出次优节点信息
+	t.Logf("  Expected reserve probability: %.4f", expectedProb) // 输出预期概率
+	t.Logf("  Actual reserve probability: %.4f (from %d iterations)", actualProb, iterations) // 输出实际概率和迭代次数
+	t.Logf("  Reserve count: %d", reserveCount)               // 输出预留次数
 
-	// 允许 5% 的误差
-	tolerance := 0.05
-	if math.Abs(actualProb-expectedProb) > tolerance {
+	// 允许 5% 的误差，验证实际概率是否接近理论预期
+	tolerance := 0.05                                         // 容忍的误差范围为5%
+	if math.Abs(actualProb-expectedProb) > tolerance {        // 如果实际概率与预期概率的差值超过容忍范围
 		t.Errorf("shouldReserveSecondaryNode() probability = %.4f, want approximately %.4f (tolerance: %.2f)",
-			actualProb, expectedProb, tolerance)
+			actualProb, expectedProb, tolerance)              // 报告错误
 	}
 }
 
