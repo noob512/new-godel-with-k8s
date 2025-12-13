@@ -38,6 +38,46 @@ const (
 	UpdateStrategyProbabilitySlot UpdateStrategy = "p-slot"
 )
 
+// SyncMode 定义同步模式
+type SyncMode string
+
+const (
+	// SyncModeGlobal 全局同步：每次同步整个集群状态
+	SyncModeGlobal SyncMode = "globSync"
+	// SyncModeSame 相同分区同步：所有调度器同步相同分区
+	SyncModeSame SyncMode = "sameSync"
+	// SyncModeDiff 差异分区同步：不同调度器同步不同分区（轮流）
+	SyncModeDiff SyncMode = "diffSync"
+)
+
+// ScheduleStrategy 定义调度策略
+type ScheduleStrategy string
+
+const (
+	// ScheduleStrategyQuality 质量优先：从所有节点中选择得分最高的节点
+	ScheduleStrategyQuality ScheduleStrategy = "quality"
+	// ScheduleStrategyLatency 延迟优先：优先从最新鲜的分区选择节点
+	ScheduleStrategyLatency ScheduleStrategy = "latency"
+)
+
+// PartitionInfo 记录分区的同步信息
+type PartitionInfo struct {
+	// PartitionID 分区 ID
+	PartitionID int
+	// LastSyncTime 最后同步时间
+	LastSyncTime time.Time
+	// NodeNames 属于该分区的节点名称列表
+	NodeNames []string
+}
+
+// PartitionStaleness 分区新鲜度信息
+type PartitionStaleness struct {
+	// PartitionID 分区 ID
+	PartitionID int
+	// Staleness 陈旧度（秒）
+	Staleness float64
+}
+
 // AcceptanceFrequency 记录各级候选节点的接收频率
 // 索引 0 表示首选节点接收次数
 // 索引 1-N 表示第 1-N 个备选节点接收次数
@@ -76,6 +116,24 @@ type NodeHistoryManager struct {
 	numBackup int
 	// updateStrategy 本地状态更新策略
 	updateStrategy UpdateStrategy
+
+	// ========== 分区同步相关字段 ==========
+	// syncMode 同步模式（globSync, sameSync, diffSync）
+	syncMode SyncMode
+	// scheduleStrategy 调度策略（quality, latency）
+	scheduleStrategy ScheduleStrategy
+	// numPartitions 分区数量
+	numPartitions int
+	// currentPartitionIndex 当前同步的分区索引（用于 diffSync 模式）
+	currentPartitionIndex int
+	// schedulerIndex 调度器索引（用于 diffSync 模式，不同调度器从不同分区开始）
+	schedulerIndex int
+	// partitionSyncTimes 每个分区的最后同步时间
+	partitionSyncTimes []time.Time
+	// nodeToPartition 节点到分区的映射
+	nodeToPartition map[string]int
+	// partitionMu 保护分区相关字段的并发访问
+	partitionMu sync.RWMutex
 }
 
 // NewNodeHistoryManager 创建一个新的节点历史管理器
@@ -87,16 +145,54 @@ func NewNodeHistoryManager() *NodeHistoryManager {
 // numBackup: 备选节点数量
 // updateStrategy: 本地状态更新策略
 func NewNodeHistoryManagerWithConfig(numBackup int, updateStrategy UpdateStrategy) *NodeHistoryManager {
+	return NewNodeHistoryManagerFull(numBackup, updateStrategy, SyncModeGlobal, ScheduleStrategyQuality, 1, 0)
+}
+
+// NewNodeHistoryManagerFull 创建一个完整配置的节点历史管理器
+// numBackup: 备选节点数量
+// updateStrategy: 本地状态更新策略
+// syncMode: 同步模式
+// scheduleStrategy: 调度策略
+// numPartitions: 分区数量
+// schedulerIndex: 调度器索引（用于 diffSync 模式）
+func NewNodeHistoryManagerFull(
+	numBackup int,           // 备选节点数量
+	updateStrategy UpdateStrategy, // 本地状态更新策略
+	syncMode SyncMode,       // 同步模式
+	scheduleStrategy ScheduleStrategy, // 调度策略
+	numPartitions int,       // 分区数量
+	schedulerIndex int,      // 调度器索引（用于 diffSync 模式）
+) *NodeHistoryManager {
 	// 接收频率数组长度 = 1(首选) + numBackup(备选) + 1(全部拒绝)
 	freqSize := numBackup + 2
+
+	// 确保分区数量至少为 1
+	if numPartitions < 1 {
+		numPartitions = 1
+	}
+
+	// 初始化分区同步时间
+	partitionSyncTimes := make([]time.Time, numPartitions)
+	now := time.Now()
+	for i := range partitionSyncTimes {
+		partitionSyncTimes[i] = now
+	}
+
 	return &NodeHistoryManager{
-		nodeStats: make(map[string]*NodeStats),
-		clock:     time.Now,
-		acceptFreq: &AcceptanceFrequency{
-			Frequencies: make([]int64, freqSize),
+		nodeStats: make(map[string]*NodeStats), // 节点统计信息映射表
+		clock:     time.Now,                   // 当前时间函数
+		acceptFreq: &AcceptanceFrequency{      // 接收频率统计
+			Frequencies: make([]int64, freqSize), // 频率数组，大小为备选节点数+2
 		},
-		numBackup:      numBackup,
-		updateStrategy: updateStrategy,
+		numBackup:             numBackup,             // 备选节点数量
+		updateStrategy:        updateStrategy,        // 本地状态更新策略
+		syncMode:              syncMode,              // 同步模式
+		scheduleStrategy:      scheduleStrategy,      // 调度策略
+		numPartitions:         numPartitions,         // 分区数量
+		currentPartitionIndex: schedulerIndex % numPartitions, // 当前分区索引，通过调度器索引取模得到
+		schedulerIndex:        schedulerIndex,        // 调度器索引
+		partitionSyncTimes:    partitionSyncTimes,    // 分区同步时间数组
+		nodeToPartition:       make(map[string]int),  // 节点到分区的映射表
 	}
 }
 
@@ -460,6 +556,9 @@ func (m *NodeHistoryManager) GetStatsSummary() map[string]interface{} {
 	summary["numBackup"] = m.numBackup
 	summary["updateStrategy"] = string(m.updateStrategy)
 	summary["totalAttempts"] = m.GetTotalAttempts()
+	summary["syncMode"] = string(m.syncMode)
+	summary["scheduleStrategy"] = string(m.scheduleStrategy)
+	summary["numPartitions"] = m.numPartitions
 
 	if m.acceptFreq != nil {
 		summary["acceptFrequencies"] = m.GetAcceptFrequencyCopy()
@@ -470,4 +569,313 @@ func (m *NodeHistoryManager) GetStatsSummary() map[string]interface{} {
 	m.mu.RUnlock()
 
 	return summary
+}
+
+// ========== 分区同步相关方法 ==========
+
+// AssignNodeToPartition 将节点分配到分区
+// 使用节点名称的哈希值来确定分区，确保相同的节点总是分配到相同的分区
+// AssignNodeToPartition 将指定节点分配到一个分区
+// 如果节点已存在分配关系，则直接返回现有分区ID；否则根据节点名计算并分配新的分区ID
+func (m *NodeHistoryManager) AssignNodeToPartition(nodeName string) int {
+	// 加锁以保证并发安全，防止多个goroutine同时修改共享数据
+	m.partitionMu.Lock()
+	defer m.partitionMu.Unlock()
+
+	// 检查该节点是否已经被分配过分区
+	// 如果存在分配记录，则直接返回已分配的分区ID，确保一致性
+	if partitionID, exists := m.nodeToPartition[nodeName]; exists {
+		return partitionID
+	}
+
+	// 使用简单的哈希函数将节点名称映射到分区ID
+	// 通过累加节点名称中每个字符的ASCII值来计算哈希
+	var hash int
+	for _, c := range nodeName { // 遍历节点名称中的每一个字符
+		hash += int(c) // 将字符转换为其对应的整数值（ASCII码），并累加到hash
+	}
+	// 使用模运算将哈希值映射到有效的分区范围内 [0, numPartitions-1]
+	// 这确保了无论哈希值多大，最终的分区ID都在合法区间内
+	partitionID := hash % m.numPartitions
+
+	// 将节点名称与其计算出的分区ID建立映射关系并存储
+	m.nodeToPartition[nodeName] = partitionID
+	
+	// 记录节点分配到分区的日志信息，便于调试和监控
+	klog.V(5).InfoS("Assigned node to partition",
+		"node", nodeName,           // 被分配的节点名称
+		"partition", partitionID,   // 分配给该节点的分区ID
+		"numPartitions", m.numPartitions) // 总分区数量
+
+	// 返回分配的分区ID
+	return partitionID
+}
+
+// GetNodePartition 获取节点所属的分区
+func (m *NodeHistoryManager) GetNodePartition(nodeName string) int {
+	m.partitionMu.RLock()
+	if partitionID, exists := m.nodeToPartition[nodeName]; exists {
+		m.partitionMu.RUnlock()
+		return partitionID
+	}
+	m.partitionMu.RUnlock()
+
+	// 如果节点还没有分配分区，则分配一个
+	return m.AssignNodeToPartition(nodeName)
+}
+
+// SyncPartition 同步指定分区的节点信息
+// 在 diffSync 模式下，每次调用会轮换到下一个分区
+func (m *NodeHistoryManager) SyncPartition() {
+	// 使用互斥锁保护共享资源，确保并发安全
+	m.partitionMu.Lock()
+	defer m.partitionMu.Unlock()
+
+	// 获取当前时间戳，用于记录同步时间
+	now := m.clock()
+
+	// 根据不同的同步模式执行相应的同步逻辑
+	switch m.syncMode {
+	case SyncModeGlobal:
+		// 全局同步模式：所有分区同时被同步
+		// 遍历所有分区，将它们的同步时间都更新为当前时间
+		for i := range m.partitionSyncTimes {
+			m.partitionSyncTimes[i] = now // 更新第i个分区的最后同步时间
+		}
+		// 记录全局同步完成的日志，包含分区数量信息
+		klog.V(5).InfoS("Global sync completed",
+			"numPartitions", m.numPartitions) // 输出总分区数
+
+	case SyncModeSame:
+		// 相同分区同步模式：所有调度器同步同一个分区
+		// 只更新当前选定分区的同步时间
+		if m.currentPartitionIndex < len(m.partitionSyncTimes) {
+			// 确保索引不越界后，更新当前分区的同步时间
+			m.partitionSyncTimes[m.currentPartitionIndex] = now
+		}
+		// 轮换到下一个分区：采用模运算实现循环轮转
+		// 例如：如果有3个分区(0,1,2)，当前是2，则下一个是(2+1)%3=0
+		m.currentPartitionIndex = (m.currentPartitionIndex + 1) % m.numPartitions
+		// 记录相同分区同步完成的日志
+		// 计算实际同步的分区索引（即轮换前的索引）
+		// 使用 (current-1+N)%N 防止负数结果，确保得到前一个有效索引
+		klog.V(5).InfoS("Same partition sync completed",
+			"syncedPartition", (m.currentPartitionIndex-1+m.numPartitions)%m.numPartitions, // 刚刚同步的分区
+			"nextPartition", m.currentPartitionIndex)                                     // 下一个待同步的分区
+
+	case SyncModeDiff:
+		// 差异分区同步模式：不同调度器同步不同分区
+		// 每个调度器负责不同的分区，实现负载分散
+		if m.currentPartitionIndex < len(m.partitionSyncTimes) {
+			// 确保索引不越界后，更新当前分区的同步时间
+			m.partitionSyncTimes[m.currentPartitionIndex] = now
+		}
+		// 记录差异分区同步完成的日志，包含调度器索引和同步的分区
+		klog.V(5).InfoS("Diff partition sync completed",
+			"schedulerIndex", m.schedulerIndex,        // 当前调度器的唯一标识
+			"syncedPartition", m.currentPartitionIndex) // 当前调度器刚刚同步的分区
+		// 轮换到下一个分区：同样采用模运算实现循环轮转
+		// 这样可以确保调度器能依次处理所有分区
+		m.currentPartitionIndex = (m.currentPartitionIndex + 1) % m.numPartitions
+	}
+}
+
+// GetPartitionStaleness 获取所有分区的新鲜度（按新鲜度从小到大排序）
+// 返回值: 分区新鲜度列表，staleness 越小表示越新鲜
+// GetPartitionStaleness 获取所有分区的新鲜度信息，并按新鲜度排序
+// 返回一个按新鲜度升序排列的分区新鲜度数组（staleness越小表示越新鲜）
+func (m *NodeHistoryManager) GetPartitionStaleness() []PartitionStaleness {
+	// 使用读锁，因为只需要读取数据而不需要修改，允许并发读取
+	m.partitionMu.RLock()
+	defer m.partitionMu.RUnlock()
+
+	// 获取当前时间戳，用于计算各分区的陈旧程度
+	now := m.clock()
+	// 创建一个长度为分区总数的数组，用于存储每个分区的新鲜度信息
+	staleness := make([]PartitionStaleness, m.numPartitions)
+
+	// 遍历所有分区，计算每个分区的陈旧程度（从上次同步到现在的时间间隔）
+	for i := 0; i < m.numPartitions; i++ {
+		// 计算当前时间与该分区最后同步时间的差值，转换为秒
+		// Sub方法返回一个time.Duration类型，Seconds()将其转换为浮点秒数
+		stale := now.Sub(m.partitionSyncTimes[i]).Seconds()
+		
+		// 构造分区新鲜度信息结构体
+		staleness[i] = PartitionStaleness{
+			PartitionID: i,      // 分区ID
+			Staleness:   stale,  // 陈旧程度（秒）
+		}
+	}
+
+	// 按新鲜度排序：使用冒泡排序算法，将staleness越小（越新鲜）的元素排在前面
+	// 外层循环控制排序趟数，最多需要n-1趟
+	for i := 0; i < len(staleness)-1; i++ {
+		// 内层循环进行相邻元素比较和交换
+		for j := i + 1; j < len(staleness); j++ {
+			// 如果前面元素的陈旧程度大于后面元素，则交换位置
+			// 这样确保较小的staleness（更新鲜）排在前面
+			if staleness[i].Staleness > staleness[j].Staleness {
+				// 交换两个PartitionStaleness结构体
+				staleness[i], staleness[j] = staleness[j], staleness[i]
+			}
+		}
+	}
+
+	// 返回按新鲜度排序后的分区新鲜度数组
+	// 排序后，数组第一个元素是最新鲜的分区，最后一个是最陈旧的分区
+	return staleness
+}
+
+// GetNodeStaleness 获取节点的新鲜度（基于其所属分区的同步时间）
+func (m *NodeHistoryManager) GetNodePartitionStaleness(nodeName string) float64 {
+	partitionID := m.GetNodePartition(nodeName)
+
+	m.partitionMu.RLock()
+	defer m.partitionMu.RUnlock()
+
+	if partitionID >= 0 && partitionID < len(m.partitionSyncTimes) {
+		now := m.clock()
+		return now.Sub(m.partitionSyncTimes[partitionID]).Seconds()
+	}
+
+	return 0.0
+}
+
+// SortNodesByPartitionFreshness 根据分区新鲜度对节点进行排序
+// nodes: 节点名称列表
+// 返回值: 按分区新鲜度排序后的节点列表（最新鲜的分区中的节点排在前面）
+func (m *NodeHistoryManager) SortNodesByPartitionFreshness(nodes []string) []string {
+	if len(nodes) == 0 || m.scheduleStrategy != ScheduleStrategyLatency {
+		return nodes
+	}
+
+	// 获取分区新鲜度
+	partitionStaleness := m.GetPartitionStaleness()
+
+	// 创建分区 ID 到排序位置的映射
+	partitionOrder := make(map[int]int)
+	for order, ps := range partitionStaleness {
+		partitionOrder[ps.PartitionID] = order
+	}
+
+	// 按分区新鲜度对节点排序
+	type nodeWithOrder struct {
+		name  string
+		order int
+	}
+	nodesWithOrder := make([]nodeWithOrder, len(nodes))
+	for i, nodeName := range nodes {
+		partitionID := m.GetNodePartition(nodeName)
+		order, exists := partitionOrder[partitionID]
+		if !exists {
+			order = m.numPartitions // 未知分区排在最后
+		}
+		nodesWithOrder[i] = nodeWithOrder{name: nodeName, order: order}
+	}
+
+	// 排序
+	for i := 0; i < len(nodesWithOrder)-1; i++ {
+		for j := i + 1; j < len(nodesWithOrder); j++ {
+			if nodesWithOrder[i].order > nodesWithOrder[j].order {
+				nodesWithOrder[i], nodesWithOrder[j] = nodesWithOrder[j], nodesWithOrder[i]
+			}
+		}
+	}
+
+	// 提取排序后的节点名称
+	sortedNodes := make([]string, len(nodes))
+	for i, nwo := range nodesWithOrder {
+		sortedNodes[i] = nwo.name
+	}
+
+	klog.V(5).InfoS("Sorted nodes by partition freshness",
+		"numNodes", len(nodes),
+		"scheduleStrategy", m.scheduleStrategy)
+
+	return sortedNodes
+}
+
+// GetSyncMode 获取同步模式
+func (m *NodeHistoryManager) GetSyncMode() SyncMode {
+	return m.syncMode
+}
+
+// SetSyncMode 设置同步模式
+func (m *NodeHistoryManager) SetSyncMode(mode SyncMode) {
+	m.syncMode = mode
+}
+
+// GetScheduleStrategy 获取调度策略
+func (m *NodeHistoryManager) GetScheduleStrategy() ScheduleStrategy {
+	return m.scheduleStrategy
+}
+
+// SetScheduleStrategy 设置调度策略
+func (m *NodeHistoryManager) SetScheduleStrategy(strategy ScheduleStrategy) {
+	m.scheduleStrategy = strategy
+}
+
+// GetNumPartitions 获取分区数量
+func (m *NodeHistoryManager) GetNumPartitions() int {
+	return m.numPartitions
+}
+
+// SetNumPartitions 设置分区数量
+// 注意：这会重置分区同步时间和节点分区映射
+func (m *NodeHistoryManager) SetNumPartitions(numPartitions int) {
+	if numPartitions < 1 {
+		numPartitions = 1
+	}
+
+	m.partitionMu.Lock()
+	defer m.partitionMu.Unlock()
+
+	m.numPartitions = numPartitions
+
+	// 重新初始化分区同步时间
+	now := m.clock()
+	m.partitionSyncTimes = make([]time.Time, numPartitions)
+	for i := range m.partitionSyncTimes {
+		m.partitionSyncTimes[i] = now
+	}
+
+	// 清空节点分区映射，让节点重新分配
+	m.nodeToPartition = make(map[string]int)
+
+	// 重置当前分区索引
+	m.currentPartitionIndex = m.schedulerIndex % numPartitions
+
+	klog.V(4).InfoS("Reset partitions",
+		"numPartitions", numPartitions,
+		"schedulerIndex", m.schedulerIndex)
+}
+
+// GetSchedulerIndex 获取调度器索引
+func (m *NodeHistoryManager) GetSchedulerIndex() int {
+	return m.schedulerIndex
+}
+
+// SetSchedulerIndex 设置调度器索引
+func (m *NodeHistoryManager) SetSchedulerIndex(index int) {
+	m.partitionMu.Lock()
+	defer m.partitionMu.Unlock()
+
+	m.schedulerIndex = index
+	// 在 diffSync 模式下，不同调度器从不同分区开始
+	m.currentPartitionIndex = index % m.numPartitions
+}
+
+// GetPartitionSyncTimes 获取所有分区的同步时间（用于调试）
+func (m *NodeHistoryManager) GetPartitionSyncTimes() []time.Time {
+	m.partitionMu.RLock()
+	defer m.partitionMu.RUnlock()
+
+	times := make([]time.Time, len(m.partitionSyncTimes))
+	copy(times, m.partitionSyncTimes)
+	return times
+}
+
+// IsLatencyFirst 返回是否使用延迟优先策略
+func (m *NodeHistoryManager) IsLatencyFirst() bool {
+	return m.scheduleStrategy == ScheduleStrategyLatency
 }

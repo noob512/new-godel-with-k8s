@@ -762,6 +762,11 @@ func (sched *Scheduler) schedulePod(ctx context.Context, fwk framework.Framework
 	trace := utiltrace.New("Scheduling", utiltrace.Field{Key: "namespace", Value: pod.Namespace}, utiltrace.Field{Key: "name", Value: pod.Name})
 	defer trace.LogIfLong(100 * time.Millisecond)
 
+	// --- 分区同步 ---
+	// 在每次调度周期开始时触发分区同步
+	// 根据 syncMode 的不同，会更新不同分区的同步时间
+	sched.nodeHistoryManager.SyncPartition()
+
 	// 更新调度器缓存快照，确保节点信息是最新的
 	if err := sched.Cache.UpdateSnapshot(sched.nodeInfoSnapshot); err != nil {
 		return result, err
@@ -804,12 +809,33 @@ func (sched *Scheduler) schedulePod(ctx context.Context, fwk framework.Framework
 		return result, err
 	}
 
+	// --- 延迟优先调度策略 ---
+	// 如果使用 latency-first 策略，需要为每个节点分配分区，并考虑分区新鲜度
+	if sched.nodeHistoryManager.IsLatencyFirst() {
+		// 为所有可行节点分配分区
+		for _, node := range feasibleNodes {
+			sched.nodeHistoryManager.AssignNodeToPartition(node.Name)
+		}
+
+		// 获取分区新鲜度，用于后续排序
+		partitionStaleness := sched.nodeHistoryManager.GetPartitionStaleness()
+		klog.V(5).InfoS("Partition staleness for latency-first scheduling",
+			"pod", klog.KObj(pod),
+			"partitions", partitionStaleness)
+	}
+
 	// 选择多个候选节点（使用配置的备选节点数量）
 	// 总候选节点数 = 1(首选) + numBackup(备选)
 	maxCandidates := sched.nodeHistoryManager.GetNumBackup() + 1
 	candidateNodes, err := selectCandidateNodes(priorityList, maxCandidates)
 	if err != nil {
 		return result, err
+	}
+
+	// --- 延迟优先策略排序 ---
+	// 如果使用 latency-first 策略，按分区新鲜度重新排序候选节点
+	if sched.nodeHistoryManager.IsLatencyFirst() && len(candidateNodes) > 1 {
+		candidateNodes = sched.sortCandidatesByPartitionFreshness(candidateNodes, pod)
 	}
 
 	// 计算每个候选节点的采纳概率
@@ -820,15 +846,6 @@ func (sched *Scheduler) schedulePod(ctx context.Context, fwk framework.Framework
 			candidateNodes[i].Score, // 节点评分
 		)
 	}
-
-	// 根据累积概率选择主节点和备选节点
-	// 逻辑：
-	// - 第一个节点的采纳率为 p1，有 p1 的概率直接 reserve 第一个节点
-	// - 如果第一个节点没有被选中，第二个节点的采纳率为 p2，有 (1-p1)*p2 的概率 reserve 第二个节点
-	// - 如果前两个都没被选中，第三个节点的采纳率为 p3，有 (1-p1)*(1-p2)*p3 的概率 reserve 第三个节点
-	// - 总共会选取三个备选节点（包括主节点）
-	// const maxSelectedCandidates = 3
-	// selectedCandidates := sched.selectNodesByCumulativeProbability(candidateNodes, maxSelectedCandidates, pod)
 
 	// 确定主节点（第一个被选中的节点）
 	selectedHost := candidateNodes[0].Name
@@ -1983,4 +2000,100 @@ func (sched *Scheduler) reexecutePermitForCandidate(
 		"pod", klog.KObj(pod),
 		"node", nodeName)
 	return nil, false
+}
+
+// sortCandidatesByPartitionFreshness 根据分区新鲜度对候选节点进行排序
+// 在保持原有得分排序的基础上，优先选择来自更新鲜分区的节点
+// 使用加权方式：最终排序 = 原始排名 + 分区新鲜度惩罚
+// 分区新鲜度惩罚 = 分区新鲜度排名 * 权重因子
+// sortCandidatesByPartitionFreshness 根据分区新鲜度对候选节点进行排序
+// 优先选择来自更新鲜分区的节点，同时考虑原始评分顺序
+func (sched *Scheduler) sortCandidatesByPartitionFreshness(
+	candidateNodes []CandidateNode, // 待排序的候选节点列表
+	pod *v1.Pod,                    // 正在调度的目标Pod
+) []CandidateNode {
+	// 如果候选节点数量小于等于1，则无需排序，直接返回原数组
+	if len(candidateNodes) <= 1 {
+		return candidateNodes
+	}
+
+	// 获取所有分区的新鲜度信息（已按新鲜度升序排列，最前面的是最陈旧的？不对，看上个函数注释是越小越新鲜）
+	// 应该是按新鲜度升序排列，即staleness最小（最新鲜）的分区排在最前面
+	partitionStaleness := sched.nodeHistoryManager.GetPartitionStaleness()
+
+	// 创建分区ID到新鲜度排名的映射表
+	// 排名越小表示越新鲜（staleness越小），即排名0对应最陈旧的分区？不对，应该是最陈旧的分区排名最大
+	// 实际上GetPartitionStaleness返回的是按staleness升序排列的，所以rank 0对应staleness最小（最新鲜）的分区
+	// 所以这里的rank 0实际上对应最新鲜的分区
+	partitionRank := make(map[int]int)
+	for rank, ps := range partitionStaleness {
+		partitionRank[ps.PartitionID] = rank // rank 0是最陈旧的还是最新鲜的？看上个函数注释：staleness越小越新鲜
+		// GetPartitionStaleness是按staleness升序排序的，所以rank 0对应staleness最小的分区，即最新鲜的分区
+		// 所以这里rank 0确实对应最新鲜的分区
+	}
+
+	// 定义排序辅助结构体，用于存储候选节点及其相关排序信息
+	type candidateWithRank struct {
+		candidate     CandidateNode // 原始候选节点
+		originalIndex int          // 在原始数组中的索引位置
+		partitionRank int          // 所属分区的新鲜度排名（越小越新鲜）
+		combinedScore float64      // 组合分数，用于排序决策
+	}
+
+	// 计算每个候选节点的组合分数，综合考虑原始位置和分区新鲜度
+	rankedCandidates := make([]candidateWithRank, len(candidateNodes))
+	for i, candidate := range candidateNodes {
+		// 获取当前候选节点所属的分区ID
+		partitionID := sched.nodeHistoryManager.GetNodePartition(candidate.Name)
+		
+		// 查找该分区的新鲜度排名
+		pRank, exists := partitionRank[partitionID]
+		if !exists {
+			// 如果节点所在分区不在当前分区列表中（可能是新节点或分区变更）
+			// 将其排名设为分区总数，使其排在最后面
+			pRank = len(partitionStaleness)
+		}
+
+		// 计算组合分数：原始索引 + 分区排名 * 权重因子
+		// 这种设计平衡了两个因素：
+		// 1. originalIndex: 保持原有的节点评分顺序
+		// 2. partitionRank * weightFactor: 分区新鲜度的影响
+		// 权重因子决定了分区新鲜度相对于原始得分的影响程度
+		// 这里使用 0.5 作为权重因子，使得分区新鲜度有一定影响但不会完全覆盖原始得分
+		weightFactor := 0.5
+		combinedScore := float64(i) + float64(pRank)*weightFactor
+
+		// 存储候选节点及其排序相关信息
+		rankedCandidates[i] = candidateWithRank{
+			candidate:     candidate,
+			originalIndex: i,
+			partitionRank: pRank,
+			combinedScore: combinedScore,
+		}
+	}
+
+	// 使用冒泡排序按组合分数升序排序（分数越小的节点越靠前）
+	// 这确保了来自更新鲜分区且原始评分较高的节点优先级更高
+	for i := 0; i < len(rankedCandidates)-1; i++ {
+		for j := i + 1; j < len(rankedCandidates); j++ {
+			// 如果前面元素的组合分数大于后面元素，则交换位置
+			if rankedCandidates[i].combinedScore > rankedCandidates[j].combinedScore {
+				rankedCandidates[i], rankedCandidates[j] = rankedCandidates[j], rankedCandidates[i]
+			}
+		}
+	}
+
+	// 从排序后的辅助结构体数组中提取候选节点，构造最终结果
+	sortedCandidates := make([]CandidateNode, len(candidateNodes))
+	for i, rc := range rankedCandidates {
+		sortedCandidates[i] = rc.candidate
+	}
+
+	// 记录排序操作的日志，便于调试和监控
+	klog.V(4).InfoS("Sorted candidates by partition freshness",
+		"pod", klog.KObj(pod),         // 正在调度的Pod信息
+		"numCandidates", len(candidateNodes), // 候选节点数量
+		"scheduleStrategy", "latency-first")  // 使用的调度策略
+
+	return sortedCandidates
 }

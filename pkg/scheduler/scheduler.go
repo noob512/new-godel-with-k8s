@@ -388,6 +388,16 @@ type schedulerOptions struct {
 	backupUpdateStrategy nodehistory.UpdateStrategy
 	// enableSecondaryReserve 是否启用次优节点概率预留（默认为 true）
 	enableSecondaryReserve bool
+
+	// 分区同步配置选项
+	// syncMode 同步模式（globSync, sameSync, diffSync）
+	syncMode nodehistory.SyncMode
+	// scheduleStrategy 调度策略（quality, latency）
+	scheduleStrategy nodehistory.ScheduleStrategy
+	// numPartitions 分区数量（默认为 1，即不分区）
+	numPartitions int
+	// schedulerIndex 调度器索引（用于 diffSync 模式，不同调度器从不同分区开始）
+	schedulerIndex int
 }
 
 // Option configures a Scheduler
@@ -517,9 +527,14 @@ var defaultSchedulerOptions = schedulerOptions{
 	// invoked.
 	applyDefaultProfile: true,
 	// 备选调度配置默认值
-	numBackupNodes:         3,                                   // 默认保留 3 个备选节点
+	numBackupNodes:         3,                                     // 默认保留 3 个备选节点
 	backupUpdateStrategy:   nodehistory.UpdateStrategyProbability, // 默认使用概率更新策略
-	enableSecondaryReserve: true,                                // 默认启用次优节点预留
+	enableSecondaryReserve: true,                                  // 默认启用次优节点预留
+	// 分区同步配置默认值
+	syncMode:         nodehistory.SyncModeGlobal,        // 默认使用全局同步
+	scheduleStrategy: nodehistory.ScheduleStrategyQuality, // 默认使用质量优先策略
+	numPartitions:    1,                                 // 默认不分区
+	schedulerIndex:   0,                                 // 默认调度器索引为 0
 }
 
 // WithNumBackupNodes sets the number of backup nodes to keep for scheduling.
@@ -547,6 +562,44 @@ func WithBackupUpdateStrategy(strategy nodehistory.UpdateStrategy) Option {
 func WithEnableSecondaryReserve(enable bool) Option {
 	return func(o *schedulerOptions) {
 		o.enableSecondaryReserve = enable
+	}
+}
+
+// WithSyncMode sets the synchronization mode for node state.
+// Options are: "globSync" (global sync), "sameSync" (same partition sync), "diffSync" (different partition sync).
+// Default is "globSync".
+func WithSyncMode(mode nodehistory.SyncMode) Option {
+	return func(o *schedulerOptions) {
+		o.syncMode = mode
+	}
+}
+
+// WithScheduleStrategy sets the scheduling strategy.
+// Options are: "quality" (quality-first), "latency" (latency-first).
+// Default is "quality".
+func WithScheduleStrategy(strategy nodehistory.ScheduleStrategy) Option {
+	return func(o *schedulerOptions) {
+		o.scheduleStrategy = strategy
+	}
+}
+
+// WithNumPartitions sets the number of partitions for node state synchronization.
+// Only effective when syncMode is "sameSync" or "diffSync".
+// Default is 1 (no partitioning).
+func WithNumPartitions(n int) Option {
+	return func(o *schedulerOptions) {
+		if n > 0 {
+			o.numPartitions = n
+		}
+	}
+}
+
+// WithSchedulerIndex sets the scheduler index for diffSync mode.
+// Different schedulers should have different indices to sync different partitions.
+// Default is 0.
+func WithSchedulerIndex(index int) Option {
+	return func(o *schedulerOptions) {
+		o.schedulerIndex = index
 	}
 }
 
@@ -671,6 +724,10 @@ func New(
 		options.numBackupNodes,
 		options.backupUpdateStrategy,
 		options.enableSecondaryReserve,
+		options.syncMode,
+		options.scheduleStrategy,
+		options.numPartitions,
+		options.schedulerIndex,
 	)
 		//---------------------------------------
 		//为调度器添加一些额外的属性
@@ -849,6 +906,14 @@ func newScheduler(
 	backupUpdateStrategy nodehistory.UpdateStrategy,
 	// enableSecondaryReserve 控制是否启用二级预留功能，这可能影响资源预留的策略。
 	enableSecondaryReserve bool,
+	// syncMode 同步模式（globSync, sameSync, diffSync）
+	syncMode nodehistory.SyncMode,
+	// scheduleStrategy 调度策略（quality, latency）
+	scheduleStrategy nodehistory.ScheduleStrategy,
+	// numPartitions 分区数量
+	numPartitions int,
+	// schedulerIndex 调度器索引（用于 diffSync 模式）
+	schedulerIndex int,
 ) *Scheduler {
 	// 创建一个新的 Scheduler 实例，并用传入的参数初始化其字段。
 	sched := Scheduler{
@@ -862,9 +927,16 @@ func newScheduler(
 		client:                   client,
 		nodeInfoSnapshot:         nodeInfoSnapshot,
 		percentageOfNodesToScore: percentageOfNodesToScore,
-		// 初始化节点历史管理器，用于管理备用节点的历史记录。
-		nodeHistoryManager:       nodehistory.NewNodeHistoryManagerWithConfig(numBackupNodes, backupUpdateStrategy),
-		enableSecondaryReserve:   enableSecondaryReserve,
+		// 初始化节点历史管理器，使用完整配置（包括分区同步）
+		nodeHistoryManager: nodehistory.NewNodeHistoryManagerFull(
+			numBackupNodes,
+			backupUpdateStrategy,
+			syncMode,
+			scheduleStrategy,
+			numPartitions,
+			schedulerIndex,
+		),
+		enableSecondaryReserve: enableSecondaryReserve,
 	}
 	// 将调度器实例的方法 schedulePod 赋值给其 SchedulePod 字段，以便后续调用。
 	// 这通常是为了实现某种形式的动态调度逻辑或注入依赖。
