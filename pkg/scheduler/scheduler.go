@@ -398,6 +398,8 @@ type schedulerOptions struct {
 	numPartitions int
 	// schedulerIndex 调度器索引（用于 diffSync 模式，不同调度器从不同分区开始）
 	schedulerIndex int
+	// syncGap 同步间隔时间（默认为 1 秒）
+	syncGap time.Duration
 }
 
 // Option configures a Scheduler
@@ -531,10 +533,11 @@ var defaultSchedulerOptions = schedulerOptions{
 	backupUpdateStrategy:   nodehistory.UpdateStrategyProbability, // 默认使用概率更新策略
 	enableSecondaryReserve: true,                                  // 默认启用次优节点预留
 	// 分区同步配置默认值
-	syncMode:         nodehistory.SyncModeGlobal,        // 默认使用全局同步
+	syncMode:         nodehistory.SyncModeGlobal,         // 默认使用全局同步
 	scheduleStrategy: nodehistory.ScheduleStrategyQuality, // 默认使用质量优先策略
-	numPartitions:    1,                                 // 默认不分区
-	schedulerIndex:   0,                                 // 默认调度器索引为 0
+	numPartitions:    1,                                  // 默认不分区
+	schedulerIndex:   0,                                  // 默认调度器索引为 0
+	syncGap:          nodehistory.DefaultSyncGap,         // 默认同步间隔为 1 秒
 }
 
 // WithNumBackupNodes sets the number of backup nodes to keep for scheduling.
@@ -600,6 +603,17 @@ func WithNumPartitions(n int) Option {
 func WithSchedulerIndex(index int) Option {
 	return func(o *schedulerOptions) {
 		o.schedulerIndex = index
+	}
+}
+
+// WithSyncGap sets the synchronization gap interval.
+// Only syncs if the time since last sync exceeds this gap.
+// Default is 1 second. Set to 0 to disable sync gap check (sync every time).
+func WithSyncGap(gap time.Duration) Option {
+	return func(o *schedulerOptions) {
+		if gap >= 0 {
+			o.syncGap = gap
+		}
 	}
 }
 
@@ -728,6 +742,7 @@ func New(
 		options.scheduleStrategy,
 		options.numPartitions,
 		options.schedulerIndex,
+		options.syncGap,
 	)
 		//---------------------------------------
 		//为调度器添加一些额外的属性
@@ -914,6 +929,8 @@ func newScheduler(
 	numPartitions int,
 	// schedulerIndex 调度器索引（用于 diffSync 模式）
 	schedulerIndex int,
+	// syncGap 同步间隔时间
+	syncGap time.Duration,
 ) *Scheduler {
 	// 创建一个新的 Scheduler 实例，并用传入的参数初始化其字段。
 	sched := Scheduler{
@@ -927,7 +944,7 @@ func newScheduler(
 		client:                   client,
 		nodeInfoSnapshot:         nodeInfoSnapshot,
 		percentageOfNodesToScore: percentageOfNodesToScore,
-		// 初始化节点历史管理器，使用完整配置（包括分区同步）
+		// 初始化节点历史管理器，使用完整配置（包括分区同步和同步间隔）
 		nodeHistoryManager: nodehistory.NewNodeHistoryManagerFull(
 			numBackupNodes,
 			backupUpdateStrategy,
@@ -935,6 +952,7 @@ func newScheduler(
 			scheduleStrategy,
 			numPartitions,
 			schedulerIndex,
+			syncGap,
 		),
 		enableSecondaryReserve: enableSecondaryReserve,
 	}

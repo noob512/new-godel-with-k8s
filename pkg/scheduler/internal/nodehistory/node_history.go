@@ -134,6 +134,14 @@ type NodeHistoryManager struct {
 	nodeToPartition map[string]int
 	// partitionMu 保护分区相关字段的并发访问
 	partitionMu sync.RWMutex
+
+	// ========== 同步间隔控制相关字段 ==========
+	// syncGap 同步间隔时间（秒），只有距离上次同步超过这个时间才会触发同步
+	syncGap time.Duration
+	// lastSyncTime 上次同步时间
+	lastSyncTime time.Time
+	// lastSyncedPartition 上次同步的分区索引（-1 表示全量同步或未同步）
+	lastSyncedPartition int
 }
 
 // NewNodeHistoryManager 创建一个新的节点历史管理器
@@ -141,11 +149,14 @@ func NewNodeHistoryManager() *NodeHistoryManager {
 	return NewNodeHistoryManagerWithConfig(3, UpdateStrategyProbability)
 }
 
+// DefaultSyncGap 默认同步间隔时间
+const DefaultSyncGap = 1 * time.Second
+
 // NewNodeHistoryManagerWithConfig 创建一个带配置的节点历史管理器
 // numBackup: 备选节点数量
 // updateStrategy: 本地状态更新策略
 func NewNodeHistoryManagerWithConfig(numBackup int, updateStrategy UpdateStrategy) *NodeHistoryManager {
-	return NewNodeHistoryManagerFull(numBackup, updateStrategy, SyncModeGlobal, ScheduleStrategyQuality, 1, 0)
+	return NewNodeHistoryManagerFull(numBackup, updateStrategy, SyncModeGlobal, ScheduleStrategyQuality, 1, 0, DefaultSyncGap)
 }
 
 // NewNodeHistoryManagerFull 创建一个完整配置的节点历史管理器
@@ -155,13 +166,15 @@ func NewNodeHistoryManagerWithConfig(numBackup int, updateStrategy UpdateStrateg
 // scheduleStrategy: 调度策略
 // numPartitions: 分区数量
 // schedulerIndex: 调度器索引（用于 diffSync 模式）
+// syncGap: 同步间隔时间
 func NewNodeHistoryManagerFull(
-	numBackup int,           // 备选节点数量
+	numBackup int,                 // 备选节点数量
 	updateStrategy UpdateStrategy, // 本地状态更新策略
-	syncMode SyncMode,       // 同步模式
+	syncMode SyncMode,             // 同步模式
 	scheduleStrategy ScheduleStrategy, // 调度策略
-	numPartitions int,       // 分区数量
-	schedulerIndex int,      // 调度器索引（用于 diffSync 模式）
+	numPartitions int,             // 分区数量
+	schedulerIndex int,            // 调度器索引（用于 diffSync 模式）
+	syncGap time.Duration,         // 同步间隔时间
 ) *NodeHistoryManager {
 	// 接收频率数组长度 = 1(首选) + numBackup(备选) + 1(全部拒绝)
 	freqSize := numBackup + 2
@@ -169,6 +182,11 @@ func NewNodeHistoryManagerFull(
 	// 确保分区数量至少为 1
 	if numPartitions < 1 {
 		numPartitions = 1
+	}
+
+	// 确保同步间隔至少为 0
+	if syncGap < 0 {
+		syncGap = DefaultSyncGap
 	}
 
 	// 初始化分区同步时间
@@ -180,19 +198,22 @@ func NewNodeHistoryManagerFull(
 
 	return &NodeHistoryManager{
 		nodeStats: make(map[string]*NodeStats), // 节点统计信息映射表
-		clock:     time.Now,                   // 当前时间函数
-		acceptFreq: &AcceptanceFrequency{      // 接收频率统计
+		clock:     time.Now,                    // 当前时间函数
+		acceptFreq: &AcceptanceFrequency{       // 接收频率统计
 			Frequencies: make([]int64, freqSize), // 频率数组，大小为备选节点数+2
 		},
-		numBackup:             numBackup,             // 备选节点数量
-		updateStrategy:        updateStrategy,        // 本地状态更新策略
-		syncMode:              syncMode,              // 同步模式
-		scheduleStrategy:      scheduleStrategy,      // 调度策略
-		numPartitions:         numPartitions,         // 分区数量
-		currentPartitionIndex: schedulerIndex % numPartitions, // 当前分区索引，通过调度器索引取模得到
-		schedulerIndex:        schedulerIndex,        // 调度器索引
-		partitionSyncTimes:    partitionSyncTimes,    // 分区同步时间数组
-		nodeToPartition:       make(map[string]int),  // 节点到分区的映射表
+		numBackup:             numBackup,                       // 备选节点数量
+		updateStrategy:        updateStrategy,                  // 本地状态更新策略
+		syncMode:              syncMode,                        // 同步模式
+		scheduleStrategy:      scheduleStrategy,                // 调度策略
+		numPartitions:         numPartitions,                   // 分区数量
+		currentPartitionIndex: schedulerIndex % numPartitions,  // 当前分区索引，通过调度器索引取模得到
+		schedulerIndex:        schedulerIndex,                  // 调度器索引
+		partitionSyncTimes:    partitionSyncTimes,              // 分区同步时间数组
+		nodeToPartition:       make(map[string]int),            // 节点到分区的映射表
+		syncGap:               syncGap,                         // 同步间隔时间
+		lastSyncTime:          now,                             // 上次同步时间初始化为当前时间
+		lastSyncedPartition:   -1,                              // -1 表示尚未同步
 	}
 }
 
@@ -624,15 +645,40 @@ func (m *NodeHistoryManager) GetNodePartition(nodeName string) int {
 	return m.AssignNodeToPartition(nodeName)
 }
 
+// SyncPartitionResult 同步分区的结果
+type SyncPartitionResult struct {
+	// Synced 是否进行了同步（如果距离上次同步时间小于 syncGap，则不同步）
+	Synced bool
+	// SyncedPartitions 同步的分区列表（-1 表示全量同步）
+	SyncedPartitions []int
+	// IsFullSync 是否是全量同步
+	IsFullSync bool
+}
+
 // SyncPartition 同步指定分区的节点信息
 // 在 diffSync 模式下，每次调用会轮换到下一个分区
-func (m *NodeHistoryManager) SyncPartition() {
+// 返回同步结果，包含是否同步、同步的分区列表
+func (m *NodeHistoryManager) SyncPartition() SyncPartitionResult {
 	// 使用互斥锁保护共享资源，确保并发安全
 	m.partitionMu.Lock()
 	defer m.partitionMu.Unlock()
 
-	// 获取当前时间戳，用于记录同步时间
+	// 获取当前时间戳
 	now := m.clock()
+
+	// 检查同步间隔：只有距离上次同步超过 syncGap 时间才进行同步
+	// 这与 sim.ipynb 中的 `if current_time - self.last_sync >= self.sync_gap` 对应
+	if m.syncGap > 0 && now.Sub(m.lastSyncTime) < m.syncGap {
+		// 距离上次同步时间不够，不进行同步
+		return SyncPartitionResult{
+			Synced:           false,           // 本次未进行同步
+			SyncedPartitions: nil,             // 未同步的分区列表为空
+			IsFullSync:       false,           // 不是全量同步
+		}
+	}
+
+	// 更新上次同步时间
+	m.lastSyncTime = now
 
 	// 根据不同的同步模式执行相应的同步逻辑
 	switch m.syncMode {
@@ -640,44 +686,87 @@ func (m *NodeHistoryManager) SyncPartition() {
 		// 全局同步模式：所有分区同时被同步
 		// 遍历所有分区，将它们的同步时间都更新为当前时间
 		for i := range m.partitionSyncTimes {
-			m.partitionSyncTimes[i] = now // 更新第i个分区的最后同步时间
+			m.partitionSyncTimes[i] = now
 		}
-		// 记录全局同步完成的日志，包含分区数量信息
+		m.lastSyncedPartition = -1 // -1 表示全量同步
 		klog.V(5).InfoS("Global sync completed",
-			"numPartitions", m.numPartitions) // 输出总分区数
+			"numPartitions", m.numPartitions) // 记录分区总数
+		return SyncPartitionResult{
+			Synced:           true,            // 成功同步
+			SyncedPartitions: nil,             // nil 表示所有分区都被同步
+			IsFullSync:       true,            // 标记为全量同步
+		}
 
 	case SyncModeSame:
 		// 相同分区同步模式：所有调度器同步同一个分区
-		// 只更新当前选定分区的同步时间
-		if m.currentPartitionIndex < len(m.partitionSyncTimes) {
-			// 确保索引不越界后，更新当前分区的同步时间
-			m.partitionSyncTimes[m.currentPartitionIndex] = now
+		// 先记录当前要同步的分区
+		syncedPartition := m.currentPartitionIndex
+		if syncedPartition < len(m.partitionSyncTimes) {
+			m.partitionSyncTimes[syncedPartition] = now
 		}
-		// 轮换到下一个分区：采用模运算实现循环轮转
-		// 例如：如果有3个分区(0,1,2)，当前是2，则下一个是(2+1)%3=0
-		m.currentPartitionIndex = (m.currentPartitionIndex + 1) % m.numPartitions
-		// 记录相同分区同步完成的日志
-		// 计算实际同步的分区索引（即轮换前的索引）
-		// 使用 (current-1+N)%N 防止负数结果，确保得到前一个有效索引
+		m.lastSyncedPartition = syncedPartition
+		// 轮换到下一个分区
+		m.currentPartitionIndex = (m.currentPartitionIndex) % m.numPartitions
 		klog.V(5).InfoS("Same partition sync completed",
-			"syncedPartition", (m.currentPartitionIndex-1+m.numPartitions)%m.numPartitions, // 刚刚同步的分区
-			"nextPartition", m.currentPartitionIndex)                                     // 下一个待同步的分区
+			"syncedPartition", syncedPartition,    // 本次同步的分区
+			"nextPartition", m.currentPartitionIndex) // 下次将同步的分区
+		return SyncPartitionResult{
+			Synced:           true,                    // 成功同步
+			SyncedPartitions: []int{syncedPartition},  // 同步的分区列表（单个分区）
+			IsFullSync:       false,                   // 不是全量同步
+		}
 
 	case SyncModeDiff:
 		// 差异分区同步模式：不同调度器同步不同分区
 		// 每个调度器负责不同的分区，实现负载分散
-		if m.currentPartitionIndex < len(m.partitionSyncTimes) {
-			// 确保索引不越界后，更新当前分区的同步时间
-			m.partitionSyncTimes[m.currentPartitionIndex] = now
+		// 先记录当前要同步的分区（与 sim.ipynb 一致：先同步再递增）
+		syncedPartition := m.currentPartitionIndex
+		if syncedPartition < len(m.partitionSyncTimes) {
+			m.partitionSyncTimes[syncedPartition] = now
 		}
-		// 记录差异分区同步完成的日志，包含调度器索引和同步的分区
+		m.lastSyncedPartition = syncedPartition
 		klog.V(5).InfoS("Diff partition sync completed",
-			"schedulerIndex", m.schedulerIndex,        // 当前调度器的唯一标识
-			"syncedPartition", m.currentPartitionIndex) // 当前调度器刚刚同步的分区
-		// 轮换到下一个分区：同样采用模运算实现循环轮转
-		// 这样可以确保调度器能依次处理所有分区
+			"schedulerIndex", m.schedulerIndex,      // 当前调度器索引
+			"syncedPartition", syncedPartition,      // 本次同步的分区
+			"nextPartition", (m.currentPartitionIndex+1)%m.numPartitions) // 下次将同步的分区
+		// 轮换到下一个分区（与 sim.ipynb 一致：同步后递增）
 		m.currentPartitionIndex = (m.currentPartitionIndex + 1) % m.numPartitions
+		return SyncPartitionResult{
+			Synced:           true,                    // 成功同步
+			SyncedPartitions: []int{syncedPartition},  // 同步的分区列表（单个分区）
+			IsFullSync:       false,                   // 不是全量同步
+		}
 	}
+
+	// 默认返回：当同步模式不匹配时
+	return SyncPartitionResult{
+		Synced:           false,           // 同步失败
+		SyncedPartitions: nil,             // 无同步的分区
+		IsFullSync:       false,           // 不是全量同步
+	}
+}
+
+// GetLastSyncedPartition 获取上次同步的分区索引
+// 返回值：分区索引，-1 表示全量同步或尚未同步
+func (m *NodeHistoryManager) GetLastSyncedPartition() int {
+	m.partitionMu.RLock()
+	defer m.partitionMu.RUnlock()
+	return m.lastSyncedPartition
+}
+
+// GetSyncGap 获取同步间隔时间
+func (m *NodeHistoryManager) GetSyncGap() time.Duration {
+	return m.syncGap
+}
+
+// SetSyncGap 设置同步间隔时间
+func (m *NodeHistoryManager) SetSyncGap(gap time.Duration) {
+	m.partitionMu.Lock()
+	defer m.partitionMu.Unlock()
+	if gap < 0 {
+		gap = 0
+	}
+	m.syncGap = gap
 }
 
 // GetPartitionStaleness 获取所有分区的新鲜度（按新鲜度从小到大排序）

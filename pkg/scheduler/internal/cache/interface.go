@@ -111,6 +111,12 @@ type Cache interface {
 	// nodeinfo.Node() is guaranteed to be not nil for all the nodes in the snapshot.
 	UpdateSnapshot(nodeSnapshot *Snapshot) error
 
+	// UpdateSnapshotPartitioned 分区同步更新快照
+	// 只更新指定分区的节点信息，其他分区保持不变
+	// partitionIDs: 需要更新的分区 ID 列表
+	// nodeToPartitionFunc: 节点到分区的映射函数
+	UpdateSnapshotPartitioned(nodeSnapshot *Snapshot, partitionIDs []int, nodeToPartitionFunc func(string) int) error
+
 	// Dump produces a dump of the current cache.
 	Dump() *Dump
 }

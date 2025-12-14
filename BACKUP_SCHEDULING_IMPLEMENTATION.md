@@ -47,6 +47,17 @@ AdoptionProbability = Score × successRate × exp(-staleness/100)
 | `sameSync` | 相同分区同步：所有调度器同步相同分区 |
 | `diffSync` | 差异分区同步：不同调度器同步不同分区（性能最佳） |
 
+**同步间隔控制（syncGap）**：
+- 与 sim.ipynb 一致，只有距离上次同步超过 `syncGap` 时间才会触发同步
+- 默认同步间隔为 1 秒
+- 可通过 `WithSyncGap()` 配置
+
+**diffSync 工作流程**：
+1. 每个调度器的 `partition_index` 从 `scheduler_index % num_partition` 开始
+2. 每次同步时，先同步当前 `partition_index` 指向的分区
+3. 同步后，`partition_index` 递增并轮换到下一个分区
+4. 不同调度器在同一时刻会同步不同的分区
+
 ### 6. 调度策略（Schedule Strategy）
 
 | 策略 | 描述 |
@@ -78,6 +89,9 @@ type NodeHistoryManager struct {
     // 分区同步相关
     syncMode           SyncMode          // 同步模式
     scheduleStrategy   ScheduleStrategy  // 调度策略
+    syncGap            time.Duration     // 同步间隔时间（与 sim.ipynb 中的 sync_gap 对应）
+    lastSyncTime       time.Time         // 上次同步时间（与 sim.ipynb 中的 last_sync 对应）
+    lastSyncedPartition int              // 上次同步的分区索引
     numPartitions      int               // 分区数量
     currentPartitionIndex int            // 当前同步分区索引
     schedulerIndex     int               // 调度器索引
@@ -96,10 +110,20 @@ func (m *NodeHistoryManager) GetUpdateProbability(backupIndex int, nodeScore int
 // 分区同步相关方法
 func (m *NodeHistoryManager) AssignNodeToPartition(nodeName string) int
 func (m *NodeHistoryManager) GetNodePartition(nodeName string) int
-func (m *NodeHistoryManager) SyncPartition()
+func (m *NodeHistoryManager) SyncPartition() SyncPartitionResult  // 返回同步结果
 func (m *NodeHistoryManager) GetPartitionStaleness() []PartitionStaleness
 func (m *NodeHistoryManager) SortNodesByPartitionFreshness(nodes []string) []string
 func (m *NodeHistoryManager) IsLatencyFirst() bool
+func (m *NodeHistoryManager) GetLastSyncedPartition() int
+func (m *NodeHistoryManager) GetSyncGap() time.Duration
+func (m *NodeHistoryManager) SetSyncGap(gap time.Duration)
+
+// SyncPartitionResult 同步分区的结果
+type SyncPartitionResult struct {
+    Synced           bool   // 是否进行了同步
+    SyncedPartitions []int  // 同步的分区列表
+    IsFullSync       bool   // 是否是全量同步
+}
 ```
 
 ### 2. 配置选项 (`pkg/scheduler/scheduler.go`)
@@ -119,6 +143,7 @@ type schedulerOptions struct {
     scheduleStrategy nodehistory.ScheduleStrategy // 调度策略（默认 "quality"）
     numPartitions    int                          // 分区数量（默认 1）
     schedulerIndex   int                          // 调度器索引（默认 0）
+    syncGap          time.Duration                // 同步间隔（默认 1 秒）
 }
 
 // Option 函数
@@ -129,14 +154,63 @@ func WithSyncMode(mode nodehistory.SyncMode) Option
 func WithScheduleStrategy(strategy nodehistory.ScheduleStrategy) Option
 func WithNumPartitions(n int) Option
 func WithSchedulerIndex(index int) Option
+func WithSyncGap(gap time.Duration) Option  // 设置同步间隔
 ```
 
-### 3. 调度流程 (`pkg/scheduler/schedule_one.go`)
+### 3. 缓存分区同步 (`pkg/scheduler/internal/cache/`)
+
+#### Snapshot 分区结构
+```go
+type Snapshot struct {
+    // ... 原有字段 ...
+    
+    // 分区同步相关字段
+    numPartitions        int                      // 分区数量
+    nodeToPartition      map[string]int           // 节点到分区的映射
+    partitionGenerations []int64                  // 每个分区的 generation
+    partitionNodeLists   [][]*framework.NodeInfo  // 每个分区的节点列表
+}
+
+// 分区相关方法
+func (s *Snapshot) InitPartitions(numPartitions int)
+func (s *Snapshot) AssignNodeToPartition(nodeName string) int
+func (s *Snapshot) GetNodePartition(nodeName string) int
+func (s *Snapshot) GetPartitionGeneration(partitionID int) int64
+func (s *Snapshot) SetPartitionGeneration(partitionID int, generation int64)
+func (s *Snapshot) RebuildPartitionNodeLists()
+func (s *Snapshot) IsPartitioned() bool
+```
+
+#### Cache 分区同步方法
+```go
+// UpdateSnapshotPartitioned 分区同步更新快照
+// 只更新指定分区的节点信息，其他分区保持不变
+func (cache *cacheImpl) UpdateSnapshotPartitioned(
+    nodeSnapshot *Snapshot,
+    partitionIDs []int,
+    nodeToPartitionFunc func(string) int,
+) error
+```
+
+### 4. 调度流程 (`pkg/scheduler/schedule_one.go`)
 
 #### 分区同步
 ```go
 // 在每次调度周期开始时触发分区同步
 sched.nodeHistoryManager.SyncPartition()
+
+// 根据同步模式选择全量更新或分区更新
+if err := sched.updateSnapshotWithPartitionSync(); err != nil {
+    return result, err
+}
+```
+
+#### updateSnapshotWithPartitionSync 方法
+```go
+// 根据同步模式更新快照
+// - 全局同步模式：使用全量更新
+// - 分区同步模式：只更新特定分区的节点信息
+func (sched *Scheduler) updateSnapshotWithPartitionSync() error
 ```
 
 #### 候选节点选择
@@ -289,13 +363,23 @@ partitionStaleness := sched.nodeHistoryManager.GetPartitionStaleness()
 
 ### 1. 分区同步算法
 
+与 sim.ipynb 中的 `sync_global()` 完全对应：
+
 ```
-在每次调度周期开始时：
-1. 根据 syncMode 决定同步哪些分区
-   - globSync: 同步所有分区
-   - sameSync: 同步当前分区，然后轮换到下一个
-   - diffSync: 同步当前分区，然后轮换到下一个（不同调度器从不同分区开始）
-2. 更新同步分区的时间戳
+在每次调度周期开始时调用 SyncPartition()：
+1. 检查同步间隔：if (current_time - last_sync < sync_gap) return
+   - 与 sim.ipynb 中的 `if current_time - self.last_sync >= self.sync_gap` 对应
+   
+2. 根据 syncMode 决定同步哪些分区：
+   - globSync: 同步所有分区的时间戳
+   - sameSync: 同步当前分区的时间戳，然后递增 partition_index
+   - diffSync: 先同步当前 partition_index 指向的分区，然后递增 partition_index
+     （与 sim.ipynb 一致：先同步再递增）
+
+3. 返回 SyncPartitionResult：
+   - Synced: 是否进行了同步
+   - SyncedPartitions: 刚刚同步的分区列表
+   - IsFullSync: 是否是全量同步
 ```
 
 ### 2. 延迟优先调度算法
@@ -319,11 +403,47 @@ partitionID = hash(nodeName) % numPartitions
 - 节点在分区间均匀分布
 ```
 
+### 4. 缓存分区同步算法
+
+```
+在 updateSnapshotWithPartitionSync(syncResult) 中：
+1. 检查同步模式：
+   - globSync: 使用传统的全量 UpdateSnapshot()
+   - sameSync/diffSync: 使用分区同步
+
+2. 检查 SyncPartition() 返回的结果：
+   - 如果 syncResult.Synced == false：距离上次同步时间不够，跳过更新
+   - 如果 syncResult.IsFullSync == true：执行全量更新
+
+3. 分区同步流程：
+   a. 初始化快照分区信息（如果尚未初始化）
+   b. 使用 syncResult.SyncedPartitions 作为需要更新的分区列表
+      （直接使用 SyncPartition() 返回的分区，确保一致性）
+   c. 调用 UpdateSnapshotPartitioned() 只更新指定分区的节点
+
+4. UpdateSnapshotPartitioned() 内部：
+   a. 遍历缓存中的所有节点
+   b. 对每个节点：
+      - 使用 nodeToPartitionFunc 确定节点所属分区
+      - 如果节点不属于需要更新的分区，跳过
+      - 否则检查 generation 并更新节点信息
+   c. 更新指定分区的 generation
+   d. 重建分区节点列表
+```
+
+### 5. 性能优势
+
+分区同步的性能优势：
+- **减少同步开销**：每次只同步一部分节点，减少锁竞争和内存复制
+- **提高并发性**：不同调度器同步不同分区，减少资源争用
+- **更快响应**：延迟优先策略优先使用最新信息，提高决策质量
+
 ## 七、后续优化方向
 
 1. ~~**分区同步 (Partition Sync)**：类似 sim.ipynb 中的 `diffSync`，不同调度器同步不同分区的状态~~ ✅ 已实现
 2. ~~**延迟优先调度 (Latency-first)**：优先从最新鲜的分区选择节点~~ ✅ 已实现
-3. **动态调整备选数量**：根据冲突率动态调整备选节点数量
-4. **统计信息持久化**：将统计信息持久化，避免重启丢失
-5. **自适应分区数量**：根据集群规模自动调整分区数量
-6. **分区同步间隔自适应**：根据负载动态调整同步间隔
+3. ~~**缓存分区同步**：修改 UpdateSnapshot 实现真正的分区同步~~ ✅ 已实现
+4. **动态调整备选数量**：根据冲突率动态调整备选节点数量
+5. **统计信息持久化**：将统计信息持久化，避免重启丢失
+6. **自适应分区数量**：根据集群规模自动调整分区数量
+7. **分区同步间隔自适应**：根据负载动态调整同步间隔

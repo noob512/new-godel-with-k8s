@@ -78,6 +78,11 @@ func (c *Cache) UpdateSnapshot(snapshot *internalcache.Snapshot) error {
 	return nil
 }
 
+// UpdateSnapshotPartitioned is a fake method for testing.
+func (c *Cache) UpdateSnapshotPartitioned(snapshot *internalcache.Snapshot, partitionIDs []int, nodeToPartitionFunc func(string) int) error {
+	return nil
+}
+
 // NodeCount is a fake method for testing.
 func (c *Cache) NodeCount() int { return 0 }
 

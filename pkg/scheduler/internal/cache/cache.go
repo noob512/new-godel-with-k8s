@@ -275,6 +275,127 @@ func (cache *cacheImpl) UpdateSnapshot(nodeSnapshot *Snapshot) error {
 	return nil
 }
 
+// UpdateSnapshotPartitioned 分区同步更新快照
+// 只更新指定分区的节点信息，其他分区保持不变
+// partitionIDs: 需要更新的分区 ID 列表
+// nodeToPartitionFunc: 节点到分区的映射函数
+// UpdateSnapshotPartitioned 执行分区化的快照更新
+// 只更新指定分区的数据，而不是全量更新整个快照
+func (cache *cacheImpl) UpdateSnapshotPartitioned(nodeSnapshot *Snapshot, partitionIDs []int, nodeToPartitionFunc func(string) int) error {
+	// 获取锁以保证并发安全
+	cache.mu.Lock()
+	defer cache.mu.Unlock()
+
+	// 如果没有指定分区，直接返回（不更新任何内容）
+	if len(partitionIDs) == 0 {
+		return nil
+	}
+
+	// 将 partitionIDs 转换为 set 以便快速查找
+	// 使用map作为集合，提高分区ID查找效率
+	partitionSet := make(map[int]bool)
+	for _, pid := range partitionIDs {
+		partitionSet[pid] = true
+	}
+
+	// 初始化更新标志位
+	// 用于跟踪快照更新过程中需要执行的操作类型
+	updateAllLists := false  // 是否需要更新所有节点列表
+	updateNodesHavePodsWithAffinity := false  // 是否需要更新包含亲和性pod的节点
+	updateNodesHavePodsWithRequiredAntiAffinity := false  // 是否需要更新包含反亲和性pod的节点
+
+	// 遍历缓存中的所有节点，只更新属于指定分区的节点
+	for node := cache.headNode; node != nil; node = node.next {
+		// 检查节点是否有效
+		if np := node.info.Node(); np != nil {
+			// 检查节点是否属于需要更新的分区
+			// 使用传入的分区函数确定节点所属分区
+			partitionID := nodeToPartitionFunc(np.Name)
+			if !partitionSet[partitionID] {
+				// 不属于需要更新的分区，跳过该节点
+				continue
+			}
+
+			// 获取对应分区的 generation（版本号）
+			// 用于判断分区数据是否需要更新
+			partitionGeneration := nodeSnapshot.GetPartitionGeneration(partitionID)
+			if node.info.Generation <= partitionGeneration {
+				// 该分区的节点已经是最新的，无需更新
+				continue
+			}
+
+			// 获取或创建节点信息在快照中的记录
+			existing, ok := nodeSnapshot.nodeInfoMap[np.Name]
+			if !ok {
+				// 节点首次出现在快照中，需要更新所有列表
+				updateAllLists = true
+				existing = &framework.NodeInfo{}
+				nodeSnapshot.nodeInfoMap[np.Name] = existing
+			}
+			
+			// 克隆节点信息以避免并发修改
+			clone := node.info.Clone()
+			
+			// 检查亲和性pod是否有变化
+			// 如果亲和性pod列表的空/非空状态发生变化，需要更新相关标志
+			if (len(existing.PodsWithAffinity) > 0) != (len(clone.PodsWithAffinity) > 0) {
+				updateNodesHavePodsWithAffinity = true
+			}
+			// 检查反亲和性pod是否有变化
+			// 如果反亲和性pod列表的空/非空状态发生变化，需要更新相关标志
+			if (len(existing.PodsWithRequiredAntiAffinity) > 0) != (len(clone.PodsWithRequiredAntiAffinity) > 0) {
+				updateNodesHavePodsWithRequiredAntiAffinity = true
+			}
+			
+			// 更新节点信息
+			*existing = *clone
+		}
+	}
+
+	// 更新指定分区的 generation（版本号）
+	// 将缓存中最新的generation值设置到快照的对应分区
+	if cache.headNode != nil {
+		for pid := range partitionSet {
+			// 为每个需要更新的分区设置最新的generation
+			nodeSnapshot.SetPartitionGeneration(pid, cache.headNode.info.Generation)
+		}
+	}
+
+	// 处理已删除的节点
+	// 检查快照中的节点数量是否超过缓存中的节点数量
+	if len(nodeSnapshot.nodeInfoMap) > cache.nodeTree.numNodes {
+		// 移除快照中已删除的节点
+		cache.removeDeletedNodesFromSnapshot(nodeSnapshot)
+		// 节点数量发生变化，需要更新所有列表
+		updateAllLists = true
+	}
+
+	// 根据更新标志执行相应的列表更新操作
+	if updateAllLists || updateNodesHavePodsWithAffinity || updateNodesHavePodsWithRequiredAntiAffinity {
+		// 更新快照中的节点信息列表
+		cache.updateNodeInfoSnapshotList(nodeSnapshot, updateAllLists)
+		// 如果分区已初始化，重建分区节点列表
+		// 确保分区化的节点列表与当前节点信息保持一致
+		if nodeSnapshot.IsPartitioned() {
+			nodeSnapshot.RebuildPartitionNodeLists()
+		}
+	}
+
+	// 验证快照状态的一致性
+	// 检查快照中的节点列表长度是否与缓存中的节点树大小一致
+	if len(nodeSnapshot.nodeInfoList) != cache.nodeTree.numNodes {
+		// 发现不一致，记录错误并强制更新列表
+		errMsg := fmt.Sprintf("partitioned snapshot state is not consistent, length of NodeInfoList=%v not equal to length of nodes in tree=%v",
+			len(nodeSnapshot.nodeInfoList), cache.nodeTree.numNodes)
+		klog.ErrorS(nil, errMsg)
+		// 强制更新节点列表以恢复一致性
+		cache.updateNodeInfoSnapshotList(nodeSnapshot, true)
+		return fmt.Errorf(errMsg)
+	}
+
+	return nil
+}
+
 func (cache *cacheImpl) updateNodeInfoSnapshotList(snapshot *Snapshot, updateAll bool) {
 	snapshot.havePodsWithAffinityNodeInfoList = make([]*framework.NodeInfo, 0, cache.nodeTree.numNodes)
 	snapshot.havePodsWithRequiredAntiAffinityNodeInfoList = make([]*framework.NodeInfo, 0, cache.nodeTree.numNodes)

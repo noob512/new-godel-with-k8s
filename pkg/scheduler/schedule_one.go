@@ -38,6 +38,7 @@ import (
 	"k8s.io/kubernetes/pkg/scheduler/framework"
 	"k8s.io/kubernetes/pkg/scheduler/framework/parallelize"
 	frameworkruntime "k8s.io/kubernetes/pkg/scheduler/framework/runtime"
+	nodehistory "k8s.io/kubernetes/pkg/scheduler/internal/nodehistory"
 	internalqueue "k8s.io/kubernetes/pkg/scheduler/internal/queue"
 	"k8s.io/kubernetes/pkg/scheduler/metrics"
 	"k8s.io/kubernetes/pkg/scheduler/util"
@@ -765,10 +766,14 @@ func (sched *Scheduler) schedulePod(ctx context.Context, fwk framework.Framework
 	// --- 分区同步 ---
 	// 在每次调度周期开始时触发分区同步
 	// 根据 syncMode 的不同，会更新不同分区的同步时间
-	sched.nodeHistoryManager.SyncPartition()
+	// SyncPartition 返回同步结果，包含是否同步、同步的分区列表
+	// 这与 sim.ipynb 中的 sync_global() 对应
+	syncResult := sched.nodeHistoryManager.SyncPartition()
 
 	// 更新调度器缓存快照，确保节点信息是最新的
-	if err := sched.Cache.UpdateSnapshot(sched.nodeInfoSnapshot); err != nil {
+	// 根据同步模式选择全量更新或分区更新
+	// 使用 SyncPartition 的返回结果来确定需要更新的分区
+	if err := sched.updateSnapshotWithPartitionSync(syncResult); err != nil {
 		return result, err
 	}
 	trace.Step("Snapshotting scheduler cache and node infos done")
@@ -2010,7 +2015,7 @@ func (sched *Scheduler) reexecutePermitForCandidate(
 // 优先选择来自更新鲜分区的节点，同时考虑原始评分顺序
 func (sched *Scheduler) sortCandidatesByPartitionFreshness(
 	candidateNodes []CandidateNode, // 待排序的候选节点列表
-	pod *v1.Pod,                    // 正在调度的目标Pod
+	pod *v1.Pod, // 正在调度的目标Pod
 ) []CandidateNode {
 	// 如果候选节点数量小于等于1，则无需排序，直接返回原数组
 	if len(candidateNodes) <= 1 {
@@ -2035,9 +2040,9 @@ func (sched *Scheduler) sortCandidatesByPartitionFreshness(
 	// 定义排序辅助结构体，用于存储候选节点及其相关排序信息
 	type candidateWithRank struct {
 		candidate     CandidateNode // 原始候选节点
-		originalIndex int          // 在原始数组中的索引位置
-		partitionRank int          // 所属分区的新鲜度排名（越小越新鲜）
-		combinedScore float64      // 组合分数，用于排序决策
+		originalIndex int           // 在原始数组中的索引位置
+		partitionRank int           // 所属分区的新鲜度排名（越小越新鲜）
+		combinedScore float64       // 组合分数，用于排序决策
 	}
 
 	// 计算每个候选节点的组合分数，综合考虑原始位置和分区新鲜度
@@ -2045,7 +2050,7 @@ func (sched *Scheduler) sortCandidatesByPartitionFreshness(
 	for i, candidate := range candidateNodes {
 		// 获取当前候选节点所属的分区ID
 		partitionID := sched.nodeHistoryManager.GetNodePartition(candidate.Name)
-		
+
 		// 查找该分区的新鲜度排名
 		pRank, exists := partitionRank[partitionID]
 		if !exists {
@@ -2091,9 +2096,93 @@ func (sched *Scheduler) sortCandidatesByPartitionFreshness(
 
 	// 记录排序操作的日志，便于调试和监控
 	klog.V(4).InfoS("Sorted candidates by partition freshness",
-		"pod", klog.KObj(pod),         // 正在调度的Pod信息
+		"pod", klog.KObj(pod), // 正在调度的Pod信息
 		"numCandidates", len(candidateNodes), // 候选节点数量
-		"scheduleStrategy", "latency-first")  // 使用的调度策略
+		"scheduleStrategy", "latency-first") // 使用的调度策略
 
 	return sortedCandidates
+}
+
+// updateSnapshotWithPartitionSync 根据同步模式更新快照
+// 在全局同步模式下使用全量更新，在分区同步模式下只更新特定分区
+// syncResult: SyncPartition() 的返回结果，包含是否同步和同步的分区列表
+func (sched *Scheduler) updateSnapshotWithPartitionSync(syncResult nodehistory.SyncPartitionResult) error {
+	// 获取当前节点历史管理器的同步模式
+	syncMode := sched.nodeHistoryManager.GetSyncMode()
+	// 获取分区数量
+	numPartitions := sched.nodeHistoryManager.GetNumPartitions()
+
+	// 如果是全局同步模式或只有一个分区，使用传统的全量更新
+	// 全局同步模式下所有调度器都需要完整的节点信息
+	if syncMode == nodehistory.SyncModeGlobal || numPartitions <= 1 {
+		// 执行全量快照更新，将整个节点信息快照同步到缓存中
+		return sched.Cache.UpdateSnapshot(sched.nodeInfoSnapshot)
+	}
+
+	// 初始化快照的分区信息（如果尚未初始化）
+	// 检查当前快照是否已分区，或者分区数量与配置不一致
+	if !sched.nodeInfoSnapshot.IsPartitioned() || sched.nodeInfoSnapshot.GetNumPartitions() != numPartitions {
+		// 为快照初始化指定数量的分区
+		sched.nodeInfoSnapshot.InitPartitions(numPartitions)
+		// 第一次分区初始化时，需要进行全量更新
+		// 这是为了确保所有分区都有初始数据
+		if err := sched.Cache.UpdateSnapshot(sched.nodeInfoSnapshot); err != nil {
+			return err
+		}
+		// 重建分区节点列表
+		// 根据分区策略重新组织节点到各个分区中
+		sched.nodeInfoSnapshot.RebuildPartitionNodeLists()
+		// 记录分区初始化完成的日志
+		klog.V(4).InfoS("Initialized partitioned snapshot",
+			"numPartitions", numPartitions, // 分区总数
+			"syncMode", syncMode) // 当前同步模式
+		return nil
+	}
+
+	// 如果 SyncPartition() 没有进行同步（距离上次同步时间不够），不需要更新快照
+	// 这与 sim.ipynb 中的 sync_gap 机制一致
+	if !syncResult.Synced {
+		klog.V(5).InfoS("Skipped snapshot update, sync gap not reached",
+			"syncMode", syncMode,
+			"numPartitions", numPartitions)
+		return nil
+	}
+
+	// 如果是全量同步，使用传统的全量更新
+	if syncResult.IsFullSync {
+		return sched.Cache.UpdateSnapshot(sched.nodeInfoSnapshot)
+	}
+
+	// 使用 SyncPartition() 返回的分区列表进行分区同步
+	// 这确保了更新的分区与 SyncPartition() 标记的分区一致
+	partitionsToUpdate := syncResult.SyncedPartitions
+
+	// 如果没有需要更新的分区，直接返回成功
+	if len(partitionsToUpdate) == 0 {
+		return nil
+	}
+
+	// 创建节点到分区的映射函数
+	// 该函数用于确定给定节点名属于哪个分区
+	nodeToPartitionFunc := func(nodeName string) int {
+		// 根据节点名称获取其所属的分区ID
+		return sched.nodeHistoryManager.GetNodePartition(nodeName)
+	}
+
+	// 执行分区同步更新
+	// 只更新指定的分区，而不是整个快照，提高更新效率
+	if err := sched.Cache.UpdateSnapshotPartitioned(sched.nodeInfoSnapshot,
+		partitionsToUpdate,   // 需要更新的分区列表（来自 SyncPartition 返回值）
+		nodeToPartitionFunc); // 节点到分区的映射函数
+	err != nil {
+		return err
+	}
+
+	// 记录分区同步更新完成的日志
+	klog.V(5).InfoS("Updated snapshot with partition sync",
+		"syncMode", syncMode, // 同步模式
+		"updatedPartitions", partitionsToUpdate, // 更新的分区列表
+		"numPartitions", numPartitions) // 总分区数
+
+	return nil
 }
