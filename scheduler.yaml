@@ -1,4 +1,26 @@
-# --- 1. ServiceAccount ---
+---
+# --- 1. Godel Scheduler Configuration (Embedded in ConfigMap) ---
+# 将 Godel 调度器的配置定义为一个 ConfigMap 的数据项。
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: godel-scheduler-config
+  namespace: kube-system
+data:
+  # 将配置内容作为一个名为 'config.yaml' 的键值对存储在 ConfigMap 中
+  my-scheduler-config.yaml: |
+    apiVersion: kubescheduler.config.k8s.io/v1beta3
+    kind: KubeSchedulerConfiguration
+    leaderElection:
+      leaderElect: false
+    syncMode: "diffSync"
+    scheduleStrategy: "latency"
+    numPartitions: 3
+    schedulerIndex: 2 # 调度器 1
+    syncGapSeconds: 1
+
+---
+# --- 2. ServiceAccount ---
 # 定义一个服务账户 (ServiceAccount) 用于运行自定义调度器 Pod。
 # Pod 中的进程将使用此账户的身份与 Kubernetes API 进行交互。
 apiVersion: v1
@@ -8,7 +30,7 @@ metadata:
   namespace: kube-system # 服务账户所在的命名空间，通常在 kube-system 中运行调度器
 
 ---
-# --- 2. 自定义 ClusterRole (Godel 调度器权限) ---
+# --- 3. 自定义 ClusterRole (Godel 调度器权限) ---
 # 定义一个集群角色 (ClusterRole)，包含 Godel 调度器所需的完整权限
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -278,7 +300,7 @@ rules:
       - patch  # 允许打补丁
 
 ---
-# --- 3. 绑定 Godel ClusterRole ---
+# --- 4. 绑定 Godel ClusterRole ---
 # 创建一个集群角色绑定 (ClusterRoleBinding)，将上面定义的 Godel ClusterRole
 # 绑定到 'my-scheduler' ServiceAccount。
 apiVersion: rbac.authorization.k8s.io/v1
@@ -295,7 +317,7 @@ roleRef: # 指定要绑定的角色
   name: godel # 引用上面创建的 Godel ClusterRole
 
 ---
-# --- 4. 绑定内置 kube-scheduler 角色 ---
+# --- 5. 绑定内置 kube-scheduler 角色 ---
 # 创建一个集群角色绑定 (ClusterRoleBinding)，将内置的 system:kube-scheduler 角色
 # 绑定到 'my-scheduler' ServiceAccount。这赋予了调度器原生 kube-scheduler 的核心权限。
 apiVersion: rbac.authorization.k8s.io/v1
@@ -312,7 +334,7 @@ roleRef: # 指定要绑定的角色
   apiGroup: rbac.authorization.k8s.io # RBAC API 组
 
 ---
-# --- 5. 绑定内置 volume-scheduler 角色 ---
+# --- 6. 绑定内置 volume-scheduler 角色 ---
 # 创建一个集群角色绑定 (ClusterRoleBinding)，将内置的 system:volume-scheduler 角色
 # 绑定到 'my-scheduler' ServiceAccount。这赋予了调度器处理存储卷相关的权限。
 apiVersion: rbac.authorization.k8s.io/v1
@@ -329,7 +351,7 @@ roleRef: # 指定要绑定的角色
   apiGroup: rbac.authorization.k8s.io # RBAC API 组
 
 ---
-# --- 6. RoleBinding for authentication-reader ---
+# --- 7. RoleBinding for authentication-reader ---
 # 创建一个角色绑定 (RoleBinding)，将 'extension-apiserver-authentication-reader' 角色
 # 绑定到 'my-scheduler' ServiceAccount。
 # 这个角色通常允许组件读取用于 API Server 身份验证的配置信息 (ConfigMap)。
@@ -348,7 +370,7 @@ subjects: # 指定被绑定的对象
   namespace: kube-system # ServiceAccount 所在的命名空间
 
 ---
-# --- 7. Deployment ---
+# --- 8. Deployment ---
 # 定义一个 Deployment，用于部署和管理自定义调度器 Pod。
 apiVersion: apps/v1
 kind: Deployment
@@ -377,13 +399,21 @@ spec: # Deployment 的期望状态
       nodeName: godel-demo-default-control-plane
       # --- 修改结束 ---
       serviceAccountName: my-scheduler # 指定 Pod 使用哪个 ServiceAccount
+      volumes: # 定义 Pod 内部可挂载的卷
+      - name: config-volume # 卷的名称
+        configMap: # 卷的数据来源是 ConfigMap
+          name: godel-scheduler-config # 引用上面创建的 ConfigMap
       containers: # 定义 Pod 中的容器列表
       - command: # 容器启动时执行的命令
         - /usr/local/bin/kube-scheduler # 启动 kube-scheduler 二进制文件
-        #- --config=/etc/kubernetes/my-scheduler/my-scheduler-config.yaml # 指定配置文件路径
+        - --config=/etc/kubernetes/my-scheduler/my-scheduler-config.yaml # 指定配置文件路径，指向挂载点下的文件
         # image: k8s.m.daocloud.io/kube-scheduler:v1.22.0  # 请确保该镜像存在且有效 (注释掉)
         image: my-kube-scheduler:1.24 # 使用的容器镜像名称和标签
         name: kube-second-scheduler # 容器的名称
+        volumeMounts: # 定义容器内如何挂载卷
+        - mountPath: /etc/kubernetes/my-scheduler # 挂载到容器内的目录
+          name: config-volume # 引用上面定义的卷名称
+          readOnly: true # 以只读方式挂载
         resources: # 容器资源请求和限制
           requests:
             cpu: '0.1' # 请求的 CPU 资源

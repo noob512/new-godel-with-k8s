@@ -435,6 +435,30 @@ func autoConvert_v1beta2_KubeSchedulerConfiguration_To_config_KubeSchedulerConfi
 		out.Profiles = nil
 	}
 	out.Extenders = *(*[]config.Extender)(unsafe.Pointer(&in.Extenders))
+	if err := v1.Convert_Pointer_int32_To_int32(&in.NumBackupNodes, &out.NumBackupNodes, s); err != nil {
+		return err
+	}
+	if err := v1.Convert_Pointer_string_To_string(&in.BackupUpdateStrategy, &out.BackupUpdateStrategy, s); err != nil {
+		return err
+	}
+	if err := v1.Convert_Pointer_bool_To_bool(&in.EnableSecondaryReserve, &out.EnableSecondaryReserve, s); err != nil {
+		return err
+	}
+	if err := v1.Convert_Pointer_string_To_string(&in.SyncMode, &out.SyncMode, s); err != nil {
+		return err
+	}
+	if err := v1.Convert_Pointer_string_To_string(&in.ScheduleStrategy, &out.ScheduleStrategy, s); err != nil {
+		return err
+	}
+	if err := v1.Convert_Pointer_int32_To_int32(&in.NumPartitions, &out.NumPartitions, s); err != nil {
+		return err
+	}
+	if err := v1.Convert_Pointer_int32_To_int32(&in.SchedulerIndex, &out.SchedulerIndex, s); err != nil {
+		return err
+	}
+	if err := v1.Convert_Pointer_int64_To_int64(&in.SyncGapSeconds, &out.SyncGapSeconds, s); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -478,6 +502,30 @@ func autoConvert_config_KubeSchedulerConfiguration_To_v1beta2_KubeSchedulerConfi
 		out.Profiles = nil
 	}
 	out.Extenders = *(*[]v1beta2.Extender)(unsafe.Pointer(&in.Extenders))
+	if err := v1.Convert_int32_To_Pointer_int32(&in.NumBackupNodes, &out.NumBackupNodes, s); err != nil {
+		return err
+	}
+	if err := v1.Convert_string_To_Pointer_string(&in.BackupUpdateStrategy, &out.BackupUpdateStrategy, s); err != nil {
+		return err
+	}
+	if err := v1.Convert_bool_To_Pointer_bool(&in.EnableSecondaryReserve, &out.EnableSecondaryReserve, s); err != nil {
+		return err
+	}
+	if err := v1.Convert_string_To_Pointer_string(&in.SyncMode, &out.SyncMode, s); err != nil {
+		return err
+	}
+	if err := v1.Convert_string_To_Pointer_string(&in.ScheduleStrategy, &out.ScheduleStrategy, s); err != nil {
+		return err
+	}
+	if err := v1.Convert_int32_To_Pointer_int32(&in.NumPartitions, &out.NumPartitions, s); err != nil {
+		return err
+	}
+	if err := v1.Convert_int32_To_Pointer_int32(&in.SchedulerIndex, &out.SchedulerIndex, s); err != nil {
+		return err
+	}
+	if err := v1.Convert_int64_To_Pointer_int64(&in.SyncGapSeconds, &out.SyncGapSeconds, s); err != nil {
+		return err
+	}
 	return nil
 }
 

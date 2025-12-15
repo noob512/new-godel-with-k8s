@@ -206,6 +206,46 @@ func (in *KubeSchedulerConfiguration) DeepCopyInto(out *KubeSchedulerConfigurati
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.NumBackupNodes != nil {
+		in, out := &in.NumBackupNodes, &out.NumBackupNodes
+		*out = new(int32)
+		**out = **in
+	}
+	if in.BackupUpdateStrategy != nil {
+		in, out := &in.BackupUpdateStrategy, &out.BackupUpdateStrategy
+		*out = new(string)
+		**out = **in
+	}
+	if in.EnableSecondaryReserve != nil {
+		in, out := &in.EnableSecondaryReserve, &out.EnableSecondaryReserve
+		*out = new(bool)
+		**out = **in
+	}
+	if in.SyncMode != nil {
+		in, out := &in.SyncMode, &out.SyncMode
+		*out = new(string)
+		**out = **in
+	}
+	if in.ScheduleStrategy != nil {
+		in, out := &in.ScheduleStrategy, &out.ScheduleStrategy
+		*out = new(string)
+		**out = **in
+	}
+	if in.NumPartitions != nil {
+		in, out := &in.NumPartitions, &out.NumPartitions
+		*out = new(int32)
+		**out = **in
+	}
+	if in.SchedulerIndex != nil {
+		in, out := &in.SchedulerIndex, &out.SchedulerIndex
+		*out = new(int32)
+		**out = **in
+	}
+	if in.SyncGapSeconds != nil {
+		in, out := &in.SyncGapSeconds, &out.SyncGapSeconds
+		*out = new(int64)
+		**out = **in
+	}
 	return
 }
 

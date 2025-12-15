@@ -1,66 +1,24 @@
-I1125 11:29:43.833083       1 serving.go:348] Generated self-signed cert in-memory
-I1125 11:29:43.849845       1 options.go:531] "最开始的选项配置中o.GodelComponentConfig.SchedulerName" name="godel-scheduler"
-W1125 11:29:45.002835       1 client_config.go:617] Neither --kubeconfig nor --master was specified.  Using the inClusterConfig.  This might not work.
-I1125 11:29:45.004399       1 options.go:317] "WARN: Neither --kubeconfig nor --master was specified. Using default API client. This might not work"
-I1125 11:29:45.182997       1 server.go:268] "cc.GodelComponentConfig.SchedulerName" name="godel-scheduler"
-I1125 11:29:45.200395       1 server.go:147] "Starting Kubernetes Scheduler" version="v0.0.0-master+$Format:%H$"
-I1125 11:29:45.200819       1 server.go:150] "Golang settings" GOGC="" GOMAXPROCS="" GOTRACEBACK=""
-I1125 11:29:45.201504       1 server.go:157] 所有informer启动成功
-I1125 11:29:45.212179       1 server.go:164] 等待informer同步
-I1125 11:29:45.259526       1 eventhandlers.go:244] "len(pod.Spec.NodeName)的长度为" len=32
-I1125 11:29:45.259531       1 eventhandlers.go:244] "len(pod.Spec.NodeName)的长度为" len=32
-I1125 11:29:45.264077       1 eventhandlers.go:244] "len(pod.Spec.NodeName)的长度为" len=26
-I1125 11:29:45.264272       1 eventhandlers.go:244] "len(pod.Spec.NodeName)的长度为" len=26
-I1125 11:29:45.264467       1 eventhandlers.go:244] "len(pod.Spec.NodeName)的长度为" len=26
-I1125 11:29:45.264659       1 eventhandlers.go:244] "len(pod.Spec.NodeName)的长度为" len=32
-I1125 11:29:45.264843       1 eventhandlers.go:244] "len(pod.Spec.NodeName)的长度为" len=32
-I1125 11:29:45.265017       1 eventhandlers.go:244] "len(pod.Spec.NodeName)的长度为" len=32
-I1125 11:29:45.265195       1 eventhandlers.go:244] "len(pod.Spec.NodeName)的长度为" len=32
-I1125 11:29:45.265366       1 eventhandlers.go:244] "len(pod.Spec.NodeName)的长度为" len=32
-I1125 11:29:45.265546       1 eventhandlers.go:244] "len(pod.Spec.NodeName)的长度为" len=32
-I1125 11:29:45.268074       1 eventhandlers.go:244] "len(pod.Spec.NodeName)的长度为" len=32
-I1125 11:29:45.268265       1 eventhandlers.go:244] "len(pod.Spec.NodeName)的长度为" len=26
-I1125 11:29:45.303847       1 eventhandlers.go:244] "len(pod.Spec.NodeName)的长度为" len=32
-I1125 11:29:45.306244       1 eventhandlers.go:244] "len(pod.Spec.NodeName)的长度为" len=32
-I1125 11:29:45.306504       1 eventhandlers.go:244] "len(pod.Spec.NodeName)的长度为" len=32
-I1125 11:29:45.307156       1 eventhandlers.go:244] "len(pod.Spec.NodeName)的长度为" len=25
-I1125 11:29:45.307434       1 eventhandlers.go:244] "len(pod.Spec.NodeName)的长度为" len=25
-I1125 11:29:45.307722       1 eventhandlers.go:244] "len(pod.Spec.NodeName)的长度为" len=26
-I1125 11:29:45.308620       1 eventhandlers.go:244] "len(pod.Spec.NodeName)的长度为" len=32
-I1125 11:29:45.309009       1 eventhandlers.go:244] "len(pod.Spec.NodeName)的长度为" len=26
-I1125 11:29:45.312241       1 eventhandlers.go:244] "len(pod.Spec.NodeName)的长度为" len=26
-I1125 11:29:45.312473       1 eventhandlers.go:244] "len(pod.Spec.NodeName)的长度为" len=26
-I1125 11:29:45.312736       1 eventhandlers.go:244] "len(pod.Spec.NodeName)的长度为" len=32
-I1125 11:29:45.312939       1 eventhandlers.go:244] "len(pod.Spec.NodeName)的长度为" len=32
-I1125 11:29:45.313172       1 eventhandlers.go:244] "len(pod.Spec.NodeName)的长度为" len=32
-I1125 11:29:45.313387       1 eventhandlers.go:244] "len(pod.Spec.NodeName)的长度为" len=32
-I1125 11:29:45.313601       1 eventhandlers.go:244] "len(pod.Spec.NodeName)的长度为" len=32
-I1125 11:29:45.313860       1 eventhandlers.go:244] "len(pod.Spec.NodeName)的长度为" len=32
-I1125 11:29:45.314268       1 eventhandlers.go:244] "len(pod.Spec.NodeName)的长度为" len=32
-I1125 11:29:45.314479       1 eventhandlers.go:244] "len(pod.Spec.NodeName)的长度为" len=26
-I1125 11:29:45.314731       1 eventhandlers.go:244] "len(pod.Spec.NodeName)的长度为" len=32
-I1125 11:29:45.315009       1 eventhandlers.go:244] "len(pod.Spec.NodeName)的长度为" len=32
-I1125 11:29:45.315284       1 eventhandlers.go:244] "len(pod.Spec.NodeName)的长度为" len=32
-I1125 11:29:45.315502       1 eventhandlers.go:244] "len(pod.Spec.NodeName)的长度为" len=25
-I1125 11:29:45.315748       1 eventhandlers.go:244] "len(pod.Spec.NodeName)的长度为" len=25
-I1125 11:29:45.316013       1 eventhandlers.go:244] "len(pod.Spec.NodeName)的长度为" len=26
-I1125 11:29:45.316682       1 eventhandlers.go:244] "len(pod.Spec.NodeName)的长度为" len=32
-I1125 11:29:45.408164       1 eventhandlers.go:244] "len(pod.Spec.NodeName)的长度为" len=0
-I1125 11:29:45.408175       1 eventhandlers.go:244] "len(pod.Spec.NodeName)的长度为" len=0
-I1125 11:29:45.441103       1 server.go:166] 寻常informer同步完成
-I1125 11:29:45.441549       1 server.go:173] 启动crd-informer同步
-I1125 11:29:45.452949       1 eventhandlers.go:244] "len(pod.Spec.NodeName)的长度为" len=0
-I1125 11:29:45.452991       1 eventhandlers.go:244] "len(pod.Spec.NodeName)的长度为" len=0
-I1125 11:29:45.453059       1 eventhandlers.go:121] "调用一个添加函数,Add event for unscheduled pod" pod="default/my-basic-app-68d45d9d55-22227"
-I1125 11:29:45.453170       1 eventhandlers.go:244] "len(pod.Spec.NodeName)的长度为" len=0
-I1125 11:29:45.453183       1 eventhandlers.go:244] "len(pod.Spec.NodeName)的长度为" len=0
-I1125 11:29:45.455539       1 eventhandlers.go:371] "比较调度器名称" schedulerCRDName="my-cus-k8smy-cus-godel-scheduler" currentSchedulerName="my-cus-k8smy-cus-godel-scheduler"
-I1125 11:29:45.542670       1 server.go:177] crd-informer同步完成
-I1125 11:29:45.542777       1 schedule_one.go:284] 1
-I1125 11:29:45.542794       1 schedule_one.go:287]   - default-scheduler
-E1125 11:29:45.542880       1 schedule_one.go:78] "Error occurred" err="profile not found for scheduler name \"godel-scheduler\""
-I1125 11:29:45.543076       1 scheduler.go:101] c.crdClient不为nil
-I1125 11:29:45.561651       1 scheduler.go:130] 更新一次调度器资源
-I1125 11:29:45.562293       1 eventhandlers.go:371] "比较调度器名称" schedulerCRDName="my-cus-k8smy-cus-godel-scheduler" currentSchedulerName="my-cus-k8smy-cus-godel-scheduler"
-I1125 11:29:45.562529       1 eventhandlers.go:371] "比较调度器名称" schedulerCRDName="my-cus-k8smy-cus-godel-scheduler" currentSchedulerName="my-cus-k8smy-cus-godel-scheduler"
-I1125 11:29:45.562569       1 scheduler.go:242] onSchedulerUpdate函数被调用
+I1215 12:18:04.606766       1 server.go:253] 1
+I1215 12:18:04.610285       1 server.go:259] 2
+I1215 12:18:04.610416       1 server.go:263] 3
+I1215 12:18:05.031596       1 serving.go:348] Generated self-signed cert in-memory
+I1215 12:18:05.031639       1 options.go:538] "最开始的选项配置中o.GodelComponentConfig.SchedulerName" name="godel-scheduler"
+I1215 12:18:05.031651       1 options.go:546] 配置文件长度不为0
+W1215 12:18:06.393792       1 client_config.go:617] Neither --kubeconfig nor --master was specified.  Using the inClusterConfig.  This might not work.
+I1215 12:18:06.394000       1 options.go:317] "WARN: Neither --kubeconfig nor --master was specified. Using default API client. This might not work"
+I1215 12:18:06.403679       1 server.go:279] "cc.GodelComponentConfig.SchedulerName" name="godel-scheduler"
+I1215 12:18:06.403873       1 server.go:280] "cc.ComponentConfig.SchedulerIndex" index=2
+I1215 12:18:06.404925       1 server.go:155] "Starting Kubernetes Scheduler" version="v0.0.0-master+$Format:%H$"
+I1215 12:18:06.405077       1 server.go:158] "Golang settings" GOGC="" GOMAXPROCS="" GOTRACEBACK=""
+I1215 12:18:06.405356       1 server.go:165] 所有informer启动成功
+I1215 12:18:06.405508       1 server.go:172] 等待informer同步
+I1215 12:18:06.506383       1 server.go:174] 寻常informer同步完成
+I1215 12:18:06.506406       1 server.go:181] 启动crd-informer同步
+I1215 12:18:06.607063       1 server.go:185] crd-informer同步完成
+I1215 12:18:06.607107       1 scheduler.go:102] c.crdClient不为nil
+I1215 12:18:06.609171       1 scheduler.go:186] "WARN: scheduler was gone, should check this" schedulerName="my-cus-k8smy-cus-godel-scheduler" err="schedulers.scheduling.godel.kubewharf.io \"my-cus-k8smy-cus-godel-scheduler\" not found"
+I1215 12:18:06.615959       1 eventhandlers.go:374] "比较调度器名称" schedulerCRDName="my-cus-k8smy-cus-godel-scheduler" currentSchedulerName="my-cus-k8smy-cus-godel-scheduler"
+I1215 12:18:06.618419       1 eventhandlers.go:374] "比较调度器名称" schedulerCRDName="my-cus-k8smy-cus-godel-scheduler" currentSchedulerName="my-cus-k8smy-cus-godel-scheduler"
+I1215 12:18:06.618528       1 eventhandlers.go:374] "比较调度器名称" schedulerCRDName="my-cus-k8smy-cus-godel-scheduler" currentSchedulerName="my-cus-k8smy-cus-godel-scheduler"
+I1215 12:18:06.618580       1 scheduler.go:243] onSchedulerUpdate函数被调用
+I1215 12:18:06.619089       1 scheduler.go:131] 更新一次调度器资源

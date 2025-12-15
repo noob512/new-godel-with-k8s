@@ -250,16 +250,17 @@ func WithPlugin(name string, factory runtime.PluginFactory) Option {
 // Setup creates a completed config and a scheduler based on the command args and options
 // Setup creates a completed config and a scheduler based on the command args and options
 func Setup(ctx context.Context, opts *options.Options, outOfTreeRegistryOptions ...Option) (*schedulerserverconfig.CompletedConfig, *scheduler.Scheduler, error) {
+	klog.Info("1")
 	if cfg, err := latest.Default(); err != nil {
 		return nil, nil, err
 	} else {
 		opts.ComponentConfig = cfg
 	}
-
+	klog.Info("2")
 	if errs := opts.Validate(); len(errs) > 0 {
 		return nil, nil, utilerrors.NewAggregate(errs)
 	}
-
+	klog.Info("3")
 	c, err := opts.Config()
 	//1.在这个进行修改，主要是为了将之前创建的option传递给c
 	if err != nil {

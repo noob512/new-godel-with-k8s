@@ -556,6 +556,7 @@ func (o *Options) ApplyTo(c *schedulerappconfig.Config) error {
 		}
 
 		c.ComponentConfig = *cfg
+		c.GodelComponentConfig = o.GodelComponentConfig
 	}
 
 	if err := o.SecureServing.ApplyTo(&c.SecureServing, &c.LoopbackClientConfig); err != nil {
