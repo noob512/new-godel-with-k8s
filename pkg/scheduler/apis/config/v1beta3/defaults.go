@@ -173,6 +173,32 @@ func SetDefaults_KubeSchedulerConfiguration(obj *v1beta3.KubeSchedulerConfigurat
 		enableContentionProfiling := true
 		obj.EnableContentionProfiling = &enableContentionProfiling
 	}
+
+	// 备选调度和分区同步配置默认值
+	if obj.NumBackupNodes == nil {
+		obj.NumBackupNodes = pointer.Int32Ptr(3)
+	}
+	if obj.BackupUpdateStrategy == nil {
+		obj.BackupUpdateStrategy = pointer.StringPtr("p")
+	}
+	if obj.EnableSecondaryReserve == nil {
+		obj.EnableSecondaryReserve = pointer.BoolPtr(true)
+	}
+	if obj.SyncMode == nil {
+		obj.SyncMode = pointer.StringPtr("globSync")
+	}
+	if obj.ScheduleStrategy == nil {
+		obj.ScheduleStrategy = pointer.StringPtr("quality")
+	}
+	if obj.NumPartitions == nil {
+		obj.NumPartitions = pointer.Int32Ptr(1)
+	}
+	if obj.SchedulerIndex == nil {
+		obj.SchedulerIndex = pointer.Int32Ptr(0)
+	}
+	if obj.SyncGapSeconds == nil {
+		obj.SyncGapSeconds = pointer.Int64Ptr(1)
+	}
 }
 
 func SetDefaults_DefaultPreemptionArgs(obj *v1beta3.DefaultPreemptionArgs) {

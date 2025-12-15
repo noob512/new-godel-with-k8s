@@ -49,6 +49,33 @@ func Convert_v1beta2_KubeSchedulerConfiguration_To_config_KubeSchedulerConfigura
 	if err := autoConvert_v1beta2_KubeSchedulerConfiguration_To_config_KubeSchedulerConfiguration(in, out, s); err != nil {
 		return err
 	}
+
+	// 手动转换新增的备选调度和分区同步配置字段
+	if in.NumBackupNodes != nil {
+		out.NumBackupNodes = *in.NumBackupNodes
+	}
+	if in.BackupUpdateStrategy != nil {
+		out.BackupUpdateStrategy = *in.BackupUpdateStrategy
+	}
+	if in.EnableSecondaryReserve != nil {
+		out.EnableSecondaryReserve = *in.EnableSecondaryReserve
+	}
+	if in.SyncMode != nil {
+		out.SyncMode = *in.SyncMode
+	}
+	if in.ScheduleStrategy != nil {
+		out.ScheduleStrategy = *in.ScheduleStrategy
+	}
+	if in.NumPartitions != nil {
+		out.NumPartitions = *in.NumPartitions
+	}
+	if in.SchedulerIndex != nil {
+		out.SchedulerIndex = *in.SchedulerIndex
+	}
+	if in.SyncGapSeconds != nil {
+		out.SyncGapSeconds = *in.SyncGapSeconds
+	}
+
 	return convertToInternalPluginConfigArgs(out)
 }
 
@@ -80,6 +107,17 @@ func Convert_config_KubeSchedulerConfiguration_To_v1beta2_KubeSchedulerConfigura
 	if err := autoConvert_config_KubeSchedulerConfiguration_To_v1beta2_KubeSchedulerConfiguration(in, out, s); err != nil {
 		return err
 	}
+
+	// 手动转换新增的备选调度和分区同步配置字段（内部 -> 外部）
+	out.NumBackupNodes = &in.NumBackupNodes
+	out.BackupUpdateStrategy = &in.BackupUpdateStrategy
+	out.EnableSecondaryReserve = &in.EnableSecondaryReserve
+	out.SyncMode = &in.SyncMode
+	out.ScheduleStrategy = &in.ScheduleStrategy
+	out.NumPartitions = &in.NumPartitions
+	out.SchedulerIndex = &in.SchedulerIndex
+	out.SyncGapSeconds = &in.SyncGapSeconds
+
 	return convertToExternalPluginConfigArgs(out)
 }
 

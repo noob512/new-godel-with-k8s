@@ -438,12 +438,181 @@ partitionID = hash(nodeName) % numPartitions
 - **提高并发性**：不同调度器同步不同分区，减少资源争用
 - **更快响应**：延迟优先策略优先使用最新信息，提高决策质量
 
-## 七、后续优化方向
+## 七、YAML 配置示例
+
+### 1. KubeSchedulerConfiguration YAML 配置
+
+新增的配置字段可以在 `KubeSchedulerConfiguration` 中设置：
+
+```yaml
+apiVersion: kubescheduler.config.k8s.io/v1beta3
+kind: KubeSchedulerConfiguration
+leaderElection:
+  leaderElect: true
+clientConnection:
+  kubeconfig: /etc/kubernetes/scheduler.conf
+profiles:
+  - schedulerName: default-scheduler
+
+# ========== 备选调度配置 ==========
+# 备选节点数量（默认 3）
+numBackupNodes: 3
+
+# 本地状态更新策略：first, all, p, p-slot（默认 p）
+backupUpdateStrategy: "p"
+
+# 是否启用次优节点概率预留（默认 true）
+enableSecondaryReserve: true
+
+# ========== 分区同步配置 ==========
+# 同步模式：globSync, sameSync, diffSync（默认 globSync）
+syncMode: "diffSync"
+
+# 调度策略：quality, latency（默认 quality）
+scheduleStrategy: "latency"
+
+# 分区数量（默认 1，即不分区）
+numPartitions: 10
+
+# 调度器索引（用于 diffSync 模式，不同调度器应设置不同值）
+schedulerIndex: 0
+
+# 同步间隔时间（秒），默认 1
+syncGapSeconds: 1
+```
+
+### 2. 多调度器部署示例
+
+在多调度器环境中，每个调度器需要设置不同的 `schedulerIndex`：
+
+**调度器 1 配置 (`scheduler-1.yaml`)：**
+```yaml
+apiVersion: kubescheduler.config.k8s.io/v1beta3
+kind: KubeSchedulerConfiguration
+profiles:
+  - schedulerName: multi-scheduler
+
+syncMode: "diffSync"
+scheduleStrategy: "latency"
+numPartitions: 10
+schedulerIndex: 0  # 调度器 1
+syncGapSeconds: 1
+```
+
+**调度器 2 配置 (`scheduler-2.yaml`)：**
+```yaml
+apiVersion: kubescheduler.config.k8s.io/v1beta3
+kind: KubeSchedulerConfiguration
+profiles:
+  - schedulerName: multi-scheduler
+
+syncMode: "diffSync"
+scheduleStrategy: "latency"
+numPartitions: 10
+schedulerIndex: 1  # 调度器 2
+syncGapSeconds: 1
+```
+
+**调度器 3 配置 (`scheduler-3.yaml`)：**
+```yaml
+apiVersion: kubescheduler.config.k8s.io/v1beta3
+kind: KubeSchedulerConfiguration
+profiles:
+  - schedulerName: multi-scheduler
+
+syncMode: "diffSync"
+scheduleStrategy: "latency"
+numPartitions: 10
+schedulerIndex: 2  # 调度器 3
+syncGapSeconds: 1
+```
+
+### 3. Kubernetes Deployment 示例
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: custom-scheduler
+  namespace: kube-system
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      component: custom-scheduler
+  template:
+    metadata:
+      labels:
+        component: custom-scheduler
+    spec:
+      containers:
+      - name: scheduler
+        image: your-scheduler-image:latest
+        command:
+        - kube-scheduler
+        - --config=/etc/kubernetes/scheduler-config.yaml
+        - --v=4
+        volumeMounts:
+        - name: config
+          mountPath: /etc/kubernetes/scheduler-config.yaml
+          subPath: scheduler-config.yaml
+        env:
+        # 使用环境变量来设置调度器索引
+        - name: SCHEDULER_INDEX
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+      volumes:
+      - name: config
+        configMap:
+          name: scheduler-config
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: scheduler-config
+  namespace: kube-system
+data:
+  scheduler-config.yaml: |
+    apiVersion: kubescheduler.config.k8s.io/v1beta3
+    kind: KubeSchedulerConfiguration
+    profiles:
+      - schedulerName: custom-scheduler
+    
+    # 备选调度配置
+    numBackupNodes: 3
+    backupUpdateStrategy: "p"
+    enableSecondaryReserve: true
+    
+    # 分区同步配置
+    syncMode: "diffSync"
+    scheduleStrategy: "latency"
+    numPartitions: 10
+    # 注意：schedulerIndex 需要在启动时根据 Pod 名称动态设置
+    schedulerIndex: 0
+    syncGapSeconds: 1
+```
+
+### 4. 配置说明
+
+| 字段 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `numBackupNodes` | int32 | 3 | 备选节点数量 |
+| `backupUpdateStrategy` | string | "p" | 本地状态更新策略 |
+| `enableSecondaryReserve` | bool | true | 是否启用次优节点预留 |
+| `syncMode` | string | "globSync" | 同步模式 |
+| `scheduleStrategy` | string | "quality" | 调度策略 |
+| `numPartitions` | int32 | 1 | 分区数量 |
+| `schedulerIndex` | int32 | 0 | 调度器索引 |
+| `syncGapSeconds` | int64 | 1 | 同步间隔（秒）|
+
+## 八、后续优化方向
 
 1. ~~**分区同步 (Partition Sync)**：类似 sim.ipynb 中的 `diffSync`，不同调度器同步不同分区的状态~~ ✅ 已实现
 2. ~~**延迟优先调度 (Latency-first)**：优先从最新鲜的分区选择节点~~ ✅ 已实现
 3. ~~**缓存分区同步**：修改 UpdateSnapshot 实现真正的分区同步~~ ✅ 已实现
-4. **动态调整备选数量**：根据冲突率动态调整备选节点数量
-5. **统计信息持久化**：将统计信息持久化，避免重启丢失
-6. **自适应分区数量**：根据集群规模自动调整分区数量
-7. **分区同步间隔自适应**：根据负载动态调整同步间隔
+4. ~~**YAML 配置支持**：通过 YAML 文件配置所有新增选项~~ ✅ 已实现
+5. **动态调整备选数量**：根据冲突率动态调整备选节点数量
+6. **统计信息持久化**：将统计信息持久化，避免重启丢失
+7. **自适应分区数量**：根据集群规模自动调整分区数量
+8. **分区同步间隔自适应**：根据负载动态调整同步间隔

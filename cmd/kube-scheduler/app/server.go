@@ -59,6 +59,7 @@ import (
 	"k8s.io/kubernetes/pkg/scheduler/framework/runtime"
 	"k8s.io/kubernetes/pkg/scheduler/metrics/resources"
 	"k8s.io/kubernetes/pkg/scheduler/profile"
+	"time"
 )
 
 func init() {
@@ -69,49 +70,54 @@ func init() {
 type Option func(runtime.Registry) error
 
 // NewSchedulerCommand creates a *cobra.Command object with default parameters and registryOptions
+// 此函数创建一个带有默认参数和注册选项的 *cobra.Command 对象
 func NewSchedulerCommand(registryOptions ...Option) *cobra.Command {
 	//1.需要进入该函数中修改一些初始配置选项
-	opts := options.NewOptions()
+	// (Comment 1) 此处是修改初始配置选项的地方（例如，设置默认值或应用特定逻辑）
+	opts := options.NewOptions() // 创建一个包含默认配置选项的结构体实例 opts
 
-	cmd := &cobra.Command{
-		Use: "kube-scheduler",
+	cmd := &cobra.Command{ // 初始化 cobra Command 结构体
+		Use: "kube-scheduler", // 定义命令的使用方式，这里是 'kube-scheduler'
 		Long: `The Kubernetes scheduler is a control plane process which assigns
 Pods to Nodes. The scheduler determines which Nodes are valid placements for
 each Pod in the scheduling queue according to constraints and available
 resources. The scheduler then ranks each valid Node and binds the Pod to a
 suitable Node. Multiple different schedulers may be used within a cluster;
 kube-scheduler is the reference implementation.
-See [scheduling](https://kubernetes.io/docs/concepts/scheduling-eviction/)
+See [scheduling](https://kubernetes.io/docs/concepts/scheduling-eviction/  )
 for more information about scheduling and the kube-scheduler component.`,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCommand(cmd, opts, registryOptions...)
+		// 定义命令的详细描述，说明了 kube-scheduler 的作用：将 Pod 分配给 Node，
+		// 根据约束和可用资源确定有效的放置位置，对有效 Node 进行排名并绑定 Pod。
+		// 提供了关于调度和 kube-scheduler 组件的文档链接。
+		RunE: func(cmd *cobra.Command, args []string) error { // 定义命令执行时的核心逻辑
+			return runCommand(cmd, opts, registryOptions...) // 调用 runCommand 函数，传入当前命令、配置选项和注册选项
 		},
-		Args: func(cmd *cobra.Command, args []string) error {
-			for _, arg := range args {
-				if len(arg) > 0 {
-					return fmt.Errorf("%q does not take any arguments, got %q", cmd.CommandPath(), args)
+		Args: func(cmd *cobra.Command, args []string) error { // 定义对命令参数的验证逻辑
+			for _, arg := range args { // 遍历传入的参数
+				if len(arg) > 0 { // 如果存在任何参数
+					return fmt.Errorf("%q does not take any arguments, got %q", cmd.CommandPath(), args) // 返回错误，因为该命令不接受参数
 				}
 			}
-			return nil
+			return nil // 如果没有参数，则验证通过
 		},
 	}
 
-	nfs := opts.Flags
-	verflag.AddFlags(nfs.FlagSet("global"))
-	globalflag.AddGlobalFlags(nfs.FlagSet("global"), cmd.Name(), logs.SkipLoggingConfigurationFlags())
-	fs := cmd.Flags()
-	for _, f := range nfs.FlagSets {
-		fs.AddFlagSet(f)
+	nfs := opts.Flags // 获取 opts 结构体中预先定义好的 FlagSet 集合
+	verflag.AddFlags(nfs.FlagSet("global")) // 添加版本查询相关的全局标志 (e.g., --version)
+	globalflag.AddGlobalFlags(nfs.FlagSet("global"), cmd.Name(), logs.SkipLoggingConfigurationFlags()) // 添加通用的全局标志 (e.g., --help, --logtostderr)，并可能排除日志配置相关标志
+	fs := cmd.Flags() // 获取当前 cobra 命令的 FlagSet
+	for _, f := range nfs.FlagSets { // 遍历 opts 中的所有 FlagSet
+		fs.AddFlagSet(f) // 将 opts 中定义的每一个 FlagSet 添加到当前命令的 FlagSet 中，使命令可以接收这些标志作为输入
 	}
 
-	cols, _, _ := term.TerminalSize(cmd.OutOrStdout())
-	cliflag.SetUsageAndHelpFunc(cmd, *nfs, cols)
+	cols, _, _ := term.TerminalSize(cmd.OutOrStdout()) // 获取终端宽度，用于格式化帮助信息输出
+	cliflag.SetUsageAndHelpFunc(cmd, *nfs, cols) // 设置命令的 Usage 和 Help 信息打印函数
 
-	if err := cmd.MarkFlagFilename("config", "yaml", "yml", "json"); err != nil {
-		klog.ErrorS(err, "Failed to mark flag filename")
+	if err := cmd.MarkFlagFilename("config", "yaml", "yml", "json"); err != nil { // 标记 'config' 标志的值应被视为文件名，并指定允许的扩展名
+		klog.ErrorS(err, "Failed to mark flag filename") // 如果标记失败，则记录错误日志
 	}
 
-	return cmd
+	return cmd // 返回构建好的 cobra Command 对象
 }
 
 // runCommand runs the scheduler.
@@ -270,6 +276,7 @@ func Setup(ctx context.Context, opts *options.Options, outOfTreeRegistryOptions 
 		}
 	}
 	klog.InfoS("cc.GodelComponentConfig.SchedulerName", "name", *cc.GodelComponentConfig.SchedulerName)
+	klog.InfoS("cc.ComponentConfig.SchedulerIndex", "index", int(cc.ComponentConfig.SchedulerIndex))
 
 	recorderFactory := getRecorderFactory(&cc)
 	completedProfiles := make([]kubeschedulerconfig.KubeSchedulerProfile, 0)
@@ -299,6 +306,15 @@ func Setup(ctx context.Context, opts *options.Options, outOfTreeRegistryOptions 
 			// Profiles are processed during Framework instantiation to set default plugins and configurations. Capturing them for logging
 			completedProfiles = append(completedProfiles, profile)
 		}),
+		// 备选调度和分区同步配置
+		scheduler.WithNumBackupNodes(int(cc.ComponentConfig.NumBackupNodes)),
+		scheduler.WithBackupUpdateStrategy(string(cc.ComponentConfig.BackupUpdateStrategy)),
+		scheduler.WithEnableSecondaryReserve(cc.ComponentConfig.EnableSecondaryReserve),
+		scheduler.WithSyncMode(string(cc.ComponentConfig.SyncMode)),
+		scheduler.WithScheduleStrategy(string(cc.ComponentConfig.ScheduleStrategy)),
+		scheduler.WithNumPartitions(int(cc.ComponentConfig.NumPartitions)),
+		scheduler.WithSchedulerIndex(int(cc.ComponentConfig.SchedulerIndex)),
+		scheduler.WithSyncGap(time.Duration(cc.ComponentConfig.SyncGapSeconds)*time.Second),
 	)
 	if err != nil {
 		return nil, nil, err
@@ -308,4 +324,46 @@ func Setup(ctx context.Context, opts *options.Options, outOfTreeRegistryOptions 
 	}
 
 	return &cc, sched, nil
+}
+
+// parseUpdateStrategy 将配置字符串转换为 UpdateStrategy 枚举
+func parseUpdateStrategy(strategy string) string {
+	switch strategy {
+	case "first":
+		return "first"
+	case "all":
+		return "all"
+	case "p":
+		return "p"
+	case "p-slot":
+		return "p-slot"
+	default:
+		return "p"
+	}
+}
+
+// parseSyncMode 将配置字符串转换为 SyncMode 枚举
+func parseSyncMode(mode string) string {
+	switch mode {
+	case "globSync":
+		return "globSync"
+	case "sameSync":
+		return "sameSync"
+	case "diffSync":
+		return "diffSync"
+	default:
+		return "diffSync"
+	}
+}
+
+// parseScheduleStrategy 将配置字符串转换为 ScheduleStrategy 枚举
+func parseScheduleStrategy(strategy string) string {
+	switch strategy {
+	case "quality":
+		return "quality"
+	case "latency":
+		return "latency"
+	default:
+		return "latency"
+	}
 }

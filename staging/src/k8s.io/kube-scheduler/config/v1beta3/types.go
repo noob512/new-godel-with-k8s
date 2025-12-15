@@ -89,6 +89,47 @@ type KubeSchedulerConfiguration struct {
 	// with the extender. These extenders are shared by all scheduler profiles.
 	// +listType=set
 	Extenders []Extender `json:"extenders,omitempty"`
+
+	// ========== 备选调度和分区同步配置 ==========
+
+	// NumBackupNodes 备选节点数量
+	// 每个调度器在调度时除了选择得分最高的节点外，同时保留 N 个得分次高的节点作为备选
+	// 默认值为 3
+	NumBackupNodes *int32 `json:"numBackupNodes,omitempty"`
+
+	// BackupUpdateStrategy 本地状态更新策略
+	// 可选值: "first", "all", "p", "p-slot"
+	// 默认值为 "p"（概率更新策略）
+	BackupUpdateStrategy *string `json:"backupUpdateStrategy,omitempty"`
+
+	// EnableSecondaryReserve 是否启用次优节点概率预留
+	// 默认值为 true
+	EnableSecondaryReserve *bool `json:"enableSecondaryReserve,omitempty"`
+
+	// SyncMode 同步模式
+	// 可选值: "globSync"（全局同步）, "sameSync"（相同分区同步）, "diffSync"（差异分区同步）
+	// 默认值为 "globSync"
+	SyncMode *string `json:"syncMode,omitempty"`
+
+	// ScheduleStrategy 调度策略
+	// 可选值: "quality"（质量优先）, "latency"（延迟优先）
+	// 默认值为 "quality"
+	ScheduleStrategy *string `json:"scheduleStrategy,omitempty"`
+
+	// NumPartitions 分区数量
+	// 用于分区同步模式，将节点分成多个分区
+	// 默认值为 1（不分区）
+	NumPartitions *int32 `json:"numPartitions,omitempty"`
+
+	// SchedulerIndex 调度器索引
+	// 用于 diffSync 模式，不同调度器应有不同的索引以同步不同分区
+	// 默认值为 0
+	SchedulerIndex *int32 `json:"schedulerIndex,omitempty"`
+
+	// SyncGapSeconds 同步间隔时间（秒）
+	// 只有距离上次同步超过这个时间才会触发同步
+	// 默认值为 1
+	SyncGapSeconds *int64 `json:"syncGapSeconds,omitempty"`
 }
 
 // DecodeNestedObjects decodes plugin args for known types.

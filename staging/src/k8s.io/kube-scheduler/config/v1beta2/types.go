@@ -96,6 +96,43 @@ type KubeSchedulerConfiguration struct {
 	// with the extender. These extenders are shared by all scheduler profiles.
 	// +listType=set
 	Extenders []Extender `json:"extenders,omitempty"`
+
+	// ========== 备选调度和分区同步配置 ==========
+
+	// NumBackupNodes 备选节点数量
+	// 默认值为 3
+	NumBackupNodes *int32 `json:"numBackupNodes,omitempty"`
+
+	// BackupUpdateStrategy 本地状态更新策略
+	// 可选值: "first", "all", "p", "p-slot"
+	// 默认值为 "p"
+	BackupUpdateStrategy *string `json:"backupUpdateStrategy,omitempty"`
+
+	// EnableSecondaryReserve 是否启用次优节点概率预留
+	// 默认值为 true
+	EnableSecondaryReserve *bool `json:"enableSecondaryReserve,omitempty"`
+
+	// SyncMode 同步模式
+	// 可选值: "globSync", "sameSync", "diffSync"
+	// 默认值为 "globSync"
+	SyncMode *string `json:"syncMode,omitempty"`
+
+	// ScheduleStrategy 调度策略
+	// 可选值: "quality", "latency"
+	// 默认值为 "quality"
+	ScheduleStrategy *string `json:"scheduleStrategy,omitempty"`
+
+	// NumPartitions 分区数量
+	// 默认值为 1
+	NumPartitions *int32 `json:"numPartitions,omitempty"`
+
+	// SchedulerIndex 调度器索引
+	// 默认值为 0
+	SchedulerIndex *int32 `json:"schedulerIndex,omitempty"`
+
+	// SyncGapSeconds 同步间隔时间（秒）
+	// 默认值为 1
+	SyncGapSeconds *int64 `json:"syncGapSeconds,omitempty"`
 }
 
 // DecodeNestedObjects decodes plugin args for known types.

@@ -553,9 +553,9 @@ func WithNumBackupNodes(n int) Option {
 // WithBackupUpdateStrategy sets the strategy for updating local state when
 // backup nodes are selected. Options are: "first", "all", "p", "p-slot".
 // Default is "p" (probability-based update).
-func WithBackupUpdateStrategy(strategy nodehistory.UpdateStrategy) Option {
+func WithBackupUpdateStrategy(strategy string) Option {
 	return func(o *schedulerOptions) {
-		o.backupUpdateStrategy = strategy
+		o.backupUpdateStrategy = nodehistory.UpdateStrategy(strategy)
 	}
 }
 
@@ -571,18 +571,18 @@ func WithEnableSecondaryReserve(enable bool) Option {
 // WithSyncMode sets the synchronization mode for node state.
 // Options are: "globSync" (global sync), "sameSync" (same partition sync), "diffSync" (different partition sync).
 // Default is "globSync".
-func WithSyncMode(mode nodehistory.SyncMode) Option {
+func WithSyncMode(mode string) Option {
 	return func(o *schedulerOptions) {
-		o.syncMode = mode
+		o.syncMode = nodehistory.SyncMode(mode)
 	}
 }
 
 // WithScheduleStrategy sets the scheduling strategy.
 // Options are: "quality" (quality-first), "latency" (latency-first).
 // Default is "quality".
-func WithScheduleStrategy(strategy nodehistory.ScheduleStrategy) Option {
+func WithScheduleStrategy(strategy string) Option {
 	return func(o *schedulerOptions) {
-		o.scheduleStrategy = strategy
+		o.scheduleStrategy = nodehistory.ScheduleStrategy(strategy)
 	}
 }
 
